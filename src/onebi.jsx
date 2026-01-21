@@ -1,5 +1,4 @@
-import { useState } from "react";
-
+import React, { useState } from 'react';
 export default function MetricTree() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedApp, setSelectedApp] = useState('puzzle');
