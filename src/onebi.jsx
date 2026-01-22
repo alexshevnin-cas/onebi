@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
+import { useState } from "react";
 
 export default function MetricTree() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -925,7 +926,7 @@ export default function MetricTree() {
         
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold">📊 Mobile Publishing Metrics</h1>
-          <p className="text-slate-400 text-sm mt-1">CAS Mediation · Рекламная монетизация · UA</p>
+          <p className="text-slate-400 text-sm mt-1">CAS Mediation · Рекламная монетизация · UA · <span className="text-slate-500">BI v2.4.1</span></p>
         </div>
 
         <div className="flex justify-center mb-6">
