@@ -1,18 +1,225 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+
 export default function MetricTree() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedApp, setSelectedApp] = useState('puzzle');
-  const [expandedNodes, setExpandedNodes] = useState(new Set(['mrr', 'app1', 'ad_revenue_1', 'ua_cost_1', 'dau_1', 'arpdau_1']));
+  const [expandedNodes, setExpandedNodes] = useState(new Set(['mrr', 'manager_anton', 'manager_rashid', 'app1', 'ad_revenue_1', 'ua_cost_1', 'dau_1', 'arpdau_1']));
   const [editingId, setEditingId] = useState(null);
   const [filterSection, setFilterSection] = useState('all');
   const [groupByManager, setGroupByManager] = useState(false);
+  const [dateRange, setDateRange] = useState('3m'); // 1w, 2w, 1m, 3m
+  const [periodType, setPeriodType] = useState('month'); // week, month
+  const [showMetricPicker, setShowMetricPicker] = useState(null); // null or table name
+  const [appsSortBy, setAppsSortBy] = useState('profitDelta'); // profitDelta, revenueDelta, dauDelta, manager
+  const [appsSortDir, setAppsSortDir] = useState('desc'); // asc, desc
+  const [customColumns, setCustomColumns] = useState({
+    cohortTable: [],
+    monetisationTable: [],
+    uaTable: [],
+    engagementTable: [],
+  });
+
+  // Available metrics that can be added to tables
+  const availableMetrics = {
+    cohortTable: [
+      { id: 'wau', name: 'WAU', description: 'Weekly Active Users' },
+      { id: 'mau', name: 'MAU', description: 'Monthly Active Users' },
+      { id: 'd3Retention', name: 'D3 Retention', description: 'Day 3 retention rate' },
+      { id: 'd14Retention', name: 'D14 Retention', description: 'Day 14 retention rate' },
+      { id: 'd30Retention', name: 'D30 Retention', description: 'Day 30 retention rate' },
+      { id: 'ltv', name: 'LTV', description: 'Lifetime Value' },
+      { id: 'arpu', name: 'ARPU', description: 'Average Revenue Per User' },
+      { id: 'churnRate', name: 'Churn Rate', description: 'Процент ушедших пользователей' },
+    ],
+    monetisationTable: [
+      { id: 'revenuePerSession', name: 'Rev/Session', description: 'Revenue per session' },
+      { id: 'adsPerSession', name: 'Ads/Session', description: 'Ads shown per session' },
+      { id: 'davDau', name: 'DAV/DAU', description: 'Daily Ad Viewers / DAU' },
+      { id: 'noFillRate', name: 'NoFill Rate', description: '1 - Fill Rate' },
+      { id: 'renderRate', name: 'Render Rate', description: 'Rendered / Loaded ads' },
+      { id: 'iapRevenue', name: 'IAP Revenue', description: 'In-App Purchase revenue' },
+      { id: 'hybridArpdau', name: 'Hybrid ARPDAU', description: 'Ads + IAP ARPDAU' },
+    ],
+    uaTable: [
+      { id: 'organicShare', name: 'Organic %', description: 'Organic installs share' },
+      { id: 'paidShare', name: 'Paid %', description: 'Paid installs share' },
+      { id: 'roasD14', name: 'ROAS D14', description: 'Return on ad spend D14' },
+      { id: 'roasD60', name: 'ROAS D60', description: 'Return on ad spend D60' },
+      { id: 'ipm', name: 'IPM', description: 'Installs per mille (1000 impressions)' },
+      { id: 'ctr', name: 'CTR', description: 'Click-through rate' },
+      { id: 'cvr', name: 'CVR', description: 'Conversion rate (clicks to installs)' },
+    ],
+    engagementTable: [
+      { id: 'sessionDepth', name: 'Session Depth', description: 'Avg levels/actions per session' },
+      { id: 'daysActive', name: 'Days Active', description: 'Avg days active per user' },
+      { id: 'stickiness', name: 'Stickiness', description: 'DAU/MAU ratio' },
+      { id: 'timeToFirstPurchase', name: 'Time to 1st Purchase', description: 'Avg days to first IAP' },
+      { id: 'tutorialCompletion', name: 'Tutorial %', description: 'Tutorial completion rate' },
+      { id: 'socialShares', name: 'Social Shares', description: 'Shares per DAU' },
+    ],
+  };
+
+  // Generate mock data for custom metrics
+  const getCustomMetricValue = (metricId, rowIndex) => {
+    const mockData = {
+      wau: [620000, 680000, 750000, 790000],
+      mau: [1850000, 2100000, 2350000, 2480000],
+      d3Retention: [36.2, 37.1, 37.8, 38.2],
+      d14Retention: [18.5, 19.2, 19.8, 20.1],
+      d30Retention: [12.4, 13.1, 13.6, 14.0],
+      ltv: [0.38, 0.41, 0.44, 0.46],
+      arpu: [0.082, 0.088, 0.092, 0.095],
+      churnRate: [72.5, 71.8, 71.2, 70.6],
+      revenuePerSession: [0.018, 0.019, 0.020, 0.021],
+      adsPerSession: [2.4, 2.5, 2.6, 2.6],
+      davDau: [78.2, 80.5, 82.1, 83.4],
+      noFillRate: [5.8, 4.9, 3.7, 3.4],
+      renderRate: [94.2, 95.1, 95.8, 96.2],
+      iapRevenue: [420, 485, 540, 580],
+      hybridArpdau: [0.058, 0.062, 0.066, 0.069],
+      organicShare: [27.4, 26.9, 27.4, 27.6],
+      paidShare: [72.6, 73.1, 72.6, 72.4],
+      roasD14: [112, 118, 124, 128],
+      roasD60: [168, 178, 186, 192],
+      ipm: [8.2, 8.5, 8.8, 9.0],
+      ctr: [2.8, 2.9, 3.0, 3.1],
+      cvr: [28.5, 29.2, 29.8, 30.2],
+      sessionDepth: [12.4, 12.8, 13.2, 13.5],
+      daysActive: [4.2, 4.4, 4.6, 4.8],
+      stickiness: [0.32, 0.33, 0.34, 0.35],
+      timeToFirstPurchase: [3.2, 3.0, 2.9, 2.8],
+      tutorialCompletion: [68.5, 70.2, 71.8, 72.5],
+      socialShares: [0.08, 0.09, 0.10, 0.11],
+    };
+    return mockData[metricId]?.[rowIndex] || 0;
+  };
+
+  const formatMetricValue = (metricId, value) => {
+    if (['ltv', 'arpu', 'revenuePerSession', 'hybridArpdau'].includes(metricId)) return '$' + value.toFixed(3);
+    if (['d3Retention', 'd14Retention', 'd30Retention', 'churnRate', 'davDau', 'noFillRate', 'renderRate', 'organicShare', 'paidShare', 'ctr', 'cvr', 'tutorialCompletion'].includes(metricId)) return value.toFixed(1) + '%';
+    if (['roasD14', 'roasD60'].includes(metricId)) return value + '%';
+    if (['wau', 'mau', 'iapRevenue'].includes(metricId)) return value.toLocaleString();
+    if (['stickiness', 'socialShares'].includes(metricId)) return value.toFixed(2);
+    return value.toFixed(1);
+  };
+
+  const addMetricToTable = (tableName, metric) => {
+    setCustomColumns(prev => ({
+      ...prev,
+      [tableName]: [...prev[tableName], metric]
+    }));
+    setShowMetricPicker(null);
+  };
+
+  const removeMetricFromTable = (tableName, metricId) => {
+    setCustomColumns(prev => ({
+      ...prev,
+      [tableName]: prev[tableName].filter(m => m.id !== metricId)
+    }));
+  };
 
   const apps = [
     { id: 'puzzle', name: 'Puzzle Game' },
     { id: 'idle', name: 'Idle Tycoon' },
     { id: 'stack', name: 'Stack Tower' },
     { id: 'clevel', name: 'C-Level Report' },
+    { id: 'rnd', name: 'RnD отдел' },
   ];
+
+  // Weekly data for all apps
+  const weeklyData = {
+    puzzle: {
+      cohortTable: [
+        { period: 'Dec 2-8', installs: 14200, dau: 162400, d1Retention: 43.8, d7Retention: 27.6, impressions: 324000, clicks: 1685, ctr: 0.52, ecpm: 5.28, revenue: 1710.72 },
+        { period: 'Dec 9-15', installs: 15100, dau: 165200, d1Retention: 44.0, d7Retention: 27.9, impressions: 338000, clicks: 1791, ctr: 0.53, ecpm: 5.35, revenue: 1808.30 },
+        { period: 'Dec 16-22', installs: 15800, dau: 168800, d1Retention: 44.3, d7Retention: 28.2, impressions: 352000, clicks: 1866, ctr: 0.53, ecpm: 5.42, revenue: 1907.84 },
+        { period: 'Dec 23-29', installs: 16300, dau: 172100, d1Retention: 44.5, d7Retention: 28.5, impressions: 362000, clicks: 1919, ctr: 0.53, ecpm: 5.48, revenue: 1983.76 },
+      ],
+      monetisationTable: [
+        { period: 'Dec 2-8', adRevenue: 1711, arpdau: 0.0421, imprPerDau: 7.9, imprBanner: 3.1, imprInter: 1.4, imprReward: 0.9, ecpm: 5.28, fillRate: 95.8 },
+        { period: 'Dec 9-15', adRevenue: 1808, arpdau: 0.0438, imprPerDau: 8.0, imprBanner: 3.2, imprInter: 1.5, imprReward: 1.0, ecpm: 5.35, fillRate: 96.1 },
+        { period: 'Dec 16-22', adRevenue: 1908, arpdau: 0.0452, imprPerDau: 8.1, imprBanner: 3.2, imprInter: 1.5, imprReward: 1.0, ecpm: 5.42, fillRate: 96.4 },
+        { period: 'Dec 23-29', adRevenue: 1984, arpdau: 0.0461, imprPerDau: 8.2, imprBanner: 3.3, imprInter: 1.5, imprReward: 1.0, ecpm: 5.48, fillRate: 96.6 },
+      ],
+      uaTable: [
+        { period: 'Dec 2-8', uaCost: 924, installs: 14200, cpi: 0.065, organic: 3900, paid: 10300, roasD7: 138, roasD30: 175, payback: 15 },
+        { period: 'Dec 9-15', uaCost: 982, installs: 15100, cpi: 0.065, organic: 4100, paid: 11000, roasD7: 141, roasD30: 184, payback: 14 },
+        { period: 'Dec 16-22', uaCost: 1027, installs: 15800, cpi: 0.065, organic: 4400, paid: 11400, roasD7: 144, roasD30: 186, payback: 14 },
+        { period: 'Dec 23-29', uaCost: 1060, installs: 16300, cpi: 0.065, organic: 4500, paid: 11800, roasD7: 146, roasD30: 187, payback: 14 },
+      ],
+      engagementTable: [
+        { period: 'Dec 2-8', dau: 162400, avgSessions: 3.4, avgDuration: 8.9, davDau: 81.2, pauConversion: 2.3 },
+        { period: 'Dec 9-15', dau: 165200, avgSessions: 3.5, avgDuration: 9.0, davDau: 81.6, pauConversion: 2.3 },
+        { period: 'Dec 16-22', dau: 168800, avgSessions: 3.5, avgDuration: 9.1, davDau: 82.0, pauConversion: 2.4 },
+        { period: 'Dec 23-29', dau: 172100, avgSessions: 3.6, avgDuration: 9.3, davDau: 82.4, pauConversion: 2.4 },
+      ],
+    },
+    idle: {
+      cohortTable: [
+        { period: 'Dec 2-8', installs: 9800, dau: 108200, d1Retention: 48.0, d7Retention: 31.4, impressions: 245000, clicks: 1323, ctr: 0.54, ecpm: 7.05, revenue: 1727.25 },
+        { period: 'Dec 9-15', installs: 10200, dau: 110400, d1Retention: 48.3, d7Retention: 31.8, impressions: 256000, clicks: 1408, ctr: 0.55, ecpm: 7.12, revenue: 1822.72 },
+        { period: 'Dec 16-22', installs: 10600, dau: 112200, d1Retention: 48.5, d7Retention: 32.0, impressions: 268000, clicks: 1474, ctr: 0.55, ecpm: 7.18, revenue: 1924.24 },
+        { period: 'Dec 23-29', installs: 10600, dau: 114800, d1Retention: 48.7, d7Retention: 32.3, impressions: 276000, clicks: 1518, ctr: 0.55, ecpm: 7.24, revenue: 1998.24 },
+      ],
+      monetisationTable: [
+        { period: 'Dec 2-8', adRevenue: 1727, arpdau: 0.0640, imprPerDau: 9.0, imprBanner: 3.5, imprInter: 2.1, imprReward: 1.4, ecpm: 7.05, fillRate: 93.8 },
+        { period: 'Dec 9-15', adRevenue: 1823, arpdau: 0.0660, imprPerDau: 9.2, imprBanner: 3.6, imprInter: 2.2, imprReward: 1.5, ecpm: 7.12, fillRate: 94.0 },
+        { period: 'Dec 16-22', adRevenue: 1924, arpdau: 0.0686, imprPerDau: 9.4, imprBanner: 3.6, imprInter: 2.2, imprReward: 1.5, ecpm: 7.18, fillRate: 94.2 },
+        { period: 'Dec 23-29', adRevenue: 1998, arpdau: 0.0696, imprPerDau: 9.5, imprBanner: 3.7, imprInter: 2.3, imprReward: 1.5, ecpm: 7.24, fillRate: 94.4 },
+      ],
+      uaTable: [
+        { period: 'Dec 2-8', uaCost: 764, installs: 9800, cpi: 0.078, organic: 2700, paid: 7100, roasD7: 162, roasD30: 192, payback: 12 },
+        { period: 'Dec 9-15', uaCost: 795, installs: 10200, cpi: 0.078, organic: 2850, paid: 7350, roasD7: 166, roasD30: 196, payback: 12 },
+        { period: 'Dec 16-22', uaCost: 826, installs: 10600, cpi: 0.078, organic: 2950, paid: 7650, roasD7: 169, roasD30: 199, payback: 12 },
+        { period: 'Dec 23-29', uaCost: 826, installs: 10600, cpi: 0.078, organic: 2950, paid: 7650, roasD7: 172, roasD30: 202, payback: 11 },
+      ],
+      engagementTable: [
+        { period: 'Dec 2-8', dau: 108200, avgSessions: 4.4, avgDuration: 13.6, davDau: 87.5, pauConversion: 4.2 },
+        { period: 'Dec 9-15', dau: 110400, avgSessions: 4.4, avgDuration: 13.8, davDau: 87.8, pauConversion: 4.3 },
+        { period: 'Dec 16-22', dau: 112200, avgSessions: 4.5, avgDuration: 13.9, davDau: 88.0, pauConversion: 4.3 },
+        { period: 'Dec 23-29', dau: 114800, avgSessions: 4.5, avgDuration: 14.1, davDau: 88.3, pauConversion: 4.4 },
+      ],
+    },
+    stack: {
+      cohortTable: [
+        { period: 'Dec 2-8', installs: 64000, dau: 620000, d1Retention: 34.8, d7Retention: 16.8, impressions: 1240000, clicks: 5208, ctr: 0.42, ecpm: 3.32, revenue: 4116.80 },
+        { period: 'Dec 9-15', installs: 66500, dau: 635000, d1Retention: 35.0, d7Retention: 17.0, impressions: 1285000, clicks: 5526, ctr: 0.43, ecpm: 3.35, revenue: 4304.75 },
+        { period: 'Dec 16-22', installs: 68500, dau: 648000, d1Retention: 35.2, d7Retention: 17.2, impressions: 1328000, clicks: 5710, ctr: 0.43, ecpm: 3.38, revenue: 4488.64 },
+        { period: 'Dec 23-29', installs: 69000, dau: 660000, d1Retention: 35.4, d7Retention: 17.4, impressions: 1360000, clicks: 5848, ctr: 0.43, ecpm: 3.42, revenue: 4651.20 },
+      ],
+      monetisationTable: [
+        { period: 'Dec 2-8', adRevenue: 4117, arpdau: 0.0265, imprPerDau: 7.8, imprBanner: 4.6, imprInter: 2.7, imprReward: 0.5, ecpm: 3.32, fillRate: 90.8 },
+        { period: 'Dec 9-15', adRevenue: 4305, arpdau: 0.0271, imprPerDau: 7.9, imprBanner: 4.7, imprInter: 2.7, imprReward: 0.6, ecpm: 3.35, fillRate: 91.0 },
+        { period: 'Dec 16-22', adRevenue: 4489, arpdau: 0.0277, imprPerDau: 8.0, imprBanner: 4.8, imprInter: 2.8, imprReward: 0.6, ecpm: 3.38, fillRate: 91.2 },
+        { period: 'Dec 23-29', adRevenue: 4651, arpdau: 0.0282, imprPerDau: 8.0, imprBanner: 4.8, imprInter: 2.8, imprReward: 0.6, ecpm: 3.42, fillRate: 91.4 },
+      ],
+      uaTable: [
+        { period: 'Dec 2-8', uaCost: 2112, installs: 64000, cpi: 0.033, organic: 18600, paid: 45400, roasD7: 125, roasD30: 195, payback: 19 },
+        { period: 'Dec 9-15', uaCost: 2195, installs: 66500, cpi: 0.033, organic: 19200, paid: 47300, roasD7: 127, roasD30: 196, payback: 18 },
+        { period: 'Dec 16-22', uaCost: 2261, installs: 68500, cpi: 0.033, organic: 19800, paid: 48700, roasD7: 129, roasD30: 198, payback: 18 },
+        { period: 'Dec 23-29', uaCost: 2277, installs: 69000, cpi: 0.033, organic: 20000, paid: 49000, roasD7: 131, roasD30: 204, payback: 17 },
+      ],
+      engagementTable: [
+        { period: 'Dec 2-8', dau: 620000, avgSessions: 2.5, avgDuration: 4.6, davDau: 93.8, pauConversion: 0.9 },
+        { period: 'Dec 9-15', dau: 635000, avgSessions: 2.6, avgDuration: 4.7, davDau: 93.9, pauConversion: 0.9 },
+        { period: 'Dec 16-22', dau: 648000, avgSessions: 2.6, avgDuration: 4.8, davDau: 94.0, pauConversion: 1.0 },
+        { period: 'Dec 23-29', dau: 660000, avgSessions: 2.6, avgDuration: 4.8, davDau: 94.2, pauConversion: 1.0 },
+      ],
+    },
+  };
+
+  // Helper to get data based on period type
+  const getTableData = (app, tableName) => {
+    const appData = dashboardData[app];
+    if (!appData) return [];
+    
+    if (periodType === 'week' && weeklyData[app] && weeklyData[app][tableName]) {
+      return weeklyData[app][tableName];
+    }
+    return appData[tableName] || [];
+  };
+
+  const getPeriodLabel = () => periodType === 'week' ? 'period' : 'month';
 
   const dashboardData = {
     puzzle: {
@@ -44,6 +251,12 @@ export default function MetricTree() {
         { network: 'AdMob', revenue: 1561, impressions: 380500, ecpm: 4.10, fillRate: 97.8, sov: 28, winRate: 32, latency: 120 },
         { network: 'Unity Ads', revenue: 1167, impressions: 303200, ecpm: 3.85, fillRate: 94.5, sov: 22, winRate: 24, latency: 180 },
         { network: 'ironSource', revenue: 1103, impressions: 239800, ecpm: 4.60, fillRate: 96.1, sov: 18, winRate: 21, latency: 155 },
+      ],
+      sdkVersionTable: [
+        { version: 'CAS 3.9.2', appVersion: '2.4.1', dau: 89200, dauShare: 53, sessions: 3.6, duration: 9.4, revenue: 4125, arpdau: 0.0463, imprPerDau: 8.2, ecpm: 5.65, fillRate: 97.2 },
+        { version: 'CAS 3.8.5', appVersion: '2.3.8', dau: 52400, dauShare: 31, sessions: 3.4, duration: 9.0, revenue: 2280, arpdau: 0.0435, imprPerDau: 7.8, ecpm: 5.58, fillRate: 96.8 },
+        { version: 'CAS 3.7.1', appVersion: '2.2.0', dau: 18600, dauShare: 11, sessions: 3.2, duration: 8.5, revenue: 695, arpdau: 0.0374, imprPerDau: 7.2, ecpm: 5.19, fillRate: 95.1 },
+        { version: 'CAS 3.6.0', appVersion: '2.1.x', dau: 8300, dauShare: 5, sessions: 3.0, duration: 8.1, revenue: 195, arpdau: 0.0235, imprPerDau: 6.5, ecpm: 3.62, fillRate: 91.4 },
       ]
     },
     idle: {
@@ -75,6 +288,12 @@ export default function MetricTree() {
         { network: 'AdMob', revenue: 1854, impressions: 308800, ecpm: 6.00, fillRate: 96.2, sov: 27, winRate: 30, latency: 118 },
         { network: 'Unity Ads', revenue: 1408, impressions: 246700, ecpm: 5.70, fillRate: 93.8, sov: 21, winRate: 22, latency: 175 },
         { network: 'ironSource', revenue: 1260, impressions: 185300, ecpm: 6.80, fillRate: 95.4, sov: 17, winRate: 19, latency: 160 },
+      ],
+      sdkVersionTable: [
+        { version: 'CAS 3.9.2', appVersion: '1.8.0', dau: 62400, dauShare: 55, sessions: 4.6, duration: 14.2, revenue: 4520, arpdau: 0.0724, imprPerDau: 9.4, ecpm: 7.70, fillRate: 95.8 },
+        { version: 'CAS 3.9.0', appVersion: '1.7.5', dau: 31200, dauShare: 28, sessions: 4.4, duration: 13.8, revenue: 2105, arpdau: 0.0675, imprPerDau: 9.0, ecpm: 7.50, fillRate: 94.5 },
+        { version: 'CAS 3.8.2', appVersion: '1.6.x', dau: 14100, dauShare: 12, sessions: 4.2, duration: 13.2, revenue: 682, arpdau: 0.0484, imprPerDau: 8.4, ecpm: 5.76, fillRate: 92.8 },
+        { version: 'CAS 3.7.x', appVersion: '1.5.x', dau: 5100, dauShare: 5, sessions: 3.9, duration: 12.5, revenue: 105, arpdau: 0.0206, imprPerDau: 7.2, ecpm: 2.86, fillRate: 88.2 },
       ]
     },
     stack: {
@@ -106,6 +325,12 @@ export default function MetricTree() {
         { network: 'AdMob', revenue: 5232, impressions: 1806200, ecpm: 2.90, fillRate: 98.2, sov: 35, winRate: 38, latency: 112 },
         { network: 'Unity Ads', revenue: 3488, impressions: 1238600, ecpm: 2.82, fillRate: 92.5, sov: 24, winRate: 26, latency: 165 },
         { network: 'ironSource', revenue: 3140, impressions: 980100, ecpm: 3.20, fillRate: 94.8, sov: 19, winRate: 18, latency: 152 },
+      ],
+      sdkVersionTable: [
+        { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1260000, dauShare: 60, sessions: 2.7, duration: 5.0, revenue: 11200, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
+        { version: 'CAS 3.9.0', appVersion: '3.1.8', dau: 525000, dauShare: 25, sessions: 2.5, duration: 4.6, revenue: 4180, arpdau: 0.0318, imprPerDau: 7.8, ecpm: 4.08, fillRate: 92.1 },
+        { version: 'CAS 3.8.x', appVersion: '3.0.x', dau: 231000, dauShare: 11, sessions: 2.4, duration: 4.4, revenue: 1520, arpdau: 0.0263, imprPerDau: 7.2, ecpm: 3.65, fillRate: 89.8 },
+        { version: 'CAS 3.6.x', appVersion: '2.x', dau: 84000, dauShare: 4, sessions: 2.2, duration: 4.0, revenue: 540, arpdau: 0.0257, imprPerDau: 6.8, ecpm: 3.78, fillRate: 87.2 },
       ]
     },
     merge: {
@@ -142,6 +367,123 @@ export default function MetricTree() {
         { name: 'Anton Smirnov', apps: 2, profit: 600000, dau: 1410000, share: 21.0 },
         { name: 'Serhii Shcherbyna', apps: 3, profit: 650000, dau: 2930000, share: 22.8 },
         { name: 'Rashid Sabirov', apps: 3, profit: 1600000, dau: 450000, share: 56.1 },
+      ],
+      managersCohortTable: {
+        'Anton Smirnov': [
+          { month: 'October 2025', installs: 73600, dau: 203800, d1Retention: 44.2, d7Retention: 28.2, impressions: 1516000, clicks: 7400, ctr: 0.49, ecpm: 5.54, revenue: 8398.64 },
+          { month: 'November 2025', installs: 87400, dau: 243600, d1Retention: 45.6, d7Retention: 29.1, impressions: 1936000, clicks: 9842, ctr: 0.51, ecpm: 5.98, revenue: 11577.28 },
+          { month: 'December 2025', installs: 102600, dau: 281300, d1Retention: 46.4, d7Retention: 30.1, impressions: 2384000, clicks: 12660, ctr: 0.53, ecpm: 6.30, revenue: 15019.20 },
+        ],
+        'Serhii Shcherbyna': [
+          { month: 'October 2025', installs: 156200, dau: 382400, d1Retention: 34.8, d7Retention: 18.2, impressions: 2456000, clicks: 10292, ctr: 0.42, ecpm: 3.42, revenue: 8399.52 },
+          { month: 'November 2025', installs: 189400, dau: 468200, d1Retention: 36.2, d7Retention: 19.4, impressions: 3218000, clicks: 13514, ctr: 0.42, ecpm: 3.78, revenue: 12164.04 },
+          { month: 'December 2025', installs: 224800, dau: 578600, d1Retention: 37.6, d7Retention: 20.6, impressions: 4124000, clicks: 18145, ctr: 0.44, ecpm: 4.12, revenue: 16990.88 },
+        ],
+        'Rashid Sabirov': [
+          { month: 'October 2025', installs: 41600, dau: 90000, d1Retention: 48.6, d7Retention: 32.8, impressions: 902000, clicks: 4390, ctr: 0.49, ecpm: 7.42, revenue: 6692.84 },
+          { month: 'November 2025', installs: 50000, dau: 114000, d1Retention: 50.2, d7Retention: 34.2, impressions: 1212000, clicks: 6008, ctr: 0.50, ecpm: 7.92, revenue: 9599.04 },
+          { month: 'December 2025', installs: 61400, dau: 145000, d1Retention: 51.8, d7Retention: 35.6, impressions: 1728000, clicks: 8717, ctr: 0.50, ecpm: 8.54, revenue: 14757.12 },
+        ]
+      },
+      managersMonetisation: {
+        'Anton Smirnov': [
+          { month: 'October 2025', adRevenue: 8399, arpdau: 0.0412, imprPerDau: 7.4, ecpm: 5.54, fillRate: 95.8 },
+          { month: 'November 2025', adRevenue: 11577, arpdau: 0.0475, imprPerDau: 7.9, ecpm: 5.98, fillRate: 96.4 },
+          { month: 'December 2025', adRevenue: 15019, arpdau: 0.0534, imprPerDau: 8.5, ecpm: 6.30, fillRate: 97.1 },
+        ],
+        'Serhii Shcherbyna': [
+          { month: 'October 2025', adRevenue: 8400, arpdau: 0.0220, imprPerDau: 6.4, ecpm: 3.42, fillRate: 91.2 },
+          { month: 'November 2025', adRevenue: 12164, arpdau: 0.0260, imprPerDau: 6.9, ecpm: 3.78, fillRate: 92.1 },
+          { month: 'December 2025', adRevenue: 16991, arpdau: 0.0294, imprPerDau: 7.1, ecpm: 4.12, fillRate: 93.0 },
+        ],
+        'Rashid Sabirov': [
+          { month: 'October 2025', adRevenue: 6693, arpdau: 0.0744, imprPerDau: 10.0, ecpm: 7.42, fillRate: 94.5 },
+          { month: 'November 2025', adRevenue: 9599, arpdau: 0.0842, imprPerDau: 10.6, ecpm: 7.92, fillRate: 95.2 },
+          { month: 'December 2025', adRevenue: 14757, arpdau: 0.1018, imprPerDau: 11.9, ecpm: 8.54, fillRate: 95.8 },
+        ]
+      },
+      managersUA: {
+        'Anton Smirnov': [
+          { month: 'October 2025', uaCost: 5300, installs: 73600, cpi: 0.072, roasD7: 136, roasD30: 158 },
+          { month: 'November 2025', uaCost: 6188, installs: 87400, cpi: 0.071, roasD7: 148, roasD30: 187 },
+          { month: 'December 2025', uaCost: 7194, installs: 102600, cpi: 0.070, roasD7: 156, roasD30: 209 },
+        ],
+        'Serhii Shcherbyna': [
+          { month: 'October 2025', uaCost: 5468, installs: 156200, cpi: 0.035, roasD7: 112, roasD30: 154 },
+          { month: 'November 2025', uaCost: 6384, installs: 189400, cpi: 0.034, roasD7: 124, roasD30: 191 },
+          { month: 'December 2025', uaCost: 7418, installs: 224800, cpi: 0.033, roasD7: 135, roasD30: 229 },
+        ],
+        'Rashid Sabirov': [
+          { month: 'October 2025', uaCost: 4576, installs: 41600, cpi: 0.110, roasD7: 152, roasD30: 146 },
+          { month: 'November 2025', uaCost: 5500, installs: 50000, cpi: 0.110, roasD7: 168, roasD30: 175 },
+          { month: 'December 2025', uaCost: 6754, installs: 61400, cpi: 0.110, roasD7: 182, roasD30: 219 },
+        ]
+      },
+      appsCohortComparison: [
+        { name: 'Puzzle Game', manager: 'Anton Smirnov', 
+          current: { profit: 320000, revenue: 480000, dau: 890000, installs: 61400, d1Ret: 44.2, d7Ret: 28.1, arpdau: 0.054, roas: 183 },
+          previous: { profit: 275000, revenue: 412000, dau: 795000, installs: 52800, d1Ret: 43.5, d7Ret: 27.4, arpdau: 0.051, roas: 168 }
+        },
+        { name: 'Idle Tycoon', manager: 'Anton Smirnov',
+          current: { profit: 280000, revenue: 410000, dau: 520000, installs: 41200, d1Ret: 48.5, d7Ret: 32.1, arpdau: 0.075, roas: 198 },
+          previous: { profit: 218000, revenue: 325000, dau: 433000, installs: 34600, d1Ret: 47.8, d7Ret: 30.8, arpdau: 0.072, roas: 185 }
+        },
+        { name: 'Stack Tower', manager: 'Serhii Shcherbyna',
+          current: { profit: 185000, revenue: 485000, dau: 1980000, installs: 245000, d1Ret: 33.1, d7Ret: 14.8, arpdau: 0.031, roas: 168 },
+          previous: { profit: 210000, revenue: 520000, dau: 2100000, installs: 268000, d1Ret: 35.2, d7Ret: 17.2, arpdau: 0.034, roas: 197 }
+        },
+        { name: 'Word Master', manager: 'Serhii Shcherbyna',
+          current: { profit: 220000, revenue: 285000, dau: 380000, installs: 42000, d1Ret: 38.5, d7Ret: 21.2, arpdau: 0.048, roas: 165 },
+          previous: { profit: 198000, revenue: 258000, dau: 342000, installs: 38500, d1Ret: 37.2, d7Ret: 20.1, arpdau: 0.046, roas: 152 }
+        },
+        { name: 'Color Fill', manager: 'Serhii Shcherbyna',
+          current: { profit: 145000, revenue: 208000, dau: 385000, installs: 48000, d1Ret: 30.2, d7Ret: 13.1, arpdau: 0.033, roas: 118 },
+          previous: { profit: 180000, revenue: 245000, dau: 450000, installs: 58000, d1Ret: 32.8, d7Ret: 15.4, arpdau: 0.038, roas: 142 }
+        },
+        { name: 'Merge Kingdom', manager: 'Rashid Sabirov',
+          current: { profit: 420000, revenue: 580000, dau: 280000, installs: 18200, d1Ret: 55.8, d7Ret: 37.4, arpdau: 0.128, roas: 218 },
+          previous: { profit: 318000, revenue: 445000, dau: 212000, installs: 15400, d1Ret: 54.1, d7Ret: 35.8, arpdau: 0.122, roas: 195 }
+        },
+        { name: 'Tower Defense', manager: 'Rashid Sabirov',
+          current: { profit: 358000, revenue: 465000, dau: 105000, installs: 7200, d1Ret: 50.8, d7Ret: 33.5, arpdau: 0.112, roas: 188 },
+          previous: { profit: 380000, revenue: 485000, dau: 120000, installs: 8500, d1Ret: 52.4, d7Ret: 35.2, arpdau: 0.118, roas: 205 }
+        },
+        { name: 'Racing Rivals', manager: 'Rashid Sabirov',
+          current: { profit: 800000, revenue: 920000, dau: 50000, installs: 3200, d1Ret: 48.2, d7Ret: 32.5, arpdau: 0.185, roas: 245 },
+          previous: { profit: 620000, revenue: 725000, dau: 38000, installs: 2800, d1Ret: 46.8, d7Ret: 30.8, arpdau: 0.178, roas: 225 }
+        },
+      ]
+    },
+    rnd: {
+      name: 'RnD отдел — A/B Тесты',
+      isRnd: true,
+      current: { activeTests: 12, completedThisMonth: 8, avgLift: 4.2, successRate: 67 },
+      previous: { activeTests: 9, completedThisMonth: 6, avgLift: 3.8, successRate: 62 },
+      activeTests: [
+        { id: 'AB-147', app: 'Puzzle Game', name: 'Bidding vs Waterfall', type: 'Networks', status: 'running', startDate: '2025-12-15', traffic: 50, control: { arpdau: 0.0412, ecpm: 5.24, fillRate: 95.8 }, variant: { arpdau: 0.0458, ecpm: 5.72, fillRate: 97.1 }, lift: '+11.2%', confidence: 94, daysLeft: 5 },
+        { id: 'AB-152', app: 'Idle Tycoon', name: 'Rewarded frequency cap 3→5', type: 'Settings', status: 'running', startDate: '2025-12-18', traffic: 30, control: { arpdau: 0.0685, ecpm: 7.12, fillRate: 94.2 }, variant: { arpdau: 0.0742, ecpm: 7.08, fillRate: 93.8 }, lift: '+8.3%', confidence: 87, daysLeft: 8 },
+        { id: 'AB-155', app: 'Stack Tower', name: 'AppLovin MAX vs CAS', type: 'SDK', status: 'running', startDate: '2025-12-20', traffic: 20, control: { arpdau: 0.0318, ecpm: 3.85, fillRate: 91.2 }, variant: { arpdau: 0.0295, ecpm: 3.62, fillRate: 89.5 }, lift: '-7.2%', confidence: 82, daysLeft: 12 },
+        { id: 'AB-158', app: 'Puzzle Game', name: 'Interstitial cooldown 45s→30s', type: 'Settings', status: 'running', startDate: '2025-12-22', traffic: 40, control: { arpdau: 0.0412, ecpm: 5.24, fillRate: 95.8 }, variant: { arpdau: 0.0438, ecpm: 5.18, fillRate: 95.2 }, lift: '+6.3%', confidence: 71, daysLeft: 14 },
+        { id: 'AB-161', app: 'Idle Tycoon', name: 'Unity Ads priority boost', type: 'Networks', status: 'paused', startDate: '2025-12-10', traffic: 25, control: { arpdau: 0.0685, ecpm: 7.12, fillRate: 94.2 }, variant: { arpdau: 0.0658, ecpm: 6.85, fillRate: 92.8 }, lift: '-3.9%', confidence: 78, daysLeft: 0 },
+      ],
+      completedTests: [
+        { id: 'AB-138', app: 'Puzzle Game', name: 'Banner refresh 30s→45s', type: 'Settings', status: 'winner', completedDate: '2025-12-14', traffic: 50, controlArpdau: 0.0398, variantArpdau: 0.0425, lift: '+6.8%', confidence: 96, revenue: '+$2,840/mo', deployed: true },
+        { id: 'AB-141', app: 'Stack Tower', name: 'ironSource bidding enabled', type: 'Networks', status: 'winner', completedDate: '2025-12-12', traffic: 50, controlArpdau: 0.0285, variantArpdau: 0.0312, lift: '+9.5%', confidence: 98, revenue: '+$5,120/mo', deployed: true },
+        { id: 'AB-144', app: 'Idle Tycoon', name: 'CAS SDK 3.8→3.9', type: 'SDK', status: 'winner', completedDate: '2025-12-08', traffic: 30, controlArpdau: 0.0642, variantArpdau: 0.0698, lift: '+8.7%', confidence: 95, revenue: '+$3,650/mo', deployed: true },
+        { id: 'AB-135', app: 'Puzzle Game', name: 'AdMob priority reduce', type: 'Networks', status: 'loser', completedDate: '2025-12-05', traffic: 40, controlArpdau: 0.0398, variantArpdau: 0.0372, lift: '-6.5%', confidence: 91, revenue: '-$1,920/mo', deployed: false },
+        { id: 'AB-132', app: 'Stack Tower', name: 'Rewarded opt-in popup', type: 'Settings', status: 'inconclusive', completedDate: '2025-12-01', traffic: 50, controlArpdau: 0.0285, variantArpdau: 0.0289, lift: '+1.4%', confidence: 52, revenue: '+$680/mo', deployed: false },
+        { id: 'AB-128', app: 'Idle Tycoon', name: 'Vungle integration test', type: 'Networks', status: 'loser', completedDate: '2025-11-28', traffic: 25, controlArpdau: 0.0642, variantArpdau: 0.0598, lift: '-6.9%', confidence: 89, revenue: '-$2,180/mo', deployed: false },
+      ],
+      networkTests: [
+        { network: 'AppLovin', testsRun: 8, wins: 5, avgLift: '+5.2%', bestResult: 'Bidding +11.2%' },
+        { network: 'ironSource', testsRun: 6, wins: 4, avgLift: '+4.8%', bestResult: 'Bidding +9.5%' },
+        { network: 'AdMob', testsRun: 5, wins: 2, avgLift: '-1.2%', bestResult: 'Refresh rate +3.1%' },
+        { network: 'Unity Ads', testsRun: 4, wins: 1, avgLift: '-2.4%', bestResult: 'Priority test +1.8%' },
+      ],
+      sdkTests: [
+        { sdk: 'CAS 3.9.2', testsRun: 3, avgLiftVsPrev: '+7.8%', adopted: '58%', recommendation: 'Rollout to all' },
+        { sdk: 'CAS 3.9.0', testsRun: 2, avgLiftVsPrev: '+4.2%', adopted: '25%', recommendation: 'Update available' },
+        { sdk: 'MAX 12.1', testsRun: 2, avgLiftVsPrev: '-3.5%', adopted: '0%', recommendation: 'Not recommended' },
       ]
     },
   };
@@ -150,7 +492,7 @@ export default function MetricTree() {
     id: 'mrr',
     title: 'MRR',
     subtitle: 'Monthly Recurring Revenue',
-    value: '$850K',
+    value: '$2.85M',
     change: '+22% MoM',
     formula: 'Σ (App Revenue − UA Cost)',
     color: 'bg-purple-500',
@@ -158,153 +500,234 @@ export default function MetricTree() {
     zone: 'clevel',
     children: [
       {
-        id: 'app1',
-        title: 'Puzzle Game',
-        subtitle: 'Casual',
-        value: '$320K',
-        change: '+15%',
-        formula: 'Ad Rev − UA Cost',
-        color: 'bg-purple-400',
-        headerColor: 'bg-purple-500',
-        zone: 'producer',
+        id: 'manager_anton',
+        title: 'Anton Smirnov',
+        subtitle: 'Account Manager',
+        value: '$600K',
+        change: '+18%',
+        formula: '2 apps',
+        color: 'bg-amber-400',
+        headerColor: 'bg-amber-500',
+        zone: 'clevel',
         children: [
           {
-            id: 'ad_revenue_1',
-            title: 'Ad Revenue',
-            value: '$480K',
-            change: '+18%',
-            formula: 'DAU × ARPDAU',
-            color: 'bg-emerald-400',
-            headerColor: 'bg-emerald-500',
-            zone: 'monetisation',
+            id: 'app1',
+            title: 'Puzzle Game',
+            subtitle: 'Casual',
+            value: '$320K',
+            change: '+15%',
+            formula: 'Ad Rev − UA Cost',
+            color: 'bg-purple-400',
+            headerColor: 'bg-purple-500',
+            zone: 'producer',
             children: [
-              { 
-                id: 'dau_1', 
-                title: 'DAU', 
-                value: '890K', 
-                change: '+12%', 
-                color: 'bg-teal-400',
-                headerColor: 'bg-teal-500',
-                zone: 'producer',
-                children: [
-                  { id: 'new_users_1', title: 'New Users', value: '45K/day', change: '+8%', color: 'bg-cyan-400', headerColor: 'bg-cyan-500', zone: 'ua' },
-                  { id: 'retention_1', title: 'D7 Retention', value: '28%', change: '+2%', color: 'bg-cyan-400', headerColor: 'bg-cyan-500', zone: 'producer' },
-                ]
-              },
-              { 
-                id: 'arpdau_1', 
-                title: 'ARPDAU', 
-                value: '$0.054', 
-                change: '+5%', 
-                color: 'bg-amber-400',
-                headerColor: 'bg-amber-500',
+              {
+                id: 'ad_revenue_1',
+                title: 'Ad Revenue',
+                value: '$480K',
+                change: '+18%',
+                formula: 'DAU × ARPDAU',
+                color: 'bg-emerald-400',
+                headerColor: 'bg-emerald-500',
                 zone: 'monetisation',
                 children: [
-                  { id: 'impr_dau_1', title: 'Impr/DAU', value: '12.4', change: '+3%', color: 'bg-orange-400', headerColor: 'bg-orange-500', zone: 'monetisation' },
                   { 
-                    id: 'ecpm_1', 
-                    title: 'eCPM', 
-                    value: '$4.35', 
-                    change: '+2%', 
-                    color: 'bg-orange-400', 
-                    headerColor: 'bg-orange-500', 
-                    zone: 'monetisation',
+                    id: 'dau_1', 
+                    title: 'DAU', 
+                    value: '890K', 
+                    change: '+12%', 
+                    color: 'bg-teal-400',
+                    headerColor: 'bg-teal-500',
+                    zone: 'producer',
                     children: [
-                      { id: 'ecpm_applovin', title: 'AppLovin', value: '$5.20', change: '+4%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
-                      { id: 'ecpm_admob', title: 'AdMob', value: '$4.10', change: '+1%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
-                      { id: 'ecpm_unity', title: 'Unity Ads', value: '$3.85', change: '-2%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
-                      { id: 'ecpm_ironsrc', title: 'ironSource', value: '$4.60', change: '+3%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
+                      { id: 'new_users_1', title: 'New Users', value: '45K/day', change: '+8%', color: 'bg-cyan-400', headerColor: 'bg-cyan-500', zone: 'ua' },
+                      { id: 'retention_1', title: 'D7 Retention', value: '28%', change: '+2%', color: 'bg-cyan-400', headerColor: 'bg-cyan-500', zone: 'producer' },
                     ]
                   },
                   { 
-                    id: 'fill_rate_1', 
-                    title: 'Fill Rate', 
-                    value: '96.3%', 
-                    change: '+1.2%', 
-                    color: 'bg-lime-400', 
-                    headerColor: 'bg-lime-500', 
+                    id: 'arpdau_1', 
+                    title: 'ARPDAU', 
+                    value: '$0.054', 
+                    change: '+5%', 
+                    color: 'bg-amber-400',
+                    headerColor: 'bg-amber-500',
                     zone: 'monetisation',
                     children: [
-                      { id: 'fill_applovin', title: 'AppLovin', value: '98.2%', change: '+0.5%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
-                      { id: 'fill_admob', title: 'AdMob', value: '97.8%', change: '+0.8%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
-                      { id: 'fill_unity', title: 'Unity Ads', value: '94.5%', change: '-0.5%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
-                      { id: 'fill_ironsrc', title: 'ironSource', value: '96.1%', change: '+1.0%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
+                      { id: 'impr_dau_1', title: 'Impr/DAU', value: '12.4', change: '+3%', color: 'bg-orange-400', headerColor: 'bg-orange-500', zone: 'monetisation' },
+                      { 
+                        id: 'ecpm_1', 
+                        title: 'eCPM', 
+                        value: '$4.35', 
+                        change: '+2%', 
+                        color: 'bg-orange-400', 
+                        headerColor: 'bg-orange-500', 
+                        zone: 'monetisation',
+                        children: [
+                          { id: 'ecpm_applovin', title: 'AppLovin', value: '$5.20', change: '+4%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
+                          { id: 'ecpm_admob', title: 'AdMob', value: '$4.10', change: '+1%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
+                          { id: 'ecpm_unity', title: 'Unity Ads', value: '$3.85', change: '-2%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
+                          { id: 'ecpm_ironsrc', title: 'ironSource', value: '$4.60', change: '+3%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
+                        ]
+                      },
+                      { 
+                        id: 'fill_rate_1', 
+                        title: 'Fill Rate', 
+                        value: '96.3%', 
+                        change: '+1.2%', 
+                        color: 'bg-lime-400', 
+                        headerColor: 'bg-lime-500', 
+                        zone: 'monetisation',
+                        children: [
+                          { id: 'fill_applovin', title: 'AppLovin', value: '98.2%', change: '+0.5%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
+                          { id: 'fill_admob', title: 'AdMob', value: '97.8%', change: '+0.8%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
+                          { id: 'fill_unity', title: 'Unity Ads', value: '94.5%', change: '-0.5%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
+                          { id: 'fill_ironsrc', title: 'ironSource', value: '96.1%', change: '+1.0%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
+                        ]
+                      },
+                      { 
+                        id: 'sov_1', 
+                        title: 'SoV Networks', 
+                        value: '100%', 
+                        change: '', 
+                        color: 'bg-indigo-400', 
+                        headerColor: 'bg-indigo-500', 
+                        zone: 'monetisation',
+                        children: [
+                          { id: 'sov_applovin', title: 'AppLovin', value: '32%', change: '+2%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
+                          { id: 'sov_admob', title: 'AdMob', value: '28%', change: '-1%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
+                          { id: 'sov_unity', title: 'Unity Ads', value: '22%', change: '-2%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
+                          { id: 'sov_ironsrc', title: 'ironSource', value: '18%', change: '+1%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
+                        ]
+                      },
+                    ]
+                  },
+                ]
+              },
+              {
+                id: 'ua_cost_1',
+                title: 'UA Cost',
+                value: '$160K',
+                change: '+22%',
+                formula: 'Installs × CPI',
+                color: 'bg-red-400',
+                headerColor: 'bg-red-500',
+                zone: 'ua',
+                children: [
+                  { 
+                    id: 'installs_1', 
+                    title: 'Installs', 
+                    value: '1.4M', 
+                    change: '+18%', 
+                    color: 'bg-pink-400', 
+                    headerColor: 'bg-pink-500',
+                    zone: 'ua',
+                    children: [
+                      { id: 'organic_1', title: 'Organic', value: '420K', change: '+5%', color: 'bg-pink-300', headerColor: 'bg-pink-400', zone: 'ua' },
+                      { id: 'paid_1', title: 'Paid', value: '980K', change: '+24%', color: 'bg-pink-300', headerColor: 'bg-pink-400', zone: 'ua' },
                     ]
                   },
                   { 
-                    id: 'sov_1', 
-                    title: 'SoV Networks', 
-                    value: '100%', 
-                    change: '', 
-                    color: 'bg-indigo-400', 
-                    headerColor: 'bg-indigo-500', 
-                    zone: 'monetisation',
+                    id: 'cpi_1', 
+                    title: 'CPI', 
+                    value: '$0.11', 
+                    change: '+3%', 
+                    color: 'bg-pink-400', 
+                    headerColor: 'bg-pink-500',
+                    zone: 'ua',
                     children: [
-                      { id: 'sov_applovin', title: 'AppLovin', value: '32%', change: '+2%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
-                      { id: 'sov_admob', title: 'AdMob', value: '28%', change: '-1%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
-                      { id: 'sov_unity', title: 'Unity Ads', value: '22%', change: '-2%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
-                      { id: 'sov_ironsrc', title: 'ironSource', value: '18%', change: '+1%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
+                      { id: 'cpi_ios_1', title: 'CPI iOS', value: '$0.18', change: '+5%', color: 'bg-pink-300', headerColor: 'bg-pink-400', zone: 'ua' },
+                      { id: 'cpi_android_1', title: 'CPI Android', value: '$0.08', change: '+1%', color: 'bg-pink-300', headerColor: 'bg-pink-400', zone: 'ua' },
                     ]
+                  },
+                  { 
+                    id: 'roas_1', 
+                    title: 'ROAS D7', 
+                    value: '145%', 
+                    change: '+12%', 
+                    color: 'bg-rose-400', 
+                    headerColor: 'bg-rose-500',
+                    zone: 'ua'
+                  },
+                  { 
+                    id: 'payback_1', 
+                    title: 'Payback', 
+                    value: '14 days', 
+                    change: '-2d', 
+                    color: 'bg-rose-400', 
+                    headerColor: 'bg-rose-500',
+                    zone: 'ua'
                   },
                 ]
               },
             ]
           },
           {
-            id: 'ua_cost_1',
-            title: 'UA Cost',
-            value: '$160K',
+            id: 'app_idle',
+            title: 'Idle Tycoon',
+            subtitle: 'Idle/Clicker',
+            value: '$280K',
+            change: '+28%',
+            formula: 'Ad Rev − UA Cost',
+            color: 'bg-teal-400',
+            headerColor: 'bg-teal-500',
+            zone: 'producer',
+          },
+        ]
+      },
+      {
+        id: 'manager_rashid',
+        title: 'Rashid Sabirov',
+        subtitle: 'Account Manager',
+        value: '$1.6M',
+        change: '+25%',
+        formula: '4 apps',
+        color: 'bg-amber-400',
+        headerColor: 'bg-amber-500',
+        zone: 'clevel',
+        children: [
+          {
+            id: 'app_merge',
+            title: 'Merge Kingdom',
+            subtitle: 'Merge/Puzzle',
+            value: '$420K',
+            change: '+32%',
+            formula: 'Ad Rev − UA Cost',
+            color: 'bg-indigo-400',
+            headerColor: 'bg-indigo-500',
+            zone: 'producer',
+          },
+          {
+            id: 'app_tower',
+            title: 'Tower Defense',
+            subtitle: 'Strategy',
+            value: '$380K',
             change: '+22%',
-            formula: 'Installs × CPI',
-            color: 'bg-red-400',
-            headerColor: 'bg-red-500',
-            zone: 'ua',
-            children: [
-              { 
-                id: 'installs_1', 
-                title: 'Installs', 
-                value: '1.4M', 
-                change: '+18%', 
-                color: 'bg-pink-400', 
-                headerColor: 'bg-pink-500',
-                zone: 'ua',
-                children: [
-                  { id: 'organic_1', title: 'Organic', value: '420K', change: '+5%', color: 'bg-pink-300', headerColor: 'bg-pink-400', zone: 'ua' },
-                  { id: 'paid_1', title: 'Paid', value: '980K', change: '+24%', color: 'bg-pink-300', headerColor: 'bg-pink-400', zone: 'ua' },
-                ]
-              },
-              { 
-                id: 'cpi_1', 
-                title: 'CPI', 
-                value: '$0.11', 
-                change: '+3%', 
-                color: 'bg-pink-400', 
-                headerColor: 'bg-pink-500',
-                zone: 'ua',
-                children: [
-                  { id: 'cpi_ios_1', title: 'CPI iOS', value: '$0.18', change: '+5%', color: 'bg-pink-300', headerColor: 'bg-pink-400', zone: 'ua' },
-                  { id: 'cpi_android_1', title: 'CPI Android', value: '$0.08', change: '+1%', color: 'bg-pink-300', headerColor: 'bg-pink-400', zone: 'ua' },
-                ]
-              },
-              { 
-                id: 'roas_1', 
-                title: 'ROAS D7', 
-                value: '145%', 
-                change: '+12%', 
-                color: 'bg-rose-400', 
-                headerColor: 'bg-rose-500',
-                zone: 'ua'
-              },
-              { 
-                id: 'payback_1', 
-                title: 'Payback', 
-                value: '14 days', 
-                change: '-2d', 
-                color: 'bg-rose-400', 
-                headerColor: 'bg-rose-500',
-                zone: 'ua'
-              },
-            ]
+            formula: 'Ad Rev − UA Cost',
+            color: 'bg-rose-400',
+            headerColor: 'bg-rose-500',
+            zone: 'producer',
+          },
+          {
+            id: 'app_racing',
+            title: 'Racing Rivals',
+            subtitle: 'Racing',
+            value: '$520K',
+            change: '+35%',
+            formula: 'Ad Rev − UA Cost',
+            color: 'bg-orange-400',
+            headerColor: 'bg-orange-500',
+            zone: 'producer',
+          },
+          {
+            id: 'app_word',
+            title: 'Word Master',
+            subtitle: 'Word Game',
+            value: '$280K',
+            change: '+18%',
+            formula: 'Ad Rev − UA Cost',
+            color: 'bg-cyan-400',
+            headerColor: 'bg-cyan-500',
+            zone: 'producer',
           },
         ]
       },
@@ -399,16 +822,16 @@ export default function MetricTree() {
 
   const MetricCard = ({ label, value, prev, format, suffix }) => {
     const formatted = format ? format(value) : value;
-    const prevFormatted = format ? format(prev) : prev;
     const delta = calcDelta(value, prev);
     const isUp = value >= prev;
     return (
-      <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-        <div className="text-slate-400 text-xs uppercase mb-2">{label}</div>
-        <div className="text-2xl font-bold text-white">{formatted}{suffix}</div>
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-slate-500 text-sm">{prevFormatted}{suffix}</span>
-          <span className={`text-sm font-medium ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>{delta}</span>
+      <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="text-slate-400 text-xs uppercase">{label}</div>
+            <div className="text-xl font-bold text-white">{formatted}{suffix}</div>
+          </div>
+          <span className={`text-xs font-medium ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>{delta}</span>
         </div>
       </div>
     );
@@ -428,34 +851,34 @@ export default function MetricTree() {
 
     return (
       <div className="flex flex-col items-center">
-        {/* Node Card */}
+        {/* Node Card - Compact */}
         <div 
           onClick={() => hasChildren && toggleNode(node.id)}
-          className={`relative rounded-xl overflow-hidden shadow-lg cursor-pointer hover:scale-105 transition-transform ${hasChildren ? '' : 'cursor-default'}`}
-          style={{ minWidth: level === 0 ? 200 : level === 1 ? 180 : 140 }}
+          className={`relative rounded-lg overflow-hidden shadow-md cursor-pointer hover:scale-105 transition-transform ${hasChildren ? '' : 'cursor-default'}`}
+          style={{ minWidth: level === 0 ? 140 : level === 1 ? 120 : 100 }}
         >
-          {/* Header */}
-          <div className={`${node.headerColor} px-4 py-2 text-center`}>
-            <div className="text-white font-semibold text-sm">{node.title}</div>
-            {node.subtitle && <div className="text-white/70 text-xs">{node.subtitle}</div>}
+          {/* Header - Compact */}
+          <div className={`${node.headerColor} px-2 py-1 text-center`}>
+            <div className="text-white font-medium text-xs truncate">{node.title}</div>
           </div>
-          {/* Body */}
-          <div className="bg-slate-800 px-4 py-3 text-center">
-            <div className="text-white text-2xl font-bold">{node.value}</div>
-            <div className={`text-sm ${node.change.startsWith('+') || node.change.startsWith('-2') ? 'text-emerald-400' : 'text-red-400'}`}>
+          {/* Body - Compact */}
+          <div className="bg-slate-800 px-2 py-1.5 text-center">
+            <div className="text-white text-base font-bold">{node.value}</div>
+            <div className={`text-xs ${node.change.startsWith('+') ? 'text-emerald-400' : node.change.startsWith('-') ? 'text-red-400' : 'text-slate-400'}`}>
               {node.change}
             </div>
-            {node.formula && (
-              <div className="text-slate-400 text-xs mt-2 border-t border-slate-700 pt-2">{node.formula}</div>
-            )}
-            {/* Zone Label */}
-            <div className="mt-2 pt-2 border-t border-slate-700">
-              <span className="text-slate-500 text-xs">{zoneLabel}</span>
+            {/* Zone Label - small dot */}
+            <div className="flex justify-center mt-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                node.zone === 'clevel' ? 'bg-purple-500' : 
+                node.zone === 'monetisation' ? 'bg-emerald-500' : 
+                node.zone === 'ua' ? 'bg-pink-500' : 'bg-blue-500'
+              }`} title={zoneLabel}></span>
             </div>
           </div>
           {/* Expand/Collapse Button */}
           {hasChildren && (
-            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-slate-700 border-2 border-slate-600 rounded-full flex items-center justify-center text-white text-xs z-10">
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-700 border border-slate-600 rounded-full flex items-center justify-center text-white text-xs z-10">
               {isExpanded ? '−' : '+'}
             </div>
           )}
@@ -463,11 +886,11 @@ export default function MetricTree() {
 
         {/* Children */}
         {hasChildren && isExpanded && (
-          <div className="flex flex-col items-center mt-6">
+          <div className="flex flex-col items-center mt-4">
             {/* Vertical Line */}
-            <div className="w-px h-6 bg-slate-600" />
+            <div className="w-px h-4 bg-slate-600" />
             {/* Horizontal Line + Children */}
-            <div className="relative flex items-start gap-4">
+            <div className="relative flex items-start gap-2">
               {/* Horizontal connector */}
               {node.children.length > 1 && (
                 <div 
@@ -485,7 +908,7 @@ export default function MetricTree() {
               {node.children.map((child, idx) => (
                 <div key={child.id} className="flex flex-col items-center">
                   {/* Vertical line to child */}
-                  <div className="w-px h-6 bg-slate-600" />
+                  <div className="w-px h-4 bg-slate-600" />
                   <TreeNode node={child} level={level + 1} />
                 </div>
               ))}
@@ -526,70 +949,427 @@ export default function MetricTree() {
                 <button
                   key={app.id}
                   onClick={() => setSelectedApp(app.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${selectedApp === app.id ? (app.id === 'clevel' ? 'bg-amber-600' : 'bg-blue-600') : 'bg-slate-800 hover:bg-slate-700'}`}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${selectedApp === app.id ? (app.id === 'clevel' ? 'bg-amber-600' : app.id === 'rnd' ? 'bg-violet-600' : 'bg-blue-600') : 'bg-slate-800 hover:bg-slate-700'}`}
                 >
-                  {app.id === 'clevel' ? '👔 ' : ''}{app.name}
+                  {app.id === 'clevel' ? '👔 ' : app.id === 'rnd' ? '🧪 ' : ''}{app.name}
                 </button>
               ))}
             </div>
 
-            <div className={`border rounded-xl p-4 mb-6 ${data.isPortfolio ? 'bg-gradient-to-r from-amber-900/40 to-orange-900/40 border-amber-800/50' : 'bg-slate-800/50 border-slate-700'}`}>
-              <div className="flex justify-between items-center">
+            <div className={`border rounded-xl p-4 mb-6 ${data.isPortfolio ? 'bg-gradient-to-r from-amber-900/40 to-orange-900/40 border-amber-800/50' : data.isRnd ? 'bg-gradient-to-r from-violet-900/40 to-purple-900/40 border-violet-800/50' : 'bg-slate-800/50 border-slate-700'}`}>
+              <div className="flex justify-between items-center flex-wrap gap-4">
                 <h2 className="text-xl font-bold">{data.name}</h2>
-                <span className="text-slate-400 text-sm">Январь 2026 vs Декабрь 2025</span>
+                <div className="flex items-center gap-4">
+                  {/* Period Type Toggle */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 text-xs">Период:</span>
+                    <div className="flex bg-slate-700 rounded-lg p-0.5">
+                      <button
+                        onClick={() => setPeriodType('month')}
+                        className={`px-3 py-1 text-xs rounded-md transition ${periodType === 'month' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Месяц
+                      </button>
+                      <button
+                        onClick={() => setPeriodType('week')}
+                        className={`px-3 py-1 text-xs rounded-md transition ${periodType === 'week' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Неделя
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Date Range Selector */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 text-xs">Диапазон:</span>
+                    <select
+                      value={dateRange}
+                      onChange={(e) => setDateRange(e.target.value)}
+                      className="bg-slate-700 text-white text-xs px-3 py-1.5 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="1w">1 неделя</option>
+                      <option value="2w">2 недели</option>
+                      <option value="1m">1 месяц</option>
+                      <option value="3m">3 месяца</option>
+                      <option value="6m">6 месяцев</option>
+                      <option value="1y">1 год</option>
+                    </select>
+                  </div>
+                  
+                  <span className="text-slate-400 text-sm">
+                    {periodType === 'week' ? 'Декабрь 2025 (по неделям)' : 'Октябрь — Декабрь 2025'}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* C-Level Portfolio Metrics */}
-            {data.isPortfolio ? (
+            {/* RnD A/B Tests */}
+            {data.isRnd ? (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-                  <div className="bg-gradient-to-br from-amber-900/50 to-orange-900/50 border border-amber-700/50 rounded-xl p-4">
-                    <div className="text-amber-400 text-xs uppercase mb-2">MRR</div>
-                    <div className="text-2xl font-bold text-white">${(data.current.mrr/1000000).toFixed(2)}M</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-slate-500 text-sm">${(data.previous.mrr/1000000).toFixed(2)}M</span>
-                      <span className="text-sm font-medium text-emerald-400">{calcDelta(data.current.mrr, data.previous.mrr)}</span>
+                {/* KPI Widgets */}
+                <div className="grid grid-cols-4 gap-3 mb-6">
+                  <div className="bg-gradient-to-br from-violet-900/50 to-purple-900/50 border border-violet-700/50 rounded-lg p-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-violet-400 text-xs uppercase">Active Tests</div>
+                        <div className="text-xl font-bold text-white">{data.current.activeTests}</div>
+                      </div>
+                      <span className="text-xs font-medium text-emerald-400">+{data.current.activeTests - data.previous.activeTests}</span>
                     </div>
                   </div>
-                  <div className="bg-gradient-to-br from-amber-900/50 to-orange-900/50 border border-amber-700/50 rounded-xl p-4">
-                    <div className="text-amber-400 text-xs uppercase mb-2">ARR</div>
-                    <div className="text-2xl font-bold text-white">${(data.current.arr/1000000).toFixed(1)}M</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-slate-500 text-sm">${(data.previous.arr/1000000).toFixed(1)}M</span>
-                      <span className="text-sm font-medium text-emerald-400">{calcDelta(data.current.arr, data.previous.arr)}</span>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-slate-400 text-xs uppercase">Completed (Dec)</div>
+                        <div className="text-xl font-bold text-white">{data.current.completedThisMonth}</div>
+                      </div>
+                      <span className="text-xs font-medium text-emerald-400">+{data.current.completedThisMonth - data.previous.completedThisMonth}</span>
                     </div>
                   </div>
-                  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-                    <div className="text-slate-400 text-xs uppercase mb-2">Apps</div>
-                    <div className="text-2xl font-bold text-white">{data.current.apps}</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-slate-500 text-sm">{data.previous.apps}</span>
-                      <span className="text-sm font-medium text-emerald-400">+{data.current.apps - data.previous.apps}</span>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-slate-400 text-xs uppercase">Avg Lift</div>
+                        <div className="text-xl font-bold text-white">+{data.current.avgLift}%</div>
+                      </div>
+                      <span className="text-xs font-medium text-emerald-400">+{(data.current.avgLift - data.previous.avgLift).toFixed(1)}pp</span>
                     </div>
                   </div>
-                  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-                    <div className="text-slate-400 text-xs uppercase mb-2">Total DAU</div>
-                    <div className="text-2xl font-bold text-white">{formatNum(data.current.totalDau)}</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-slate-500 text-sm">{formatNum(data.previous.totalDau)}</span>
-                      <span className="text-sm font-medium text-emerald-400">{calcDelta(data.current.totalDau, data.previous.totalDau)}</span>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-slate-400 text-xs uppercase">Success Rate</div>
+                        <div className="text-xl font-bold text-white">{data.current.successRate}%</div>
+                      </div>
+                      <span className="text-xs font-medium text-emerald-400">+{data.current.successRate - data.previous.successRate}pp</span>
                     </div>
                   </div>
-                  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-                    <div className="text-slate-400 text-xs uppercase mb-2">Avg ARPDAU</div>
-                    <div className="text-2xl font-bold text-white">${data.current.avgArpdau.toFixed(3)}</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-slate-500 text-sm">${data.previous.avgArpdau.toFixed(3)}</span>
-                      <span className="text-sm font-medium text-emerald-400">{calcDelta(data.current.avgArpdau, data.previous.avgArpdau)}</span>
+                </div>
+
+                {/* Active Tests Table */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <span className="text-violet-400">🔬</span> Active A/B Tests
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-600">
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Test ID</th>
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">App</th>
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Test Name</th>
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Type</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Traffic</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Control</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Variant</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Lift</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Confidence</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.activeTests.map((test, i) => {
+                          const typeColors = { Networks: 'text-cyan-400', Settings: 'text-amber-400', SDK: 'text-violet-400' };
+                          const isPositive = test.lift.startsWith('+');
+                          return (
+                            <tr key={test.id} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                              <td className="py-3 px-2 font-mono text-violet-400">{test.id}</td>
+                              <td className="py-3 px-2 text-white">{test.app}</td>
+                              <td className="py-3 px-2 text-white font-medium">{test.name}</td>
+                              <td className={`py-3 px-2 ${typeColors[test.type] || 'text-slate-300'}`}>{test.type}</td>
+                              <td className="py-3 px-2 text-right text-slate-300">{test.traffic}%</td>
+                              <td className="py-3 px-2 text-right text-slate-400">${test.control.arpdau.toFixed(4)}</td>
+                              <td className="py-3 px-2 text-right text-white">${test.variant.arpdau.toFixed(4)}</td>
+                              <td className={`py-3 px-2 text-right font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{test.lift}</td>
+                              <td className="py-3 px-2 text-right">
+                                <span className={`${test.confidence >= 95 ? 'text-emerald-400' : test.confidence >= 80 ? 'text-amber-400' : 'text-slate-400'}`}>{test.confidence}%</span>
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                {test.status === 'running' ? (
+                                  <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-xs">{test.daysLeft}d left</span>
+                                ) : (
+                                  <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-xs">Paused</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Completed Tests Table */}
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <span className="text-emerald-400">✅</span> Completed Tests (Last 30 days)
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-600">
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Test ID</th>
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">App</th>
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Test Name</th>
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Type</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Lift</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Confidence</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue Impact</th>
+                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.completedTests.map((test, i) => {
+                          const typeColors = { Networks: 'text-cyan-400', Settings: 'text-amber-400', SDK: 'text-violet-400' };
+                          const statusConfig = {
+                            winner: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: '✓ Winner' },
+                            loser: { bg: 'bg-red-500/20', text: 'text-red-400', label: '✗ Loser' },
+                            inconclusive: { bg: 'bg-slate-500/20', text: 'text-slate-400', label: '~ Inconclusive' },
+                          };
+                          const status = statusConfig[test.status];
+                          const isPositive = test.lift.startsWith('+');
+                          return (
+                            <tr key={test.id} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                              <td className="py-3 px-2 font-mono text-slate-500">{test.id}</td>
+                              <td className="py-3 px-2 text-white">{test.app}</td>
+                              <td className="py-3 px-2 text-white">{test.name}</td>
+                              <td className={`py-3 px-2 ${typeColors[test.type] || 'text-slate-300'}`}>{test.type}</td>
+                              <td className={`py-3 px-2 text-right font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{test.lift}</td>
+                              <td className="py-3 px-2 text-right text-slate-300">{test.confidence}%</td>
+                              <td className={`py-3 px-2 text-right font-medium ${test.revenue.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>{test.revenue}</td>
+                              <td className="py-3 px-2 text-right">
+                                <span className={`${status.bg} ${status.text} px-2 py-0.5 rounded text-xs`}>{status.label}</span>
+                                {test.deployed && <span className="ml-1 text-blue-400 text-xs">🚀</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Network & SDK Performance side by side */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  {/* Network Tests Summary */}
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span className="text-cyan-400">🌐</span> Network Tests Summary
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-600">
+                            <th className="text-left py-2 px-2 text-slate-400 font-medium">Network</th>
+                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Tests</th>
+                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Wins</th>
+                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Avg Lift</th>
+                            <th className="text-left py-2 px-2 text-slate-400 font-medium">Best Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.networkTests.map((net, i) => {
+                            const isPositive = net.avgLift.startsWith('+');
+                            return (
+                              <tr key={net.network} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                                <td className="py-2 px-2 text-white font-medium">{net.network}</td>
+                                <td className="py-2 px-2 text-right text-slate-300">{net.testsRun}</td>
+                                <td className="py-2 px-2 text-right text-emerald-400">{net.wins}</td>
+                                <td className={`py-2 px-2 text-right font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{net.avgLift}</td>
+                                <td className="py-2 px-2 text-slate-400 text-xs">{net.bestResult}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
-                    <div className="text-slate-400 text-xs uppercase mb-2">Avg ROAS</div>
-                    <div className="text-2xl font-bold text-white">{data.current.avgRoas}%</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-slate-500 text-sm">{data.previous.avgRoas}%</span>
-                      <span className="text-sm font-medium text-emerald-400">{calcDelta(data.current.avgRoas, data.previous.avgRoas)}</span>
+
+                  {/* SDK Tests Summary */}
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <span className="text-violet-400">📦</span> SDK Tests Summary
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-600">
+                            <th className="text-left py-2 px-2 text-slate-400 font-medium">SDK</th>
+                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Tests</th>
+                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Lift vs Prev</th>
+                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Adopted</th>
+                            <th className="text-left py-2 px-2 text-slate-400 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.sdkTests.map((sdk, i) => {
+                            const isPositive = sdk.avgLiftVsPrev.startsWith('+');
+                            return (
+                              <tr key={sdk.sdk} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                                <td className="py-2 px-2 text-white font-medium">{sdk.sdk}</td>
+                                <td className="py-2 px-2 text-right text-slate-300">{sdk.testsRun}</td>
+                                <td className={`py-2 px-2 text-right font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{sdk.avgLiftVsPrev}</td>
+                                <td className="py-2 px-2 text-right text-slate-300">{sdk.adopted}</td>
+                                <td className="py-2 px-2">
+                                  <span className={`text-xs px-2 py-0.5 rounded ${
+                                    sdk.recommendation === 'Rollout to all' ? 'bg-emerald-500/20 text-emerald-400' :
+                                    sdk.recommendation === 'Update available' ? 'bg-amber-500/20 text-amber-400' :
+                                    'bg-red-500/20 text-red-400'
+                                  }`}>{sdk.recommendation}</span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : data.isPortfolio ? (
+              <>
+                {/* Apps Cohort Comparison - Main Table First */}
+                {data.appsCohortComparison && (
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <span>📈</span> Apps Performance Comparison (Dec vs Nov 2025)
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400 text-xs">Сортировка:</span>
+                        <select
+                          value={appsSortBy}
+                          onChange={(e) => setAppsSortBy(e.target.value)}
+                          className="bg-slate-700 text-white text-xs px-2 py-1 rounded border border-slate-600"
+                        >
+                          <option value="profitDelta">Δ Profit</option>
+                          <option value="revenueDelta">Δ Revenue</option>
+                          <option value="dauDelta">Δ DAU</option>
+                          <option value="roasDelta">Δ ROAS</option>
+                          <option value="manager">Manager</option>
+                        </select>
+                        <button
+                          onClick={() => setAppsSortDir(appsSortDir === 'desc' ? 'asc' : 'desc')}
+                          className="px-2 py-1 bg-slate-700 text-white text-xs rounded border border-slate-600"
+                        >
+                          {appsSortDir === 'desc' ? '↓' : '↑'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-600">
+                            <th className="text-left py-3 px-2 text-slate-400 font-medium">App</th>
+                            <th className="text-left py-3 px-2 text-slate-400 font-medium">Manager</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Profit</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ Profit</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ Revenue</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">DAU</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ DAU</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">D7 Ret</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ D7</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">ARPDAU</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">ROAS</th>
+                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ ROAS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...data.appsCohortComparison].sort((a, b) => {
+                            const getDelta = (item, field) => {
+                              if (field === 'manager') return item.manager;
+                              const curr = item.current[field.replace('Delta', '')];
+                              const prev = item.previous[field.replace('Delta', '')];
+                              return ((curr - prev) / prev) * 100;
+                            };
+                            const aVal = getDelta(a, appsSortBy);
+                            const bVal = getDelta(b, appsSortBy);
+                            if (appsSortBy === 'manager') {
+                              return appsSortDir === 'desc' ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+                            }
+                            return appsSortDir === 'desc' ? bVal - aVal : aVal - bVal;
+                          }).map((app, i) => {
+                            const profitDelta = ((app.current.profit - app.previous.profit) / app.previous.profit * 100).toFixed(1);
+                            const revDelta = ((app.current.revenue - app.previous.revenue) / app.previous.revenue * 100).toFixed(1);
+                            const dauDelta = ((app.current.dau - app.previous.dau) / app.previous.dau * 100).toFixed(1);
+                            const d7Delta = (app.current.d7Ret - app.previous.d7Ret).toFixed(1);
+                            const roasDelta = (app.current.roas - app.previous.roas);
+                            const managerColor = {
+                              'Anton Smirnov': 'text-amber-400',
+                              'Serhii Shcherbyna': 'text-blue-400',
+                              'Rashid Sabirov': 'text-purple-400',
+                            };
+                            return (
+                              <tr key={app.name} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                                <td className="py-3 px-2 font-medium text-white">{app.name}</td>
+                                <td className={`py-3 px-2 ${managerColor[app.manager] || 'text-slate-300'}`}>{app.manager.split(' ')[0]}</td>
+                                <td className="py-3 px-2 text-right text-white font-medium">${(app.current.profit/1000).toFixed(0)}K</td>
+                                <td className={`py-3 px-2 text-right font-medium ${parseFloat(profitDelta) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {parseFloat(profitDelta) >= 0 ? '+' : ''}{profitDelta}%
+                                </td>
+                                <td className="py-3 px-2 text-right text-slate-300">${(app.current.revenue/1000).toFixed(0)}K</td>
+                                <td className={`py-3 px-2 text-right ${parseFloat(revDelta) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {parseFloat(revDelta) >= 0 ? '+' : ''}{revDelta}%
+                                </td>
+                                <td className="py-3 px-2 text-right text-slate-300">{formatNum(app.current.dau)}</td>
+                                <td className={`py-3 px-2 text-right ${parseFloat(dauDelta) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {parseFloat(dauDelta) >= 0 ? '+' : ''}{dauDelta}%
+                                </td>
+                                <td className="py-3 px-2 text-right text-slate-300">{app.current.d7Ret}%</td>
+                                <td className={`py-3 px-2 text-right ${parseFloat(d7Delta) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {parseFloat(d7Delta) >= 0 ? '+' : ''}{d7Delta}pp
+                                </td>
+                                <td className="py-3 px-2 text-right text-slate-300">${app.current.arpdau.toFixed(3)}</td>
+                                <td className="py-3 px-2 text-right text-slate-300">{app.current.roas}%</td>
+                                <td className={`py-3 px-2 text-right font-medium ${roasDelta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {roasDelta >= 0 ? '+' : ''}{roasDelta}pp
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Compact KPI Widgets - 4 in one row */}
+                <div className="grid grid-cols-4 gap-3 mb-6">
+                  <div className="bg-gradient-to-br from-amber-900/50 to-orange-900/50 border border-amber-700/50 rounded-lg p-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-amber-400 text-xs uppercase">MRR</div>
+                        <div className="text-xl font-bold text-white">${(data.current.mrr/1000000).toFixed(2)}M</div>
+                      </div>
+                      <span className="text-xs font-medium text-emerald-400">{calcDelta(data.current.mrr, data.previous.mrr)}</span>
+                    </div>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-slate-400 text-xs uppercase">Total DAU</div>
+                        <div className="text-xl font-bold text-white">{formatNum(data.current.totalDau)}</div>
+                      </div>
+                      <span className="text-xs font-medium text-emerald-400">{calcDelta(data.current.totalDau, data.previous.totalDau)}</span>
+                    </div>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-slate-400 text-xs uppercase">Avg ARPDAU</div>
+                        <div className="text-xl font-bold text-white">${data.current.avgArpdau.toFixed(3)}</div>
+                      </div>
+                      <span className="text-xs font-medium text-emerald-400">{calcDelta(data.current.avgArpdau, data.previous.avgArpdau)}</span>
+                    </div>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-slate-400 text-xs uppercase">Avg ROAS</div>
+                        <div className="text-xl font-bold text-white">{data.current.avgRoas}%</div>
+                      </div>
+                      <span className="text-xs font-medium text-emerald-400">{calcDelta(data.current.avgRoas, data.previous.avgRoas)}</span>
                     </div>
                   </div>
                 </div>
@@ -676,9 +1456,124 @@ export default function MetricTree() {
                     </div>
                   )}
                 </div>
+
+                {/* Manager Tables */}
+                {data.managers.map((manager) => (
+                  <div key={manager.name} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold">
+                        {manager.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">{manager.name}</h3>
+                        <p className="text-slate-400 text-sm">{manager.apps} apps · ${(manager.profit/1000).toFixed(0)}K profit · {manager.share}% portfolio</p>
+                      </div>
+                    </div>
+
+                    {/* Cohort Table */}
+                    {data.managersCohortTable && data.managersCohortTable[manager.name] && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-slate-400 mb-2">📊 Monthly Cohort</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-600">
+                                <th className="text-left py-2 px-2 text-slate-500 font-medium">Month</th>
+                                <th className="text-right py-2 px-2 text-slate-500 font-medium">Installs</th>
+                                <th className="text-right py-2 px-2 text-slate-500 font-medium">DAU</th>
+                                <th className="text-right py-2 px-2 text-slate-500 font-medium">D1 Ret</th>
+                                <th className="text-right py-2 px-2 text-slate-500 font-medium">D7 Ret</th>
+                                <th className="text-right py-2 px-2 text-slate-500 font-medium">Impr</th>
+                                <th className="text-right py-2 px-2 text-slate-500 font-medium">eCPM</th>
+                                <th className="text-right py-2 px-2 text-slate-500 font-medium">Revenue</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {data.managersCohortTable[manager.name].map((row, i) => (
+                                <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                                  <td className="py-2 px-2 text-white">{row.month.split(' ')[0]}</td>
+                                  <td className="py-2 px-2 text-right text-slate-300">{row.installs.toLocaleString()}</td>
+                                  <td className="py-2 px-2 text-right text-slate-300">{row.dau.toLocaleString()}</td>
+                                  <td className="py-2 px-2 text-right text-slate-300">{row.d1Retention}%</td>
+                                  <td className="py-2 px-2 text-right text-slate-300">{row.d7Retention}%</td>
+                                  <td className="py-2 px-2 text-right text-slate-300">{(row.impressions/1000000).toFixed(2)}M</td>
+                                  <td className="py-2 px-2 text-right text-slate-300">${row.ecpm.toFixed(2)}</td>
+                                  <td className="py-2 px-2 text-right text-emerald-400 font-medium">${row.revenue.toLocaleString()}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Monetisation & UA side by side */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      {/* Monetisation */}
+                      {data.managersMonetisation && data.managersMonetisation[manager.name] && (
+                        <div>
+                          <h4 className="text-sm font-medium text-emerald-400 mb-2">💰 Monetisation</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-slate-600">
+                                  <th className="text-left py-2 px-2 text-slate-500 font-medium">Month</th>
+                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">ARPDAU</th>
+                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">Impr/DAU</th>
+                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">Fill</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {data.managersMonetisation[manager.name].map((row, i) => (
+                                  <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                                    <td className="py-2 px-2 text-white">{row.month.split(' ')[0]}</td>
+                                    <td className="py-2 px-2 text-right text-emerald-400">${row.arpdau.toFixed(4)}</td>
+                                    <td className="py-2 px-2 text-right text-slate-300">{row.imprPerDau}</td>
+                                    <td className="py-2 px-2 text-right text-slate-300">{row.fillRate}%</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* UA */}
+                      {data.managersUA && data.managersUA[manager.name] && (
+                        <div>
+                          <h4 className="text-sm font-medium text-pink-400 mb-2">📢 UA Performance</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-slate-600">
+                                  <th className="text-left py-2 px-2 text-slate-500 font-medium">Month</th>
+                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">Cost</th>
+                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">CPI</th>
+                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">ROAS D7</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {data.managersUA[manager.name].map((row, i) => (
+                                  <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                                    <td className="py-2 px-2 text-white">{row.month.split(' ')[0]}</td>
+                                    <td className="py-2 px-2 text-right text-pink-400">${row.uaCost.toLocaleString()}</td>
+                                    <td className="py-2 px-2 text-right text-slate-300">${row.cpi.toFixed(3)}</td>
+                                    <td className="py-2 px-2 text-right">
+                                      <span className={row.roasD7 >= 100 ? 'text-emerald-400' : 'text-red-400'}>{row.roasD7}%</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              <div className="grid grid-cols-5 gap-3 mb-6">
                 <MetricCard label="DAU" value={data.current.dau} prev={data.previous.dau} format={formatNum} />
                 <MetricCard label="ARPDAU" value={data.current.arpdau} prev={data.previous.arpdau} format={(v) => '$'+v.toFixed(3)} />
                 <MetricCard label="Retention D7" value={data.current.retention_d7} prev={data.previous.retention_d7} suffix="%" />
@@ -688,14 +1583,46 @@ export default function MetricTree() {
             )}
 
             <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <span>📊</span> Publisher Dashboard — Monthly Cohort Table
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <span>📊</span> Publisher Dashboard — {periodType === 'week' ? 'Weekly' : 'Monthly'} Cohort Table
+                </h3>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMetricPicker(showMetricPicker === 'cohortTable' ? null : 'cohortTable')}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg flex items-center gap-1"
+                  >
+                    <span>+</span> Добавить метрику
+                  </button>
+                  {showMetricPicker === 'cohortTable' && (
+                    <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+                      <div className="p-2 border-b border-slate-700">
+                        <span className="text-xs text-slate-400">Выберите метрику для добавления</span>
+                      </div>
+                      {availableMetrics.cohortTable
+                        .filter(m => !customColumns.cohortTable.find(c => c.id === m.id))
+                        .map(metric => (
+                          <button
+                            key={metric.id}
+                            onClick={() => addMetricToTable('cohortTable', metric)}
+                            className="w-full px-3 py-2 text-left hover:bg-slate-800 flex flex-col"
+                          >
+                            <span className="text-white text-sm">{metric.name}</span>
+                            <span className="text-slate-500 text-xs">{metric.description}</span>
+                          </button>
+                        ))}
+                      {availableMetrics.cohortTable.filter(m => !customColumns.cohortTable.find(c => c.id === m.id)).length === 0 && (
+                        <div className="px-3 py-2 text-slate-500 text-sm">Все метрики добавлены</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-slate-600">
-                      <th className="text-left py-3 px-3 text-slate-400 font-medium">Activity Month</th>
+                      <th className="text-left py-3 px-3 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Activity Month'}</th>
                       <th className="text-right py-3 px-3 text-slate-400 font-medium">Installs</th>
                       <th className="text-right py-3 px-3 text-slate-400 font-medium">DAU</th>
                       <th className="text-right py-3 px-3 text-slate-400 font-medium">D1 Retention</th>
@@ -705,12 +1632,26 @@ export default function MetricTree() {
                       <th className="text-right py-3 px-3 text-slate-400 font-medium">CTR</th>
                       <th className="text-right py-3 px-3 text-slate-400 font-medium">eCPM ($)</th>
                       <th className="text-right py-3 px-3 text-slate-400 font-medium">Total Revenue ($)</th>
+                      {customColumns.cohortTable.map(col => (
+                        <th key={col.id} className="text-right py-3 px-3 text-blue-400 font-medium">
+                          <div className="flex items-center justify-end gap-1">
+                            {col.name}
+                            <button
+                              onClick={() => removeMetricFromTable('cohortTable', col.id)}
+                              className="text-red-400 hover:text-red-300 ml-1"
+                              title="Удалить"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {data.cohortTable.map((row, i) => (
-                      <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                        <td className="py-3 px-3 font-medium text-white">{row.month}</td>
+                    {getTableData(selectedApp, 'cohortTable').map((row, i) => (
+                      <tr key={row.month || row.period} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                        <td className="py-3 px-3 font-medium text-white">{row.month || row.period}</td>
                         <td className="py-3 px-3 text-right text-slate-300">{row.installs.toLocaleString()}</td>
                         <td className="py-3 px-3 text-right text-slate-300">{row.dau.toLocaleString()}</td>
                         <td className="py-3 px-3 text-right text-slate-300">{row.d1Retention}%</td>
@@ -720,6 +1661,11 @@ export default function MetricTree() {
                         <td className="py-3 px-3 text-right text-slate-300">{row.ctr}%</td>
                         <td className="py-3 px-3 text-right text-slate-300">{row.ecpm.toFixed(4)}</td>
                         <td className="py-3 px-3 text-right text-white font-medium">{row.revenue.toFixed(2)}</td>
+                        {customColumns.cohortTable.map(col => (
+                          <td key={col.id} className="py-3 px-3 text-right text-blue-300">
+                            {formatMetricValue(col.id, getCustomMetricValue(col.id, i))}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
@@ -727,123 +1673,154 @@ export default function MetricTree() {
               </div>
             </div>
 
-            {/* Monetisation Table */}
-            {data.monetisationTable && (
+            {/* Combined Monetisation & Engagement Table */}
+            {(data.monetisationTable || (periodType === 'week' && weeklyData[selectedApp])) && (
               <div className="mt-6 bg-slate-800 border border-slate-700 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span className="text-emerald-400">💰</span> Monetisation Metrics
-                </h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <span className="text-emerald-400">💰</span> Monetisation & Engagement
+                  </h3>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowMetricPicker(showMetricPicker === 'monetisationTable' ? null : 'monetisationTable')}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg flex items-center gap-1"
+                    >
+                      <span>+</span> Добавить метрику
+                    </button>
+                    {showMetricPicker === 'monetisationTable' && (
+                      <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+                        <div className="p-2 border-b border-slate-700">
+                          <span className="text-xs text-slate-400">Выберите метрику для добавления</span>
+                        </div>
+                        {[...availableMetrics.monetisationTable, ...availableMetrics.engagementTable]
+                          .filter(m => !customColumns.monetisationTable.find(c => c.id === m.id))
+                          .map(metric => (
+                            <button
+                              key={metric.id}
+                              onClick={() => addMetricToTable('monetisationTable', metric)}
+                              className="w-full px-3 py-2 text-left hover:bg-slate-800 flex flex-col"
+                            >
+                              <span className="text-white text-sm">{metric.name}</span>
+                              <span className="text-slate-500 text-xs">{metric.description}</span>
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-slate-600">
-                        <th className="text-left py-3 px-3 text-slate-400 font-medium">Month</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Ad Revenue ($)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">ARPDAU ($)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Impr/DAU</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Banner/Sess</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Inter/Sess</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Reward/Sess</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">eCPM ($)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Fill Rate</th>
+                        <th className="text-left py-3 px-2 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Month'}</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">DAU</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Sessions</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Duration</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">ARPDAU</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Impr/DAU</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">eCPM</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Fill Rate</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">DAV/DAU</th>
+                        {customColumns.monetisationTable.map(col => (
+                          <th key={col.id} className="text-right py-3 px-2 text-emerald-400 font-medium">
+                            <div className="flex items-center justify-end gap-1">
+                              {col.name}
+                              <button onClick={() => removeMetricFromTable('monetisationTable', col.id)} className="text-red-400 hover:text-red-300 ml-1">×</button>
+                            </div>
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {data.monetisationTable.map((row, i) => (
-                        <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                          <td className="py-3 px-3 font-medium text-white">{row.month}</td>
-                          <td className="py-3 px-3 text-right text-emerald-400 font-medium">{row.adRevenue.toLocaleString()}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.arpdau.toFixed(4)}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.imprPerDau}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.imprBanner}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.imprInter}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.imprReward}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.ecpm.toFixed(2)}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.fillRate}%</td>
-                        </tr>
-                      ))}
+                      {getTableData(selectedApp, 'monetisationTable').map((row, i) => {
+                        const engRow = getTableData(selectedApp, 'engagementTable')[i] || {};
+                        return (
+                          <tr key={row.month || row.period} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                            <td className="py-3 px-2 font-medium text-white">{row.month || row.period}</td>
+                            <td className="py-3 px-2 text-right text-purple-400 font-medium">{engRow.dau?.toLocaleString() || '-'}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{engRow.avgSessions || '-'}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{engRow.avgDuration || '-'}m</td>
+                            <td className="py-3 px-2 text-right text-emerald-400 font-medium">${row.adRevenue.toLocaleString()}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">${row.arpdau.toFixed(4)}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.imprPerDau}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">${row.ecpm.toFixed(2)}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.fillRate}%</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{engRow.davDau || '-'}%</td>
+                            {customColumns.monetisationTable.map(col => (
+                              <td key={col.id} className="py-3 px-2 text-right text-emerald-300">
+                                {formatMetricValue(col.id, getCustomMetricValue(col.id, i))}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
             )}
 
-            {/* UA Table */}
-            {data.uaTable && (
+            {/* SDK Version Table */}
+            {data.sdkVersionTable && (
               <div className="mt-6 bg-slate-800 border border-slate-700 rounded-xl p-6">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span className="text-pink-400">📢</span> UA Performance
+                  <span className="text-orange-400">📦</span> Performance by SDK Version
                 </h3>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-slate-600">
-                        <th className="text-left py-3 px-3 text-slate-400 font-medium">Month</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">UA Cost ($)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Installs</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">CPI ($)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Organic</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Paid</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">ROAS D7</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">ROAS D30</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Payback (d)</th>
+                        <th className="text-left py-3 px-2 text-slate-400 font-medium">CAS SDK</th>
+                        <th className="text-left py-3 px-2 text-slate-400 font-medium">App Version</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">DAU</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Share</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Sessions</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Duration</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">ARPDAU</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Impr/DAU</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">eCPM</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Fill Rate</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.uaTable.map((row, i) => (
-                        <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                          <td className="py-3 px-3 font-medium text-white">{row.month}</td>
-                          <td className="py-3 px-3 text-right text-pink-400 font-medium">{row.uaCost.toLocaleString()}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.installs.toLocaleString()}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.cpi.toFixed(3)}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.organic.toLocaleString()}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.paid.toLocaleString()}</td>
-                          <td className="py-3 px-3 text-right">
-                            <span className={row.roasD7 >= 100 ? 'text-emerald-400' : 'text-red-400'}>{row.roasD7}%</span>
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            <span className={row.roasD30 >= 100 ? 'text-emerald-400' : 'text-red-400'}>{row.roasD30}%</span>
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.payback}</td>
-                        </tr>
-                      ))}
+                      {data.sdkVersionTable.map((row, i) => {
+                        const isLatest = i === 0;
+                        const isOld = i >= 2;
+                        return (
+                          <tr key={row.version} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                            <td className={`py-3 px-2 font-medium ${isLatest ? 'text-emerald-400' : isOld ? 'text-amber-400' : 'text-white'}`}>
+                              {row.version}
+                              {isLatest && <span className="ml-2 text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Latest</span>}
+                              {isOld && <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">Update</span>}
+                            </td>
+                            <td className="py-3 px-2 text-slate-400">{row.appVersion}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.dau.toLocaleString()}</td>
+                            <td className="py-3 px-2 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${isLatest ? 'bg-emerald-500' : isOld ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${row.dauShare}%` }} />
+                                </div>
+                                <span className="text-slate-300 w-8">{row.dauShare}%</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.sessions}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.duration}m</td>
+                            <td className="py-3 px-2 text-right text-emerald-400 font-medium">${row.revenue.toLocaleString()}</td>
+                            <td className={`py-3 px-2 text-right font-medium ${isLatest ? 'text-emerald-400' : isOld ? 'text-amber-400' : 'text-slate-300'}`}>${row.arpdau.toFixed(4)}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.imprPerDau}</td>
+                            <td className={`py-3 px-2 text-right ${isLatest ? 'text-emerald-400' : isOld ? 'text-amber-400' : 'text-slate-300'}`}>${row.ecpm.toFixed(2)}</td>
+                            <td className={`py-3 px-2 text-right ${row.fillRate >= 95 ? 'text-emerald-400' : row.fillRate >= 90 ? 'text-slate-300' : 'text-amber-400'}`}>{row.fillRate}%</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
-              </div>
-            )}
-
-            {/* Engagement Table */}
-            {data.engagementTable && (
-              <div className="mt-6 bg-slate-800 border border-slate-700 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span className="text-purple-400">🎮</span> Engagement Metrics
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-600">
-                        <th className="text-left py-3 px-3 text-slate-400 font-medium">Month</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">DAU</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Avg Sessions</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Avg Duration (min)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">DAV/DAU (%)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">PAU Conversion (%)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.engagementTable.map((row, i) => (
-                        <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                          <td className="py-3 px-3 font-medium text-white">{row.month}</td>
-                          <td className="py-3 px-3 text-right text-purple-400 font-medium">{row.dau.toLocaleString()}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.avgSessions}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.avgDuration}</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.davDau}%</td>
-                          <td className="py-3 px-3 text-right text-slate-300">{row.pauConversion}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="mt-3 flex gap-4 text-xs text-slate-500">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 bg-emerald-500 rounded-full"></span> Latest SDK — best performance</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 bg-amber-500 rounded-full"></span> Outdated — recommend update</span>
                 </div>
               </div>
             )}
