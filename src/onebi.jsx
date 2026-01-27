@@ -8,7 +8,8 @@ export default function MetricTree() {
   const [editingId, setEditingId] = useState(null);
   const [filterSection, setFilterSection] = useState('all');
   const [groupByManager, setGroupByManager] = useState(false);
-  const [dateRange, setDateRange] = useState('3m'); // 1w, 2w, 1m, 3m
+  const [dateRange, setDateRange] = useState('3m'); // 1m, 3m
+  const [periodRange, setPeriodRange] = useState('3m'); // 1m или 3m для фильтра
   const [periodType, setPeriodType] = useState('month'); // week, month
   const [showMetricPicker, setShowMetricPicker] = useState(null); // null or table name
   const [appsSortBy, setAppsSortBy] = useState('profitDelta'); // profitDelta, revenueDelta, dauDelta, manager
@@ -28,6 +29,22 @@ export default function MetricTree() {
   const [breakdownType, setBreakdownType] = useState('month');
   const [selectedMetrics, setSelectedMetrics] = useState(['dau', 'arpdau', 'revenue', 'd7_retention']);
   const [showMetricsDropdown, setShowMetricsDropdown] = useState(false);
+  const [activeFilters, setActiveFilters] = useState(['app']); // по умолчанию только приложение
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [activeBreakdowns, setActiveBreakdowns] = useState([]); // активные разбивки
+  const [showBreakdownDropdown, setShowBreakdownDropdown] = useState(false);
+  const [showMetricAddDropdown, setShowMetricAddDropdown] = useState(false);
+  const [breakdownByAppVersion, setBreakdownByAppVersion] = useState(false);
+  const [breakdownByCasVersion, setBreakdownByCasVersion] = useState(false);
+  const [viewType, setViewType] = useState('table'); // table, bar, line
+
+  // Доступные фильтры
+  const availableFilters = [
+    { id: 'app', label: 'Приложение' },
+    { id: 'period', label: 'Период' },
+    { id: 'appVersion', label: 'Версия приложения' },
+    { id: 'country', label: 'Страна' },
+  ];
 
   // Filter options
   const appVersions = ['all', '2.4.1', '2.4.0', '2.3.8', '2.3.5', '2.2.0'];
@@ -251,11 +268,21 @@ export default function MetricTree() {
   const getTableData = (app, tableName) => {
     const appData = dashboardData[app];
     if (!appData) return [];
-    
+
+    let data;
     if (periodType === 'week' && weeklyData[app] && weeklyData[app][tableName]) {
-      return weeklyData[app][tableName];
+      data = weeklyData[app][tableName];
+    } else {
+      data = appData[tableName] || [];
     }
-    return appData[tableName] || [];
+
+    // Фильтр по периоду: 1m = 1 запись, 3m = 3 записи
+    if (activeFilters.includes('period')) {
+      const limit = periodRange === '1m' ? 1 : 3;
+      return data.slice(0, limit);
+    }
+
+    return data;
   };
 
   const getPeriodLabel = () => periodType === 'week' ? 'period' : 'month';
@@ -978,6 +1005,28 @@ export default function MetricTree() {
           </div>
         </div>
 
+        {/* Report Type Selection */}
+        <div className="flex justify-center gap-2 mb-6 flex-wrap">
+          <button
+            onClick={() => setSelectedApp('puzzle')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${!['clevel', 'rnd'].includes(selectedApp) ? 'bg-blue-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+          >
+            📱 App Report
+          </button>
+          <button
+            onClick={() => setSelectedApp('clevel')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${selectedApp === 'clevel' ? 'bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+          >
+            👔 C-Level Report
+          </button>
+          <button
+            onClick={() => setSelectedApp('rnd')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${selectedApp === 'rnd' ? 'bg-violet-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+          >
+            🧪 RnD отдел
+          </button>
+        </div>
+
         {activeTab === 'dashboard' && (
           <>
             {/* BI Filter Panel */}
@@ -985,173 +1034,305 @@ export default function MetricTree() {
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">🎛️ Фильтры</span>
                 <div className="flex-1 h-px bg-slate-700"></div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                {/* Date Range */}
-                <div className="space-y-1">
-                  <label className="text-slate-400 text-xs">Период</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={filterDateFrom}
-                      onChange={(e) => setFilterDateFrom(e.target.value)}
-                      className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                    />
-                    <span className="text-slate-500 self-center">—</span>
-                    <input
-                      type="date"
-                      value={filterDateTo}
-                      onChange={(e) => setFilterDateTo(e.target.value)}
-                      className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
+
+                {/* Add Filter Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-300 flex items-center gap-1"
+                  >
+                    + Добавить фильтр
+                  </button>
+                  {showFilterDropdown && (
+                    <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[180px]">
+                      {availableFilters
+                        .filter(f => !activeFilters.includes(f.id))
+                        .map(filter => (
+                          <button
+                            key={filter.id}
+                            onClick={() => {
+                              setActiveFilters([...activeFilters, filter.id]);
+                              setShowFilterDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 first:rounded-t-lg last:rounded-b-lg"
+                          >
+                            {filter.label}
+                          </button>
+                        ))}
+                      {availableFilters.filter(f => !activeFilters.includes(f.id)).length === 0 && (
+                        <div className="px-3 py-2 text-sm text-slate-500">Все фильтры добавлены</div>
+                      )}
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              <div className="flex flex-wrap gap-4 mb-4">
+                {/* App Selection */}
+                {activeFilters.includes('app') && (
+                  <div className="space-y-1 min-w-[180px]">
+                    <div className="flex items-center justify-between">
+                      <label className="text-slate-400 text-xs">Приложение</label>
+                      <button
+                        onClick={() => {
+                          setActiveFilters(activeFilters.filter(f => f !== 'app'));
+                        }}
+                        className="text-slate-500 hover:text-slate-300 text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <select
+                      value={selectedApp}
+                      onChange={(e) => setSelectedApp(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                    >
+                      {apps.filter(a => !['clevel', 'rnd'].includes(a.id)).map(app => (
+                        <option key={app.id} value={app.id}>{app.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Period Range */}
+                {activeFilters.includes('period') && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-slate-400 text-xs">Период</label>
+                      <button
+                        onClick={() => {
+                          setActiveFilters(activeFilters.filter(f => f !== 'period'));
+                        }}
+                        className="text-slate-500 hover:text-slate-300 text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="flex gap-1 bg-slate-900 rounded-lg p-1">
+                      <button
+                        onClick={() => setPeriodRange('1m')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                          periodRange === '1m'
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        1 месяц
+                      </button>
+                      <button
+                        onClick={() => setPeriodRange('3m')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                          periodRange === '3m'
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        3 месяца
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* App Version */}
-                <div className="space-y-1">
-                  <label className="text-slate-400 text-xs">Версия приложения</label>
-                  <select
-                    value={filterAppVersion}
-                    onChange={(e) => setFilterAppVersion(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="all">Все версии</option>
-                    {appVersions.filter(v => v !== 'all').map(v => (
-                      <option key={v} value={v}>v{v}</option>
-                    ))}
-                  </select>
-                </div>
+                {activeFilters.includes('appVersion') && (
+                  <div className="space-y-1 min-w-[180px]">
+                    <div className="flex items-center justify-between">
+                      <label className="text-slate-400 text-xs">Версия приложения</label>
+                      <button
+                        onClick={() => {
+                          setActiveFilters(activeFilters.filter(f => f !== 'appVersion'));
+                          setFilterAppVersion('all');
+                        }}
+                        className="text-slate-500 hover:text-slate-300 text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <select
+                      value={filterAppVersion}
+                      onChange={(e) => setFilterAppVersion(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="all">Все версии</option>
+                      {appVersions.filter(v => v !== 'all').map(v => (
+                        <option key={v} value={v}>v{v}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Country */}
-                <div className="space-y-1">
-                  <label className="text-slate-400 text-xs">Страна</label>
-                  <select
-                    value={filterCountry}
-                    onChange={(e) => setFilterCountry(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                  >
-                    <option value="all">Все страны</option>
-                    {countries.filter(c => c !== 'all').map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Quick Date Presets */}
-                <div className="space-y-1">
-                  <label className="text-slate-400 text-xs">Быстрый выбор</label>
-                  <div className="flex gap-1 flex-wrap">
-                    {[
-                      { label: '7д', from: '2025-12-25', to: '2025-12-31' },
-                      { label: '14д', from: '2025-12-18', to: '2025-12-31' },
-                      { label: '30д', from: '2025-12-01', to: '2025-12-31' },
-                      { label: '90д', from: '2025-10-01', to: '2025-12-31' },
-                    ].map(preset => (
+                {activeFilters.includes('country') && (
+                  <div className="space-y-1 min-w-[180px]">
+                    <div className="flex items-center justify-between">
+                      <label className="text-slate-400 text-xs">Страна</label>
                       <button
-                        key={preset.label}
-                        onClick={() => { setFilterDateFrom(preset.from); setFilterDateTo(preset.to); }}
-                        className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-slate-300"
+                        onClick={() => {
+                          setActiveFilters(activeFilters.filter(f => f !== 'country'));
+                          setFilterCountry('all');
+                        }}
+                        className="text-slate-500 hover:text-slate-300 text-xs"
                       >
-                        {preset.label}
+                        ×
                       </button>
-                    ))}
+                    </div>
+                    <select
+                      value={filterCountry}
+                      onChange={(e) => setFilterCountry(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="all">Все страны</option>
+                      {countries.filter(c => c !== 'all').map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Breakdown & Metrics Row */}
+              {/* Breakdown Section */}
               <div className="flex items-center gap-2 pt-3 border-t border-slate-700">
                 <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">📊 Разбивка</span>
                 <div className="flex-1 h-px bg-slate-700"></div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                {/* Breakdown Type */}
-                <div className="space-y-1">
-                  <label className="text-slate-400 text-xs">Группировка данных</label>
-                  <div className="flex gap-1 flex-wrap">
-                    {breakdownOptions.map(opt => (
-                      <button
-                        key={opt.id}
-                        onClick={() => setBreakdownType(opt.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                          breakdownType === opt.id 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
+
+              {/* Period Type Toggle */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex gap-1 bg-slate-900 rounded-lg p-1">
+                  <button
+                    onClick={() => setPeriodType('week')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                      periodType === 'week'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    По неделям
+                  </button>
+                  <button
+                    onClick={() => setPeriodType('month')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                      periodType === 'month'
+                        ? 'bg-purple-600 text-white'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    По месяцам
+                  </button>
                 </div>
 
-                {/* Metrics Selector */}
-                <div className="space-y-1">
-                  <label className="text-slate-400 text-xs">Метрики</label>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowMetricsDropdown(!showMetricsDropdown)}
-                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-left text-white focus:border-blue-500 focus:outline-none flex justify-between items-center"
-                    >
-                      <span className="truncate">
-                        {selectedMetrics.length === 0 
-                          ? 'Выберите метрики...' 
-                          : `${selectedMetrics.length} метрик выбрано`}
-                      </span>
-                      <span className="text-slate-400">{showMetricsDropdown ? '▲' : '▼'}</span>
-                    </button>
-                    
-                    {showMetricsDropdown && (
-                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl max-h-64 overflow-y-auto">
-                        <div className="p-2 border-b border-slate-700 flex justify-between">
-                          <span className="text-xs text-slate-400">Выберите метрики</span>
-                          <button 
-                            onClick={() => setSelectedMetrics([])}
-                            className="text-xs text-red-400 hover:text-red-300"
-                          >
-                            Очистить
-                          </button>
-                        </div>
-                        {['engagement', 'monetisation', 'cohort', 'ua'].map(section => (
-                          <div key={section} className="p-2">
-                            <div className="text-xs text-slate-500 uppercase mb-1">{section}</div>
-                            {allMetricsOptions.filter(m => m.section === section).map(metric => (
-                              <label 
-                                key={metric.id} 
-                                className="flex items-center gap-2 px-2 py-1 hover:bg-slate-800 rounded cursor-pointer"
+                <button
+                  onClick={() => setBreakdownByAppVersion(!breakdownByAppVersion)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                    breakdownByAppVersion
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  По версии приложения
+                </button>
+
+                <button
+                  onClick={() => setBreakdownByCasVersion(!breakdownByCasVersion)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                    breakdownByCasVersion
+                      ? 'bg-cyan-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  По версии CAS SDK
+                </button>
+              </div>
+
+              {/* Metrics Section */}
+              <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-700">
+                <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">📈 Метрики</span>
+                <div className="flex-1 h-px bg-slate-700"></div>
+
+                {/* Add Metric Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMetricAddDropdown(!showMetricAddDropdown)}
+                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-300 flex items-center gap-1"
+                  >
+                    + Добавить метрику
+                  </button>
+                  {showMetricAddDropdown && (
+                    <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px] max-h-64 overflow-y-auto">
+                      {['engagement', 'monetisation', 'cohort', 'ua'].map(section => {
+                        const sectionMetrics = allMetricsOptions.filter(m => m.section === section && !selectedMetrics.includes(m.id));
+                        if (sectionMetrics.length === 0) return null;
+                        return (
+                          <div key={section}>
+                            <div className="px-3 py-1.5 text-xs text-slate-500 uppercase bg-slate-800 sticky top-0">{section}</div>
+                            {sectionMetrics.map(metric => (
+                              <button
+                                key={metric.id}
+                                onClick={() => {
+                                  setSelectedMetrics([...selectedMetrics, metric.id]);
+                                  setShowMetricAddDropdown(false);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700"
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={selectedMetrics.includes(metric.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedMetrics([...selectedMetrics, metric.id]);
-                                    } else {
-                                      setSelectedMetrics(selectedMetrics.filter(m => m !== metric.id));
-                                    }
-                                  }}
-                                  className="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-sm text-white">{metric.name}</span>
-                              </label>
+                                {metric.name}
+                              </button>
                             ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                        );
+                      })}
+                      {allMetricsOptions.filter(m => !selectedMetrics.includes(m.id)).length === 0 && (
+                        <div className="px-3 py-2 text-sm text-slate-500">Все метрики добавлены</div>
+                      )}
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Active Metrics */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                {selectedMetrics.length === 0 ? (
+                  <span className="text-slate-500 text-sm">Нет выбранных метрик</span>
+                ) : (
+                  selectedMetrics.map(metricId => {
+                    const metric = allMetricsOptions.find(m => m.id === metricId);
+                    const sectionColors = {
+                      engagement: 'bg-blue-600/20 text-blue-400',
+                      monetisation: 'bg-emerald-600/20 text-emerald-400',
+                      cohort: 'bg-amber-600/20 text-amber-400',
+                      ua: 'bg-rose-600/20 text-rose-400'
+                    };
+                    return (
+                      <span
+                        key={metricId}
+                        className={`${sectionColors[metric?.section] || 'bg-slate-600/20 text-slate-400'} px-3 py-1.5 rounded-lg text-sm flex items-center gap-2`}
+                      >
+                        {metric?.name}
+                        <button
+                          onClick={() => setSelectedMetrics(selectedMetrics.filter(m => m !== metricId))}
+                          className="hover:text-white text-lg leading-none"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })
+                )}
               </div>
 
               {/* Applied Filters Summary */}
               <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-700">
                 <span className="text-slate-500 text-xs">Применено:</span>
                 <div className="flex gap-2 flex-wrap">
-                  <span className="bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded text-xs">
-                    {filterDateFrom} — {filterDateTo}
-                  </span>
+                  {activeFilters.includes('app') && (
+                    <span className="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs">
+                      {apps.find(a => a.id === selectedApp)?.name}
+                    </span>
+                  )}
+                  {activeFilters.includes('period') && (
+                    <span className="bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded text-xs">
+                      {periodRange === '1m' ? '1 месяц' : '3 месяца'}
+                    </span>
+                  )}
                   {filterAppVersion !== 'all' && (
                     <span className="bg-emerald-600/20 text-emerald-400 px-2 py-0.5 rounded text-xs flex items-center gap-1">
                       v{filterAppVersion}
@@ -1165,8 +1346,23 @@ export default function MetricTree() {
                     </span>
                   )}
                   <span className="bg-purple-600/20 text-purple-400 px-2 py-0.5 rounded text-xs">
-                    {breakdownOptions.find(b => b.id === breakdownType)?.label}
+                    {periodType === 'week' ? 'По неделям' : 'По месяцам'}
                   </span>
+                  {breakdownByAppVersion && (
+                    <span className="bg-emerald-600/20 text-emerald-400 px-2 py-0.5 rounded text-xs">
+                      По версии приложения
+                    </span>
+                  )}
+                  {breakdownByCasVersion && (
+                    <span className="bg-cyan-600/20 text-cyan-400 px-2 py-0.5 rounded text-xs">
+                      По версии CAS SDK
+                    </span>
+                  )}
+                  {selectedMetrics.length > 0 && (
+                    <span className="bg-cyan-600/20 text-cyan-400 px-2 py-0.5 rounded text-xs">
+                      {selectedMetrics.length} метрик
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1"></div>
                 <button className="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg text-xs font-medium">
@@ -1175,62 +1371,40 @@ export default function MetricTree() {
               </div>
             </div>
 
-            <div className="flex justify-center gap-2 mb-6 flex-wrap">
-              {apps.map(app => (
+            {/* View Type Switcher */}
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-slate-400 text-sm">Вид:</span>
+              <div className="flex bg-slate-800 rounded-lg p-1">
                 <button
-                  key={app.id}
-                  onClick={() => setSelectedApp(app.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium ${selectedApp === app.id ? (app.id === 'clevel' ? 'bg-amber-600' : app.id === 'rnd' ? 'bg-violet-600' : 'bg-blue-600') : 'bg-slate-800 hover:bg-slate-700'}`}
+                  onClick={() => setViewType('table')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-2 ${
+                    viewType === 'table'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                  {app.id === 'clevel' ? '👔 ' : app.id === 'rnd' ? '🧪 ' : ''}{app.name}
+                  <span>📋</span> Таблица
                 </button>
-              ))}
-            </div>
-
-            <div className={`border rounded-xl p-4 mb-6 ${data.isPortfolio ? 'bg-gradient-to-r from-amber-900/40 to-orange-900/40 border-amber-800/50' : data.isRnd ? 'bg-gradient-to-r from-violet-900/40 to-purple-900/40 border-violet-800/50' : 'bg-slate-800/50 border-slate-700'}`}>
-              <div className="flex justify-between items-center flex-wrap gap-4">
-                <h2 className="text-xl font-bold">{data.name}</h2>
-                <div className="flex items-center gap-4">
-                  {/* Period Type Toggle */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-400 text-xs">Период:</span>
-                    <div className="flex bg-slate-700 rounded-lg p-0.5">
-                      <button
-                        onClick={() => setPeriodType('month')}
-                        className={`px-3 py-1 text-xs rounded-md transition ${periodType === 'month' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        Месяц
-                      </button>
-                      <button
-                        onClick={() => setPeriodType('week')}
-                        className={`px-3 py-1 text-xs rounded-md transition ${periodType === 'week' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        Неделя
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Date Range Selector */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-400 text-xs">Диапазон:</span>
-                    <select
-                      value={dateRange}
-                      onChange={(e) => setDateRange(e.target.value)}
-                      className="bg-slate-700 text-white text-xs px-3 py-1.5 rounded-lg border border-slate-600 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="1w">1 неделя</option>
-                      <option value="2w">2 недели</option>
-                      <option value="1m">1 месяц</option>
-                      <option value="3m">3 месяца</option>
-                      <option value="6m">6 месяцев</option>
-                      <option value="1y">1 год</option>
-                    </select>
-                  </div>
-                  
-                  <span className="text-slate-400 text-sm">
-                    {periodType === 'week' ? 'Декабрь 2025 (по неделям)' : 'Октябрь — Декабрь 2025'}
-                  </span>
-                </div>
+                <button
+                  onClick={() => setViewType('bar')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-2 ${
+                    viewType === 'bar'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>📊</span> Диаграммы
+                </button>
+                <button
+                  onClick={() => setViewType('line')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-2 ${
+                    viewType === 'line'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>📈</span> Графики
+                </button>
               </div>
             </div>
 
@@ -1813,173 +1987,68 @@ export default function MetricTree() {
               </div>
             )}
 
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span>📊</span> Publisher Dashboard — {periodType === 'week' ? 'Weekly' : 'Monthly'} Cohort Table
-                </h3>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowMetricPicker(showMetricPicker === 'cohortTable' ? null : 'cohortTable')}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg flex items-center gap-1"
-                  >
-                    <span>+</span> Добавить метрику
-                  </button>
-                  {showMetricPicker === 'cohortTable' && (
-                    <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
-                      <div className="p-2 border-b border-slate-700">
-                        <span className="text-xs text-slate-400">Выберите метрику для добавления</span>
-                      </div>
-                      {availableMetrics.cohortTable
-                        .filter(m => !customColumns.cohortTable.find(c => c.id === m.id))
-                        .map(metric => (
-                          <button
-                            key={metric.id}
-                            onClick={() => addMetricToTable('cohortTable', metric)}
-                            className="w-full px-3 py-2 text-left hover:bg-slate-800 flex flex-col"
-                          >
-                            <span className="text-white text-sm">{metric.name}</span>
-                            <span className="text-slate-500 text-xs">{metric.description}</span>
-                          </button>
-                        ))}
-                      {availableMetrics.cohortTable.filter(m => !customColumns.cohortTable.find(c => c.id === m.id)).length === 0 && (
-                        <div className="px-3 py-2 text-slate-500 text-sm">Все метрики добавлены</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-600">
-                      <th className="text-left py-3 px-3 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Activity Month'}</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">Installs</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">DAU</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">D1 Retention</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">D7 Retention</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">Impressions</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">Clicks</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">CTR</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">eCPM ($)</th>
-                      <th className="text-right py-3 px-3 text-slate-400 font-medium">Total Revenue ($)</th>
-                      {customColumns.cohortTable.map(col => (
-                        <th key={col.id} className="text-right py-3 px-3 text-blue-400 font-medium">
-                          <div className="flex items-center justify-end gap-1">
-                            {col.name}
-                            <button
-                              onClick={() => removeMetricFromTable('cohortTable', col.id)}
-                              className="text-red-400 hover:text-red-300 ml-1"
-                              title="Удалить"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getTableData(selectedApp, 'cohortTable').map((row, i) => (
-                      <tr key={row.month || row.period} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                        <td className="py-3 px-3 font-medium text-white">{row.month || row.period}</td>
-                        <td className="py-3 px-3 text-right text-slate-300">{row.installs.toLocaleString()}</td>
-                        <td className="py-3 px-3 text-right text-slate-300">{row.dau.toLocaleString()}</td>
-                        <td className="py-3 px-3 text-right text-slate-300">{row.d1Retention}%</td>
-                        <td className="py-3 px-3 text-right text-slate-300">{row.d7Retention}%</td>
-                        <td className="py-3 px-3 text-right text-slate-300">{row.impressions.toLocaleString()}</td>
-                        <td className="py-3 px-3 text-right text-slate-300">{row.clicks}</td>
-                        <td className="py-3 px-3 text-right text-slate-300">{row.ctr}%</td>
-                        <td className="py-3 px-3 text-right text-slate-300">{row.ecpm.toFixed(4)}</td>
-                        <td className="py-3 px-3 text-right text-white font-medium">{row.revenue.toFixed(2)}</td>
-                        {customColumns.cohortTable.map(col => (
-                          <td key={col.id} className="py-3 px-3 text-right text-blue-300">
-                            {formatMetricValue(col.id, getCustomMetricValue(col.id, i))}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Combined Monetisation & Engagement Table */}
-            {(data.monetisationTable || (periodType === 'week' && weeklyData[selectedApp])) && (
-              <div className="mt-6 bg-slate-800 border border-slate-700 rounded-xl p-6">
+            {/* Table View */}
+            {viewType === 'table' && (
+              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <span className="text-emerald-400">💰</span> Monetisation & Engagement
+                    <span>📊</span> Publisher Dashboard — {periodType === 'week' ? 'Weekly' : 'Monthly'} Cohort Table
                   </h3>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowMetricPicker(showMetricPicker === 'monetisationTable' ? null : 'monetisationTable')}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg flex items-center gap-1"
-                    >
-                      <span>+</span> Добавить метрику
-                    </button>
-                    {showMetricPicker === 'monetisationTable' && (
-                      <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
-                        <div className="p-2 border-b border-slate-700">
-                          <span className="text-xs text-slate-400">Выберите метрику для добавления</span>
-                        </div>
-                        {[...availableMetrics.monetisationTable, ...availableMetrics.engagementTable]
-                          .filter(m => !customColumns.monetisationTable.find(c => c.id === m.id))
-                          .map(metric => (
-                            <button
-                              key={metric.id}
-                              onClick={() => addMetricToTable('monetisationTable', metric)}
-                              className="w-full px-3 py-2 text-left hover:bg-slate-800 flex flex-col"
-                            >
-                              <span className="text-white text-sm">{metric.name}</span>
-                              <span className="text-slate-500 text-xs">{metric.description}</span>
-                            </button>
-                          ))}
-                      </div>
-                    )}
-                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-slate-600">
-                        <th className="text-left py-3 px-2 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Month'}</th>
+                        <th className="text-left py-3 px-2 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Activity Month'}</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Installs</th>
                         <th className="text-right py-3 px-2 text-slate-400 font-medium">DAU</th>
                         <th className="text-right py-3 px-2 text-slate-400 font-medium">Sessions</th>
                         <th className="text-right py-3 px-2 text-slate-400 font-medium">Duration</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">ARPDAU</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">D1 Ret</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">D7 Ret</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Impr</th>
                         <th className="text-right py-3 px-2 text-slate-400 font-medium">Impr/DAU</th>
                         <th className="text-right py-3 px-2 text-slate-400 font-medium">eCPM</th>
                         <th className="text-right py-3 px-2 text-slate-400 font-medium">Fill Rate</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">DAV/DAU</th>
-                        {customColumns.monetisationTable.map(col => (
-                          <th key={col.id} className="text-right py-3 px-2 text-emerald-400 font-medium">
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">ARPDAU</th>
+                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue</th>
+                        {customColumns.cohortTable.map(col => (
+                          <th key={col.id} className="text-right py-3 px-2 text-blue-400 font-medium">
                             <div className="flex items-center justify-end gap-1">
                               {col.name}
-                              <button onClick={() => removeMetricFromTable('monetisationTable', col.id)} className="text-red-400 hover:text-red-300 ml-1">×</button>
+                              <button
+                                onClick={() => removeMetricFromTable('cohortTable', col.id)}
+                                className="text-red-400 hover:text-red-300 ml-1"
+                                title="Удалить"
+                              >
+                                ×
+                              </button>
                             </div>
                           </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {getTableData(selectedApp, 'monetisationTable').map((row, i) => {
+                      {getTableData(selectedApp, 'cohortTable').map((row, i) => {
+                        const monRow = getTableData(selectedApp, 'monetisationTable')[i] || {};
                         const engRow = getTableData(selectedApp, 'engagementTable')[i] || {};
                         return (
                           <tr key={row.month || row.period} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
                             <td className="py-3 px-2 font-medium text-white">{row.month || row.period}</td>
-                            <td className="py-3 px-2 text-right text-purple-400 font-medium">{engRow.dau?.toLocaleString() || '-'}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.installs.toLocaleString()}</td>
+                            <td className="py-3 px-2 text-right text-purple-400 font-medium">{row.dau.toLocaleString()}</td>
                             <td className="py-3 px-2 text-right text-slate-300">{engRow.avgSessions || '-'}</td>
                             <td className="py-3 px-2 text-right text-slate-300">{engRow.avgDuration || '-'}m</td>
-                            <td className="py-3 px-2 text-right text-emerald-400 font-medium">${row.adRevenue.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">${row.arpdau.toFixed(4)}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.imprPerDau}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.d1Retention}%</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.d7Retention}%</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{row.impressions.toLocaleString()}</td>
+                            <td className="py-3 px-2 text-right text-slate-300">{monRow.imprPerDau || '-'}</td>
                             <td className="py-3 px-2 text-right text-slate-300">${row.ecpm.toFixed(2)}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.fillRate}%</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{engRow.davDau || '-'}%</td>
-                            {customColumns.monetisationTable.map(col => (
-                              <td key={col.id} className="py-3 px-2 text-right text-emerald-300">
+                            <td className="py-3 px-2 text-right text-slate-300">{monRow.fillRate || '-'}%</td>
+                            <td className="py-3 px-2 text-right text-emerald-400">${monRow.arpdau?.toFixed(4) || '-'}</td>
+                            <td className="py-3 px-2 text-right text-emerald-400 font-medium">${row.revenue.toFixed(2)}</td>
+                            {customColumns.cohortTable.map(col => (
+                              <td key={col.id} className="py-3 px-2 text-right text-blue-300">
                                 {formatMetricValue(col.id, getCustomMetricValue(col.id, i))}
                               </td>
                             ))}
@@ -1989,6 +2058,125 @@ export default function MetricTree() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+
+            {/* Bar Chart View */}
+            {viewType === 'bar' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(() => {
+                  const tableData = getTableData(selectedApp, 'cohortTable');
+                  const monData = getTableData(selectedApp, 'monetisationTable');
+                  const metrics = [
+                    { key: 'installs', label: 'Installs', color: 'bg-blue-500', getValue: (row) => row.installs },
+                    { key: 'dau', label: 'DAU', color: 'bg-purple-500', getValue: (row) => row.dau },
+                    { key: 'd1Retention', label: 'D1 Retention %', color: 'bg-amber-500', getValue: (row) => row.d1Retention },
+                    { key: 'd7Retention', label: 'D7 Retention %', color: 'bg-orange-500', getValue: (row) => row.d7Retention },
+                    { key: 'impressions', label: 'Impressions', color: 'bg-cyan-500', getValue: (row) => row.impressions },
+                    { key: 'ecpm', label: 'eCPM ($)', color: 'bg-emerald-500', getValue: (row) => row.ecpm },
+                    { key: 'revenue', label: 'Revenue ($)', color: 'bg-green-500', getValue: (row) => row.revenue },
+                    { key: 'arpdau', label: 'ARPDAU ($)', color: 'bg-teal-500', getValue: (row, i) => monData[i]?.arpdau || 0 },
+                  ];
+                  return metrics.map(metric => {
+                    const values = tableData.map((row, i) => metric.getValue(row, i));
+                    const maxValue = Math.max(...values);
+                    return (
+                      <div key={metric.key} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                        <h4 className="text-sm font-medium text-slate-300 mb-3">{metric.label}</h4>
+                        <div className="space-y-2">
+                          {tableData.map((row, i) => {
+                            const value = metric.getValue(row, i);
+                            const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                            return (
+                              <div key={row.month || row.period} className="flex items-center gap-2">
+                                <span className="text-xs text-slate-400 w-16 shrink-0">{row.month || row.period}</span>
+                                <div className="flex-1 h-6 bg-slate-700 rounded overflow-hidden">
+                                  <div
+                                    className={`h-full ${metric.color} transition-all duration-300`}
+                                    style={{ width: `${width}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-slate-300 w-20 text-right">
+                                  {typeof value === 'number' ? (value >= 1000 ? value.toLocaleString() : value.toFixed(2)) : value}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+
+            {/* Line Chart View */}
+            {viewType === 'line' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(() => {
+                  const tableData = getTableData(selectedApp, 'cohortTable');
+                  const monData = getTableData(selectedApp, 'monetisationTable');
+                  const metrics = [
+                    { key: 'installs', label: 'Installs', color: '#3b82f6', getValue: (row) => row.installs },
+                    { key: 'dau', label: 'DAU', color: '#a855f7', getValue: (row) => row.dau },
+                    { key: 'd1Retention', label: 'D1 Retention %', color: '#f59e0b', getValue: (row) => row.d1Retention },
+                    { key: 'd7Retention', label: 'D7 Retention %', color: '#f97316', getValue: (row) => row.d7Retention },
+                    { key: 'impressions', label: 'Impressions', color: '#06b6d4', getValue: (row) => row.impressions },
+                    { key: 'ecpm', label: 'eCPM ($)', color: '#10b981', getValue: (row) => row.ecpm },
+                    { key: 'revenue', label: 'Revenue ($)', color: '#22c55e', getValue: (row) => row.revenue },
+                    { key: 'arpdau', label: 'ARPDAU ($)', color: '#14b8a6', getValue: (row, i) => monData[i]?.arpdau || 0 },
+                  ];
+                  return metrics.map(metric => {
+                    const values = tableData.map((row, i) => metric.getValue(row, i));
+                    const maxValue = Math.max(...values);
+                    const minValue = Math.min(...values);
+                    const range = maxValue - minValue || 1;
+                    const points = values.map((v, i) => {
+                      const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
+                      const y = 80 - ((v - minValue) / range) * 60;
+                      return `${x},${y}`;
+                    }).join(' ');
+                    return (
+                      <div key={metric.key} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                        <h4 className="text-sm font-medium text-slate-300 mb-3">{metric.label}</h4>
+                        <svg viewBox="0 0 300 100" className="w-full h-32">
+                          {/* Grid lines */}
+                          <line x1="10" y1="20" x2="290" y2="20" stroke="#334155" strokeWidth="0.5" />
+                          <line x1="10" y1="50" x2="290" y2="50" stroke="#334155" strokeWidth="0.5" />
+                          <line x1="10" y1="80" x2="290" y2="80" stroke="#334155" strokeWidth="0.5" />
+                          {/* Line */}
+                          <polyline
+                            fill="none"
+                            stroke={metric.color}
+                            strokeWidth="2"
+                            points={points}
+                          />
+                          {/* Points */}
+                          {values.map((v, i) => {
+                            const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
+                            const y = 80 - ((v - minValue) / range) * 60;
+                            return (
+                              <circle key={i} cx={x} cy={y} r="4" fill={metric.color} />
+                            );
+                          })}
+                          {/* Labels */}
+                          {tableData.map((row, i) => {
+                            const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
+                            return (
+                              <text key={i} x={x} y="95" fill="#94a3b8" fontSize="8" textAnchor="middle">
+                                {row.month || row.period}
+                              </text>
+                            );
+                          })}
+                        </svg>
+                        <div className="flex justify-between text-xs text-slate-400 mt-2">
+                          <span>Min: {minValue >= 1000 ? minValue.toLocaleString() : minValue.toFixed(2)}</span>
+                          <span>Max: {maxValue >= 1000 ? maxValue.toLocaleString() : maxValue.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             )}
 
@@ -2056,68 +2244,6 @@ export default function MetricTree() {
               </div>
             )}
 
-            {/* Networks Table */}
-            {data.networksTable && (
-              <div className="mt-6 bg-slate-800 border border-slate-700 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span className="text-cyan-400">🌐</span> Ad Networks Performance
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-600">
-                        <th className="text-left py-3 px-3 text-slate-400 font-medium">Network</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Revenue ($)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Impressions</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">eCPM ($)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Fill Rate (%)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">SoV (%)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Win Rate (%)</th>
-                        <th className="text-right py-3 px-3 text-slate-400 font-medium">Latency (ms)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.networksTable.map((row, i) => {
-                        const networkColors = {
-                          'AppLovin': 'text-blue-400',
-                          'AdMob': 'text-yellow-400',
-                          'Unity Ads': 'text-slate-300',
-                          'ironSource': 'text-violet-400',
-                        };
-                        return (
-                          <tr key={row.network} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                            <td className={`py-3 px-3 font-medium ${networkColors[row.network] || 'text-white'}`}>{row.network}</td>
-                            <td className="py-3 px-3 text-right text-emerald-400 font-medium">{row.revenue.toLocaleString()}</td>
-                            <td className="py-3 px-3 text-right text-slate-300">{row.impressions.toLocaleString()}</td>
-                            <td className="py-3 px-3 text-right text-slate-300">{row.ecpm.toFixed(2)}</td>
-                            <td className="py-3 px-3 text-right">
-                              <span className={row.fillRate >= 96 ? 'text-emerald-400' : row.fillRate >= 94 ? 'text-yellow-400' : 'text-red-400'}>{row.fillRate}%</span>
-                            </td>
-                            <td className="py-3 px-3 text-right text-slate-300">{row.sov}%</td>
-                            <td className="py-3 px-3 text-right text-slate-300">{row.winRate}%</td>
-                            <td className="py-3 px-3 text-right">
-                              <span className={row.latency <= 130 ? 'text-emerald-400' : row.latency <= 160 ? 'text-yellow-400' : 'text-red-400'}>{row.latency}</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t border-slate-600 bg-slate-900/50">
-                        <td className="py-3 px-3 font-semibold text-white">Total</td>
-                        <td className="py-3 px-3 text-right text-emerald-400 font-bold">{data.networksTable.reduce((s, r) => s + r.revenue, 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 text-right text-slate-300 font-medium">{data.networksTable.reduce((s, r) => s + r.impressions, 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 text-right text-slate-400">—</td>
-                        <td className="py-3 px-3 text-right text-slate-400">—</td>
-                        <td className="py-3 px-3 text-right text-white font-medium">100%</td>
-                        <td className="py-3 px-3 text-right text-slate-400">—</td>
-                        <td className="py-3 px-3 text-right text-slate-400">—</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            )}
           </>
         )}
 
