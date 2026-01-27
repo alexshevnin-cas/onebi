@@ -27,7 +27,7 @@ export default function MetricTree() {
   const [filterAppVersion, setFilterAppVersion] = useState('all');
   const [filterCountry, setFilterCountry] = useState('all');
   const [breakdownType, setBreakdownType] = useState('month');
-  const [selectedMetrics, setSelectedMetrics] = useState(['dau', 'arpdau', 'revenue', 'd7_retention']);
+  const [selectedMetrics, setSelectedMetrics] = useState(['installs', 'dau', 'sessions', 'session_duration', 'd1_retention', 'd7_retention', 'impressions', 'impr_per_dau', 'ecpm', 'fill_rate', 'arpdau', 'revenue']);
   const [showMetricsDropdown, setShowMetricsDropdown] = useState(false);
   const [activeFilters, setActiveFilters] = useState(['app']); // по умолчанию только приложение
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -37,6 +37,31 @@ export default function MetricTree() {
   const [breakdownByAppVersion, setBreakdownByAppVersion] = useState(false);
   const [breakdownByCasVersion, setBreakdownByCasVersion] = useState(false);
   const [viewType, setViewType] = useState('table'); // table, bar, line
+  const [draggedColumn, setDraggedColumn] = useState(null);
+
+  // Drag-and-drop handlers for columns
+  const handleColumnDragStart = (e, metricId) => {
+    setDraggedColumn(metricId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleColumnDragOver = (e, metricId) => {
+    e.preventDefault();
+    if (draggedColumn && draggedColumn !== metricId) {
+      const draggedIndex = selectedMetrics.indexOf(draggedColumn);
+      const targetIndex = selectedMetrics.indexOf(metricId);
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const newMetrics = [...selectedMetrics];
+        newMetrics.splice(draggedIndex, 1);
+        newMetrics.splice(targetIndex, 0, draggedColumn);
+        setSelectedMetrics(newMetrics);
+      }
+    }
+  };
+
+  const handleColumnDragEnd = () => {
+    setDraggedColumn(null);
+  };
 
   // Доступные фильтры
   const availableFilters = [
@@ -56,23 +81,24 @@ export default function MetricTree() {
     { id: 'app_version', label: 'По версии' },
   ];
   const allMetricsOptions = [
+    { id: 'installs', name: 'Installs', section: 'ua' },
     { id: 'dau', name: 'DAU', section: 'engagement' },
     { id: 'wau', name: 'WAU', section: 'engagement' },
     { id: 'mau', name: 'MAU', section: 'engagement' },
-    { id: 'arpdau', name: 'ARPDAU', section: 'monetisation' },
-    { id: 'revenue', name: 'Revenue', section: 'monetisation' },
+    { id: 'sessions', name: 'Sessions', section: 'engagement' },
+    { id: 'session_duration', name: 'Duration', section: 'engagement' },
+    { id: 'd1_retention', name: 'D1 Ret', section: 'cohort' },
+    { id: 'd7_retention', name: 'D7 Ret', section: 'cohort' },
+    { id: 'd30_retention', name: 'D30 Ret', section: 'cohort' },
+    { id: 'impressions', name: 'Impr', section: 'monetisation' },
+    { id: 'impr_per_dau', name: 'Impr/DAU', section: 'monetisation' },
     { id: 'ecpm', name: 'eCPM', section: 'monetisation' },
     { id: 'fill_rate', name: 'Fill Rate', section: 'monetisation' },
-    { id: 'impressions', name: 'Impressions', section: 'monetisation' },
-    { id: 'd1_retention', name: 'D1 Retention', section: 'cohort' },
-    { id: 'd7_retention', name: 'D7 Retention', section: 'cohort' },
-    { id: 'd30_retention', name: 'D30 Retention', section: 'cohort' },
-    { id: 'installs', name: 'Installs', section: 'ua' },
+    { id: 'arpdau', name: 'ARPDAU', section: 'monetisation' },
+    { id: 'revenue', name: 'Revenue', section: 'monetisation' },
     { id: 'cpi', name: 'CPI', section: 'ua' },
     { id: 'roas', name: 'ROAS', section: 'ua' },
     { id: 'ltv', name: 'LTV', section: 'cohort' },
-    { id: 'sessions', name: 'Sessions', section: 'engagement' },
-    { id: 'session_duration', name: 'Session Duration', section: 'engagement' },
   ];
 
   // Available metrics that can be added to tables
@@ -1029,343 +1055,214 @@ export default function MetricTree() {
 
         {activeTab === 'dashboard' && (
           <>
-            {/* BI Filter Panel */}
-            <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">🎛️ Фильтры</span>
-                <div className="flex-1 h-px bg-slate-700"></div>
+            {/* Query Strip - Compact Report Settings */}
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl mb-6 divide-y divide-slate-700/50">
 
-                {/* Add Filter Dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-300 flex items-center gap-1"
-                  >
-                    + Добавить фильтр
-                  </button>
-                  {showFilterDropdown && (
-                    <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[180px]">
-                      {availableFilters
-                        .filter(f => !activeFilters.includes(f.id))
-                        .map(filter => (
-                          <button
-                            key={filter.id}
-                            onClick={() => {
-                              setActiveFilters([...activeFilters, filter.id]);
-                              setShowFilterDropdown(false);
-                            }}
-                            className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700 first:rounded-t-lg last:rounded-b-lg"
-                          >
-                            {filter.label}
-                          </button>
-                        ))}
-                      {availableFilters.filter(f => !activeFilters.includes(f.id)).length === 0 && (
-                        <div className="px-3 py-2 text-sm text-slate-500">Все фильтры добавлены</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-4 mb-4">
-                {/* App Selection */}
-                {activeFilters.includes('app') && (
-                  <div className="space-y-1 min-w-[180px]">
-                    <div className="flex items-center justify-between">
-                      <label className="text-slate-400 text-xs">Приложение</label>
-                      <button
-                        onClick={() => {
-                          setActiveFilters(activeFilters.filter(f => f !== 'app'));
-                        }}
-                        className="text-slate-500 hover:text-slate-300 text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <select
-                      value={selectedApp}
-                      onChange={(e) => setSelectedApp(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                    >
-                      {apps.filter(a => !['clevel', 'rnd'].includes(a.id)).map(app => (
-                        <option key={app.id} value={app.id}>{app.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Period Range */}
-                {activeFilters.includes('period') && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-slate-400 text-xs">Период</label>
-                      <button
-                        onClick={() => {
-                          setActiveFilters(activeFilters.filter(f => f !== 'period'));
-                        }}
-                        className="text-slate-500 hover:text-slate-300 text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="flex gap-1 bg-slate-900 rounded-lg p-1">
-                      <button
-                        onClick={() => setPeriodRange('1m')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                          periodRange === '1m'
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        1 месяц
-                      </button>
-                      <button
-                        onClick={() => setPeriodRange('3m')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                          periodRange === '3m'
-                            ? 'bg-blue-600 text-white'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        3 месяца
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* App Version */}
-                {activeFilters.includes('appVersion') && (
-                  <div className="space-y-1 min-w-[180px]">
-                    <div className="flex items-center justify-between">
-                      <label className="text-slate-400 text-xs">Версия приложения</label>
-                      <button
-                        onClick={() => {
-                          setActiveFilters(activeFilters.filter(f => f !== 'appVersion'));
-                          setFilterAppVersion('all');
-                        }}
-                        className="text-slate-500 hover:text-slate-300 text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <select
-                      value={filterAppVersion}
-                      onChange={(e) => setFilterAppVersion(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="all">Все версии</option>
-                      {appVersions.filter(v => v !== 'all').map(v => (
-                        <option key={v} value={v}>v{v}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Country */}
-                {activeFilters.includes('country') && (
-                  <div className="space-y-1 min-w-[180px]">
-                    <div className="flex items-center justify-between">
-                      <label className="text-slate-400 text-xs">Страна</label>
-                      <button
-                        onClick={() => {
-                          setActiveFilters(activeFilters.filter(f => f !== 'country'));
-                          setFilterCountry('all');
-                        }}
-                        className="text-slate-500 hover:text-slate-300 text-xs"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <select
-                      value={filterCountry}
-                      onChange={(e) => setFilterCountry(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                    >
-                      <option value="all">Все страны</option>
-                      {countries.filter(c => c !== 'all').map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* Breakdown Section */}
-              <div className="flex items-center gap-2 pt-3 border-t border-slate-700">
-                <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">📊 Разбивка</span>
-                <div className="flex-1 h-px bg-slate-700"></div>
-              </div>
-
-              {/* Period Type Toggle */}
-              <div className="flex flex-wrap gap-2 mt-3">
-                <div className="flex gap-1 bg-slate-900 rounded-lg p-1">
-                  <button
-                    onClick={() => setPeriodType('week')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                      periodType === 'week'
-                        ? 'bg-purple-600 text-white'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    По неделям
-                  </button>
-                  <button
-                    onClick={() => setPeriodType('month')}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                      periodType === 'month'
-                        ? 'bg-purple-600 text-white'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    По месяцам
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setBreakdownByAppVersion(!breakdownByAppVersion)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    breakdownByAppVersion
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
-                >
-                  По версии приложения
-                </button>
-
-                <button
-                  onClick={() => setBreakdownByCasVersion(!breakdownByCasVersion)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    breakdownByCasVersion
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
-                >
-                  По версии CAS SDK
-                </button>
-              </div>
-
-              {/* Metrics Section */}
-              <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-700">
-                <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">📈 Метрики</span>
-                <div className="flex-1 h-px bg-slate-700"></div>
-
-                {/* Add Metric Dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowMetricAddDropdown(!showMetricAddDropdown)}
-                    className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-300 flex items-center gap-1"
-                  >
-                    + Добавить метрику
-                  </button>
-                  {showMetricAddDropdown && (
-                    <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px] max-h-64 overflow-y-auto">
-                      {['engagement', 'monetisation', 'cohort', 'ua'].map(section => {
-                        const sectionMetrics = allMetricsOptions.filter(m => m.section === section && !selectedMetrics.includes(m.id));
-                        if (sectionMetrics.length === 0) return null;
-                        return (
-                          <div key={section}>
-                            <div className="px-3 py-1.5 text-xs text-slate-500 uppercase bg-slate-800 sticky top-0">{section}</div>
-                            {sectionMetrics.map(metric => (
-                              <button
-                                key={metric.id}
-                                onClick={() => {
-                                  setSelectedMetrics([...selectedMetrics, metric.id]);
-                                  setShowMetricAddDropdown(false);
-                                }}
-                                className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-700"
-                              >
-                                {metric.name}
-                              </button>
-                            ))}
-                          </div>
-                        );
-                      })}
-                      {allMetricsOptions.filter(m => !selectedMetrics.includes(m.id)).length === 0 && (
-                        <div className="px-3 py-2 text-sm text-slate-500">Все метрики добавлены</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Active Metrics */}
-              <div className="flex flex-wrap gap-2 mt-3">
-                {selectedMetrics.length === 0 ? (
-                  <span className="text-slate-500 text-sm">Нет выбранных метрик</span>
-                ) : (
-                  selectedMetrics.map(metricId => {
-                    const metric = allMetricsOptions.find(m => m.id === metricId);
-                    const sectionColors = {
-                      engagement: 'bg-blue-600/20 text-blue-400',
-                      monetisation: 'bg-emerald-600/20 text-emerald-400',
-                      cohort: 'bg-amber-600/20 text-amber-400',
-                      ua: 'bg-rose-600/20 text-rose-400'
-                    };
-                    return (
-                      <span
-                        key={metricId}
-                        className={`${sectionColors[metric?.section] || 'bg-slate-600/20 text-slate-400'} px-3 py-1.5 rounded-lg text-sm flex items-center gap-2`}
-                      >
-                        {metric?.name}
-                        <button
-                          onClick={() => setSelectedMetrics(selectedMetrics.filter(m => m !== metricId))}
-                          className="hover:text-white text-lg leading-none"
-                        >
-                          ×
-                        </button>
+              {/* Row 1: Filters (Green chips) */}
+              <div className="px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-slate-500 text-xs font-medium uppercase tracking-wider pt-1.5 shrink-0 w-20">Фильтры</span>
+                  <div className="flex flex-wrap gap-2 flex-1">
+                    {/* Active filter chips */}
+                    {activeFilters.includes('app') && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        {apps.find(a => a.id === selectedApp)?.name}
+                        <button onClick={() => setActiveFilters(activeFilters.filter(f => f !== 'app'))} className="hover:text-emerald-200 ml-0.5">×</button>
                       </span>
-                    );
-                  })
-                )}
+                    )}
+                    {activeFilters.includes('period') && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        {periodRange === '1m' ? '1 месяц' : '3 месяца'}
+                        <button onClick={() => setActiveFilters(activeFilters.filter(f => f !== 'period'))} className="hover:text-emerald-200 ml-0.5">×</button>
+                      </span>
+                    )}
+                    {activeFilters.includes('appVersion') && filterAppVersion !== 'all' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        v{filterAppVersion}
+                        <button onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'appVersion')); setFilterAppVersion('all'); }} className="hover:text-emerald-200 ml-0.5">×</button>
+                      </span>
+                    )}
+                    {activeFilters.includes('country') && filterCountry !== 'all' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        {filterCountry}
+                        <button onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'country')); setFilterCountry('all'); }} className="hover:text-emerald-200 ml-0.5">×</button>
+                      </span>
+                    )}
+
+                    {/* Add filter dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 border border-slate-600/50"
+                      >
+                        <span>+</span> Фильтр
+                      </button>
+                      {showFilterDropdown && (
+                        <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px] max-h-60 overflow-y-auto">
+                          <div className="p-2 border-b border-slate-700">
+                            <input type="text" placeholder="Поиск..." className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500" />
+                          </div>
+                          {availableFilters.filter(f => !activeFilters.includes(f.id)).map(filter => (
+                            <button
+                              key={filter.id}
+                              onClick={() => { setActiveFilters([...activeFilters, filter.id]); setShowFilterDropdown(false); }}
+                              className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800"
+                            >
+                              {filter.label}
+                            </button>
+                          ))}
+                          {availableFilters.filter(f => !activeFilters.includes(f.id)).length === 0 && (
+                            <div className="px-3 py-2 text-sm text-slate-500">Все добавлены</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Period selector inline */}
+                    {activeFilters.includes('period') && (
+                      <div className="flex gap-0.5 bg-slate-900/50 rounded p-0.5 ml-2">
+                        <button onClick={() => setPeriodRange('1m')} className={`px-2 py-1 rounded text-xs ${periodRange === '1m' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>1м</button>
+                        <button onClick={() => setPeriodRange('3m')} className={`px-2 py-1 rounded text-xs ${periodRange === '3m' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>3м</button>
+                      </div>
+                    )}
+
+                    {/* App selector inline */}
+                    {activeFilters.includes('app') && (
+                      <select
+                        value={selectedApp}
+                        onChange={(e) => setSelectedApp(e.target.value)}
+                        className="bg-slate-900/50 border border-slate-600/50 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none ml-2"
+                      >
+                        {apps.filter(a => !['clevel', 'rnd'].includes(a.id)).map(app => (
+                          <option key={app.id} value={app.id}>{app.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Applied Filters Summary */}
-              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-700">
-                <span className="text-slate-500 text-xs">Применено:</span>
-                <div className="flex gap-2 flex-wrap">
-                  {activeFilters.includes('app') && (
-                    <span className="bg-indigo-600/20 text-indigo-400 px-2 py-0.5 rounded text-xs">
-                      {apps.find(a => a.id === selectedApp)?.name}
-                    </span>
-                  )}
-                  {activeFilters.includes('period') && (
-                    <span className="bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded text-xs">
-                      {periodRange === '1m' ? '1 месяц' : '3 месяца'}
-                    </span>
-                  )}
-                  {filterAppVersion !== 'all' && (
-                    <span className="bg-emerald-600/20 text-emerald-400 px-2 py-0.5 rounded text-xs flex items-center gap-1">
-                      v{filterAppVersion}
-                      <button onClick={() => setFilterAppVersion('all')} className="hover:text-white">×</button>
-                    </span>
-                  )}
-                  {filterCountry !== 'all' && (
-                    <span className="bg-amber-600/20 text-amber-400 px-2 py-0.5 rounded text-xs flex items-center gap-1">
-                      {filterCountry}
-                      <button onClick={() => setFilterCountry('all')} className="hover:text-white">×</button>
-                    </span>
-                  )}
-                  <span className="bg-purple-600/20 text-purple-400 px-2 py-0.5 rounded text-xs">
-                    {periodType === 'week' ? 'По неделям' : 'По месяцам'}
-                  </span>
-                  {breakdownByAppVersion && (
-                    <span className="bg-emerald-600/20 text-emerald-400 px-2 py-0.5 rounded text-xs">
-                      По версии приложения
-                    </span>
-                  )}
-                  {breakdownByCasVersion && (
-                    <span className="bg-cyan-600/20 text-cyan-400 px-2 py-0.5 rounded text-xs">
-                      По версии CAS SDK
-                    </span>
-                  )}
-                  {selectedMetrics.length > 0 && (
-                    <span className="bg-cyan-600/20 text-cyan-400 px-2 py-0.5 rounded text-xs">
-                      {selectedMetrics.length} метрик
-                    </span>
-                  )}
+              {/* Row 2: Breakdown (Gray chips) */}
+              <div className="px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-slate-500 text-xs font-medium uppercase tracking-wider pt-1.5 shrink-0 w-20">Разбивка</span>
+                  <div className="flex flex-wrap gap-2 flex-1">
+                    {/* Time breakdown toggle */}
+                    <div className="flex gap-0.5 bg-slate-900/50 rounded p-0.5">
+                      <button
+                        onClick={() => setPeriodType('week')}
+                        className={`px-2.5 py-1 rounded text-xs font-medium transition ${periodType === 'week' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Недели
+                      </button>
+                      <button
+                        onClick={() => setPeriodType('month')}
+                        className={`px-2.5 py-1 rounded text-xs font-medium transition ${periodType === 'month' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Месяцы
+                      </button>
+                    </div>
+
+                    {/* Additional breakdowns */}
+                    <button
+                      onClick={() => setBreakdownByAppVersion(!breakdownByAppVersion)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition border ${
+                        breakdownByAppVersion
+                          ? 'bg-slate-600/50 text-slate-200 border-slate-500'
+                          : 'bg-slate-800/50 text-slate-400 border-slate-700/50 hover:border-slate-600'
+                      }`}
+                    >
+                      App Version
+                      {breakdownByAppVersion && <span className="text-slate-400">×</span>}
+                    </button>
+
+                    <button
+                      onClick={() => setBreakdownByCasVersion(!breakdownByCasVersion)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition border ${
+                        breakdownByCasVersion
+                          ? 'bg-slate-600/50 text-slate-200 border-slate-500'
+                          : 'bg-slate-800/50 text-slate-400 border-slate-700/50 hover:border-slate-600'
+                      }`}
+                    >
+                      CAS SDK
+                      {breakdownByCasVersion && <span className="text-slate-400">×</span>}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1"></div>
-                <button className="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg text-xs font-medium">
+              </div>
+
+              {/* Row 3: Metrics (Dark gray chips) */}
+              <div className="px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-slate-500 text-xs font-medium uppercase tracking-wider pt-1.5 shrink-0 w-20">Метрики</span>
+                  <div className="flex flex-wrap gap-2 flex-1">
+                    {/* Selected metrics */}
+                    {selectedMetrics.map(metricId => {
+                      const metric = allMetricsOptions.find(m => m.id === metricId);
+                      return (
+                        <span
+                          key={metricId}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50"
+                        >
+                          {metric?.name}
+                          <button onClick={() => setSelectedMetrics(selectedMetrics.filter(m => m !== metricId))} className="hover:text-white ml-0.5">×</button>
+                        </span>
+                      );
+                    })}
+
+                    {/* Add metric dropdown */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowMetricAddDropdown(!showMetricAddDropdown)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 border border-slate-600/50"
+                      >
+                        <span>+</span> Метрика
+                      </button>
+                      {showMetricAddDropdown && (
+                        <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px] max-h-60 overflow-y-auto">
+                          <div className="p-2 border-b border-slate-700">
+                            <input type="text" placeholder="Поиск метрики..." className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500" />
+                          </div>
+                          {['engagement', 'monetisation', 'cohort', 'ua'].map(section => {
+                            const sectionMetrics = allMetricsOptions.filter(m => m.section === section && !selectedMetrics.includes(m.id));
+                            if (sectionMetrics.length === 0) return null;
+                            return (
+                              <div key={section}>
+                                <div className="px-3 py-1.5 text-[10px] text-slate-500 uppercase bg-slate-800/50 sticky top-0">{section}</div>
+                                {sectionMetrics.map(metric => (
+                                  <button
+                                    key={metric.id}
+                                    onClick={() => { setSelectedMetrics([...selectedMetrics, metric.id]); setShowMetricAddDropdown(false); }}
+                                    className="w-full px-3 py-1.5 text-left text-xs text-slate-300 hover:bg-slate-800"
+                                  >
+                                    {metric.name}
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Summary + Apply */}
+              <div className="px-4 py-2.5 bg-slate-900/30 flex items-center gap-3">
+                <span className="text-slate-600 text-xs shrink-0">Сводка:</span>
+                <div className="flex flex-wrap gap-1.5 flex-1 text-[10px]">
+                  <span className="text-slate-500">{apps.find(a => a.id === selectedApp)?.name}</span>
+                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-500">{periodRange === '1m' ? '1 мес' : '3 мес'}</span>
+                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-500">{periodType === 'week' ? 'недели' : 'месяцы'}</span>
+                  {breakdownByAppVersion && <><span className="text-slate-600">•</span><span className="text-slate-500">+app ver</span></>}
+                  {breakdownByCasVersion && <><span className="text-slate-600">•</span><span className="text-slate-500">+sdk ver</span></>}
+                  <span className="text-slate-600">•</span>
+                  <span className="text-slate-500">{selectedMetrics.length} метрик</span>
+                </div>
+                <button className="px-4 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition shrink-0">
                   Применить
                 </button>
               </div>
@@ -1999,57 +1896,68 @@ export default function MetricTree() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-slate-600">
-                        <th className="text-left py-3 px-2 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Activity Month'}</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Installs</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">DAU</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Sessions</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Duration</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">D1 Ret</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">D7 Ret</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Impr</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Impr/DAU</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">eCPM</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Fill Rate</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">ARPDAU</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue</th>
-                        {customColumns.cohortTable.map(col => (
-                          <th key={col.id} className="text-right py-3 px-2 text-blue-400 font-medium">
-                            <div className="flex items-center justify-end gap-1">
-                              {col.name}
-                              <button
-                                onClick={() => removeMetricFromTable('cohortTable', col.id)}
-                                className="text-red-400 hover:text-red-300 ml-1"
-                                title="Удалить"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          </th>
-                        ))}
+                        <th className="text-left py-3 px-2 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Period'}</th>
+                        {selectedMetrics.map(metricId => {
+                          const metric = allMetricsOptions.find(m => m.id === metricId);
+                          return (
+                            <th
+                              key={metricId}
+                              className={`text-right py-3 px-2 text-slate-400 font-medium cursor-grab select-none transition-all ${draggedColumn === metricId ? 'opacity-50 bg-slate-700' : 'hover:bg-slate-700/50'}`}
+                              draggable
+                              onDragStart={(e) => handleColumnDragStart(e, metricId)}
+                              onDragOver={(e) => handleColumnDragOver(e, metricId)}
+                              onDragEnd={handleColumnDragEnd}
+                            >
+                              {metric?.name || metricId}
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
                       {getTableData(selectedApp, 'cohortTable').map((row, i) => {
                         const monRow = getTableData(selectedApp, 'monetisationTable')[i] || {};
                         const engRow = getTableData(selectedApp, 'engagementTable')[i] || {};
+
+                        const getMetricValue = (metricId) => {
+                          switch(metricId) {
+                            case 'installs': return row.installs?.toLocaleString() || '-';
+                            case 'dau': return row.dau?.toLocaleString() || '-';
+                            case 'sessions': return engRow.avgSessions || '-';
+                            case 'session_duration': return engRow.avgDuration ? `${engRow.avgDuration}m` : '-';
+                            case 'd1_retention': return row.d1Retention ? `${row.d1Retention}%` : '-';
+                            case 'd7_retention': return row.d7Retention ? `${row.d7Retention}%` : '-';
+                            case 'd30_retention': return row.d30Retention ? `${row.d30Retention}%` : '-';
+                            case 'impressions': return row.impressions?.toLocaleString() || '-';
+                            case 'impr_per_dau': return monRow.imprPerDau || '-';
+                            case 'ecpm': return row.ecpm ? `$${row.ecpm.toFixed(2)}` : '-';
+                            case 'fill_rate': return monRow.fillRate ? `${monRow.fillRate}%` : '-';
+                            case 'arpdau': return monRow.arpdau ? `$${monRow.arpdau.toFixed(4)}` : '-';
+                            case 'revenue': return row.revenue ? `$${row.revenue.toFixed(2)}` : '-';
+                            case 'ltv': return row.ltv ? `$${row.ltv.toFixed(2)}` : '-';
+                            case 'cpi': return row.cpi ? `$${row.cpi.toFixed(2)}` : '-';
+                            case 'roas': return row.roas ? `${row.roas}%` : '-';
+                            case 'wau': return row.wau?.toLocaleString() || '-';
+                            case 'mau': return row.mau?.toLocaleString() || '-';
+                            default: return '-';
+                          }
+                        };
+
+                        const getMetricStyle = (metricId) => {
+                          switch(metricId) {
+                            case 'dau': return 'text-purple-400 font-medium';
+                            case 'revenue': return 'text-emerald-400 font-medium';
+                            case 'arpdau': return 'text-emerald-400';
+                            default: return 'text-slate-300';
+                          }
+                        };
+
                         return (
                           <tr key={row.month || row.period} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
                             <td className="py-3 px-2 font-medium text-white">{row.month || row.period}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.installs.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right text-purple-400 font-medium">{row.dau.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{engRow.avgSessions || '-'}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{engRow.avgDuration || '-'}m</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.d1Retention}%</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.d7Retention}%</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.impressions.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{monRow.imprPerDau || '-'}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">${row.ecpm.toFixed(2)}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{monRow.fillRate || '-'}%</td>
-                            <td className="py-3 px-2 text-right text-emerald-400">${monRow.arpdau?.toFixed(4) || '-'}</td>
-                            <td className="py-3 px-2 text-right text-emerald-400 font-medium">${row.revenue.toFixed(2)}</td>
-                            {customColumns.cohortTable.map(col => (
-                              <td key={col.id} className="py-3 px-2 text-right text-blue-300">
-                                {formatMetricValue(col.id, getCustomMetricValue(col.id, i))}
+                            {selectedMetrics.map(metricId => (
+                              <td key={metricId} className={`py-3 px-2 text-right ${getMetricStyle(metricId)}`}>
+                                {getMetricValue(metricId)}
                               </td>
                             ))}
                           </tr>
@@ -2063,42 +1971,50 @@ export default function MetricTree() {
 
             {/* Bar Chart View */}
             {viewType === 'bar' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {(() => {
                   const tableData = getTableData(selectedApp, 'cohortTable');
                   const monData = getTableData(selectedApp, 'monetisationTable');
-                  const metrics = [
-                    { key: 'installs', label: 'Installs', color: 'bg-blue-500', getValue: (row) => row.installs },
-                    { key: 'dau', label: 'DAU', color: 'bg-purple-500', getValue: (row) => row.dau },
-                    { key: 'd1Retention', label: 'D1 Retention %', color: 'bg-amber-500', getValue: (row) => row.d1Retention },
-                    { key: 'd7Retention', label: 'D7 Retention %', color: 'bg-orange-500', getValue: (row) => row.d7Retention },
-                    { key: 'impressions', label: 'Impressions', color: 'bg-cyan-500', getValue: (row) => row.impressions },
-                    { key: 'ecpm', label: 'eCPM ($)', color: 'bg-emerald-500', getValue: (row) => row.ecpm },
-                    { key: 'revenue', label: 'Revenue ($)', color: 'bg-green-500', getValue: (row) => row.revenue },
-                    { key: 'arpdau', label: 'ARPDAU ($)', color: 'bg-teal-500', getValue: (row, i) => monData[i]?.arpdau || 0 },
-                  ];
-                  return metrics.map(metric => {
-                    const values = tableData.map((row, i) => metric.getValue(row, i));
-                    const maxValue = Math.max(...values);
+                  const engData = getTableData(selectedApp, 'engagementTable');
+
+                  const metricConfigs = {
+                    installs: { color: 'bg-blue-500', getValue: (row) => row.installs || 0 },
+                    dau: { color: 'bg-purple-500', getValue: (row) => row.dau || 0 },
+                    sessions: { color: 'bg-indigo-500', getValue: (row, i) => engData[i]?.avgSessions || 0 },
+                    session_duration: { color: 'bg-violet-500', getValue: (row, i) => engData[i]?.avgDuration || 0 },
+                    d1_retention: { color: 'bg-amber-500', getValue: (row) => row.d1Retention || 0 },
+                    d7_retention: { color: 'bg-orange-500', getValue: (row) => row.d7Retention || 0 },
+                    d30_retention: { color: 'bg-red-500', getValue: (row) => row.d30Retention || 0 },
+                    impressions: { color: 'bg-cyan-500', getValue: (row) => row.impressions || 0 },
+                    impr_per_dau: { color: 'bg-sky-500', getValue: (row, i) => monData[i]?.imprPerDau || 0 },
+                    ecpm: { color: 'bg-emerald-500', getValue: (row) => row.ecpm || 0 },
+                    fill_rate: { color: 'bg-lime-500', getValue: (row, i) => monData[i]?.fillRate || 0 },
+                    arpdau: { color: 'bg-teal-500', getValue: (row, i) => monData[i]?.arpdau || 0 },
+                    revenue: { color: 'bg-green-500', getValue: (row) => row.revenue || 0 },
+                  };
+
+                  return selectedMetrics.filter(id => metricConfigs[id]).map(metricId => {
+                    const metric = allMetricsOptions.find(m => m.id === metricId);
+                    const config = metricConfigs[metricId];
+                    const values = tableData.map((row, i) => config.getValue(row, i));
+                    const maxValue = Math.max(...values) || 1;
+
                     return (
-                      <div key={metric.key} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                        <h4 className="text-sm font-medium text-slate-300 mb-3">{metric.label}</h4>
-                        <div className="space-y-2">
+                      <div key={metricId} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                        <h4 className="text-sm font-medium text-slate-300 mb-3">{metric?.name}</h4>
+                        <div className="flex items-end justify-between gap-1 h-32">
                           {tableData.map((row, i) => {
-                            const value = metric.getValue(row, i);
-                            const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                            const value = config.getValue(row, i);
+                            const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
                             return (
-                              <div key={row.month || row.period} className="flex items-center gap-2">
-                                <span className="text-xs text-slate-400 w-16 shrink-0">{row.month || row.period}</span>
-                                <div className="flex-1 h-6 bg-slate-700 rounded overflow-hidden">
-                                  <div
-                                    className={`h-full ${metric.color} transition-all duration-300`}
-                                    style={{ width: `${width}%` }}
-                                  />
-                                </div>
-                                <span className="text-xs text-slate-300 w-20 text-right">
-                                  {typeof value === 'number' ? (value >= 1000 ? value.toLocaleString() : value.toFixed(2)) : value}
+                              <div key={row.month || row.period} className="flex flex-col items-center flex-1 h-full">
+                                <span className="text-[10px] text-slate-300 mb-1">
+                                  {typeof value === 'number' ? (value >= 1000 ? (value/1000).toFixed(1)+'k' : value.toFixed(1)) : value}
                                 </span>
+                                <div className="flex-1 w-full flex items-end justify-center">
+                                  <div className={`w-full max-w-8 ${config.color} rounded-t transition-all duration-300`} style={{ height: `${height}%` }} />
+                                </div>
+                                <span className="text-[9px] text-slate-400 mt-1 truncate w-full text-center">{row.month || row.period}</span>
                               </div>
                             );
                           })}
@@ -2112,23 +2028,33 @@ export default function MetricTree() {
 
             {/* Line Chart View */}
             {viewType === 'line' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {(() => {
                   const tableData = getTableData(selectedApp, 'cohortTable');
                   const monData = getTableData(selectedApp, 'monetisationTable');
-                  const metrics = [
-                    { key: 'installs', label: 'Installs', color: '#3b82f6', getValue: (row) => row.installs },
-                    { key: 'dau', label: 'DAU', color: '#a855f7', getValue: (row) => row.dau },
-                    { key: 'd1Retention', label: 'D1 Retention %', color: '#f59e0b', getValue: (row) => row.d1Retention },
-                    { key: 'd7Retention', label: 'D7 Retention %', color: '#f97316', getValue: (row) => row.d7Retention },
-                    { key: 'impressions', label: 'Impressions', color: '#06b6d4', getValue: (row) => row.impressions },
-                    { key: 'ecpm', label: 'eCPM ($)', color: '#10b981', getValue: (row) => row.ecpm },
-                    { key: 'revenue', label: 'Revenue ($)', color: '#22c55e', getValue: (row) => row.revenue },
-                    { key: 'arpdau', label: 'ARPDAU ($)', color: '#14b8a6', getValue: (row, i) => monData[i]?.arpdau || 0 },
-                  ];
-                  return metrics.map(metric => {
-                    const values = tableData.map((row, i) => metric.getValue(row, i));
-                    const maxValue = Math.max(...values);
+                  const engData = getTableData(selectedApp, 'engagementTable');
+
+                  const metricConfigs = {
+                    installs: { color: '#3b82f6', getValue: (row) => row.installs || 0 },
+                    dau: { color: '#a855f7', getValue: (row) => row.dau || 0 },
+                    sessions: { color: '#6366f1', getValue: (row, i) => engData[i]?.avgSessions || 0 },
+                    session_duration: { color: '#8b5cf6', getValue: (row, i) => engData[i]?.avgDuration || 0 },
+                    d1_retention: { color: '#f59e0b', getValue: (row) => row.d1Retention || 0 },
+                    d7_retention: { color: '#f97316', getValue: (row) => row.d7Retention || 0 },
+                    d30_retention: { color: '#ef4444', getValue: (row) => row.d30Retention || 0 },
+                    impressions: { color: '#06b6d4', getValue: (row) => row.impressions || 0 },
+                    impr_per_dau: { color: '#0ea5e9', getValue: (row, i) => monData[i]?.imprPerDau || 0 },
+                    ecpm: { color: '#10b981', getValue: (row) => row.ecpm || 0 },
+                    fill_rate: { color: '#84cc16', getValue: (row, i) => monData[i]?.fillRate || 0 },
+                    arpdau: { color: '#14b8a6', getValue: (row, i) => monData[i]?.arpdau || 0 },
+                    revenue: { color: '#22c55e', getValue: (row) => row.revenue || 0 },
+                  };
+
+                  return selectedMetrics.filter(id => metricConfigs[id]).map(metricId => {
+                    const metric = allMetricsOptions.find(m => m.id === metricId);
+                    const config = metricConfigs[metricId];
+                    const values = tableData.map((row, i) => config.getValue(row, i));
+                    const maxValue = Math.max(...values) || 1;
                     const minValue = Math.min(...values);
                     const range = maxValue - minValue || 1;
                     const points = values.map((v, i) => {
@@ -2136,42 +2062,28 @@ export default function MetricTree() {
                       const y = 80 - ((v - minValue) / range) * 60;
                       return `${x},${y}`;
                     }).join(' ');
+
                     return (
-                      <div key={metric.key} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                        <h4 className="text-sm font-medium text-slate-300 mb-3">{metric.label}</h4>
-                        <svg viewBox="0 0 300 100" className="w-full h-32">
-                          {/* Grid lines */}
+                      <div key={metricId} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                        <h4 className="text-sm font-medium text-slate-300 mb-3">{metric?.name}</h4>
+                        <svg viewBox="0 0 300 100" className="w-full h-28">
                           <line x1="10" y1="20" x2="290" y2="20" stroke="#334155" strokeWidth="0.5" />
                           <line x1="10" y1="50" x2="290" y2="50" stroke="#334155" strokeWidth="0.5" />
                           <line x1="10" y1="80" x2="290" y2="80" stroke="#334155" strokeWidth="0.5" />
-                          {/* Line */}
-                          <polyline
-                            fill="none"
-                            stroke={metric.color}
-                            strokeWidth="2"
-                            points={points}
-                          />
-                          {/* Points */}
+                          <polyline fill="none" stroke={config.color} strokeWidth="2" points={points} />
                           {values.map((v, i) => {
                             const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
                             const y = 80 - ((v - minValue) / range) * 60;
-                            return (
-                              <circle key={i} cx={x} cy={y} r="4" fill={metric.color} />
-                            );
+                            return <circle key={i} cx={x} cy={y} r="3" fill={config.color} />;
                           })}
-                          {/* Labels */}
                           {tableData.map((row, i) => {
                             const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
-                            return (
-                              <text key={i} x={x} y="95" fill="#94a3b8" fontSize="8" textAnchor="middle">
-                                {row.month || row.period}
-                              </text>
-                            );
+                            return <text key={i} x={x} y="95" fill="#94a3b8" fontSize="8" textAnchor="middle">{row.month || row.period}</text>;
                           })}
                         </svg>
-                        <div className="flex justify-between text-xs text-slate-400 mt-2">
-                          <span>Min: {minValue >= 1000 ? minValue.toLocaleString() : minValue.toFixed(2)}</span>
-                          <span>Max: {maxValue >= 1000 ? maxValue.toLocaleString() : maxValue.toFixed(2)}</span>
+                        <div className="flex justify-between text-xs text-slate-400 mt-1">
+                          <span>{minValue >= 1000 ? minValue.toLocaleString() : minValue.toFixed(2)}</span>
+                          <span>{maxValue >= 1000 ? maxValue.toLocaleString() : maxValue.toFixed(2)}</span>
                         </div>
                       </div>
                     );
