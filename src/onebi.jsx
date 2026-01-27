@@ -20,6 +20,44 @@ export default function MetricTree() {
     engagementTable: [],
   });
 
+  // BI Filter States
+  const [filterDateFrom, setFilterDateFrom] = useState('2025-12-01');
+  const [filterDateTo, setFilterDateTo] = useState('2025-12-31');
+  const [filterAppVersion, setFilterAppVersion] = useState('all');
+  const [filterCountry, setFilterCountry] = useState('all');
+  const [breakdownType, setBreakdownType] = useState('month');
+  const [selectedMetrics, setSelectedMetrics] = useState(['dau', 'arpdau', 'revenue', 'd7_retention']);
+  const [showMetricsDropdown, setShowMetricsDropdown] = useState(false);
+
+  // Filter options
+  const appVersions = ['all', '2.4.1', '2.4.0', '2.3.8', '2.3.5', '2.2.0'];
+  const countries = ['all', 'US', 'GB', 'DE', 'FR', 'JP', 'KR', 'BR', 'IN', 'RU'];
+  const breakdownOptions = [
+    { id: 'day', label: 'По дням' },
+    { id: 'week', label: 'По неделям' },
+    { id: 'month', label: 'По месяцам' },
+    { id: 'app_version', label: 'По версии' },
+  ];
+  const allMetricsOptions = [
+    { id: 'dau', name: 'DAU', section: 'engagement' },
+    { id: 'wau', name: 'WAU', section: 'engagement' },
+    { id: 'mau', name: 'MAU', section: 'engagement' },
+    { id: 'arpdau', name: 'ARPDAU', section: 'monetisation' },
+    { id: 'revenue', name: 'Revenue', section: 'monetisation' },
+    { id: 'ecpm', name: 'eCPM', section: 'monetisation' },
+    { id: 'fill_rate', name: 'Fill Rate', section: 'monetisation' },
+    { id: 'impressions', name: 'Impressions', section: 'monetisation' },
+    { id: 'd1_retention', name: 'D1 Retention', section: 'cohort' },
+    { id: 'd7_retention', name: 'D7 Retention', section: 'cohort' },
+    { id: 'd30_retention', name: 'D30 Retention', section: 'cohort' },
+    { id: 'installs', name: 'Installs', section: 'ua' },
+    { id: 'cpi', name: 'CPI', section: 'ua' },
+    { id: 'roas', name: 'ROAS', section: 'ua' },
+    { id: 'ltv', name: 'LTV', section: 'cohort' },
+    { id: 'sessions', name: 'Sessions', section: 'engagement' },
+    { id: 'session_duration', name: 'Session Duration', section: 'engagement' },
+  ];
+
   // Available metrics that can be added to tables
   const availableMetrics = {
     cohortTable: [
@@ -931,9 +969,6 @@ export default function MetricTree() {
 
         <div className="flex justify-center mb-6">
           <div className="bg-slate-800 rounded-xl p-1 flex gap-1">
-            <button onClick={() => setActiveTab('tree')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'tree' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              🌳 Metric Tree
-            </button>
             <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
               📈 Dashboard
             </button>
@@ -945,6 +980,201 @@ export default function MetricTree() {
 
         {activeTab === 'dashboard' && (
           <>
+            {/* BI Filter Panel */}
+            <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">🎛️ Фильтры</span>
+                <div className="flex-1 h-px bg-slate-700"></div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                {/* Date Range */}
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-xs">Период</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={filterDateFrom}
+                      onChange={(e) => setFilterDateFrom(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                    />
+                    <span className="text-slate-500 self-center">—</span>
+                    <input
+                      type="date"
+                      value={filterDateTo}
+                      onChange={(e) => setFilterDateTo(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* App Version */}
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-xs">Версия приложения</label>
+                  <select
+                    value={filterAppVersion}
+                    onChange={(e) => setFilterAppVersion(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="all">Все версии</option>
+                    {appVersions.filter(v => v !== 'all').map(v => (
+                      <option key={v} value={v}>v{v}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Country */}
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-xs">Страна</label>
+                  <select
+                    value={filterCountry}
+                    onChange={(e) => setFilterCountry(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="all">Все страны</option>
+                    {countries.filter(c => c !== 'all').map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quick Date Presets */}
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-xs">Быстрый выбор</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {[
+                      { label: '7д', from: '2025-12-25', to: '2025-12-31' },
+                      { label: '14д', from: '2025-12-18', to: '2025-12-31' },
+                      { label: '30д', from: '2025-12-01', to: '2025-12-31' },
+                      { label: '90д', from: '2025-10-01', to: '2025-12-31' },
+                    ].map(preset => (
+                      <button
+                        key={preset.label}
+                        onClick={() => { setFilterDateFrom(preset.from); setFilterDateTo(preset.to); }}
+                        className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs text-slate-300"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Breakdown & Metrics Row */}
+              <div className="flex items-center gap-2 pt-3 border-t border-slate-700">
+                <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">📊 Разбивка</span>
+                <div className="flex-1 h-px bg-slate-700"></div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                {/* Breakdown Type */}
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-xs">Группировка данных</label>
+                  <div className="flex gap-1 flex-wrap">
+                    {breakdownOptions.map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setBreakdownType(opt.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                          breakdownType === opt.id 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Metrics Selector */}
+                <div className="space-y-1">
+                  <label className="text-slate-400 text-xs">Метрики</label>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowMetricsDropdown(!showMetricsDropdown)}
+                      className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-left text-white focus:border-blue-500 focus:outline-none flex justify-between items-center"
+                    >
+                      <span className="truncate">
+                        {selectedMetrics.length === 0 
+                          ? 'Выберите метрики...' 
+                          : `${selectedMetrics.length} метрик выбрано`}
+                      </span>
+                      <span className="text-slate-400">{showMetricsDropdown ? '▲' : '▼'}</span>
+                    </button>
+                    
+                    {showMetricsDropdown && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                        <div className="p-2 border-b border-slate-700 flex justify-between">
+                          <span className="text-xs text-slate-400">Выберите метрики</span>
+                          <button 
+                            onClick={() => setSelectedMetrics([])}
+                            className="text-xs text-red-400 hover:text-red-300"
+                          >
+                            Очистить
+                          </button>
+                        </div>
+                        {['engagement', 'monetisation', 'cohort', 'ua'].map(section => (
+                          <div key={section} className="p-2">
+                            <div className="text-xs text-slate-500 uppercase mb-1">{section}</div>
+                            {allMetricsOptions.filter(m => m.section === section).map(metric => (
+                              <label 
+                                key={metric.id} 
+                                className="flex items-center gap-2 px-2 py-1 hover:bg-slate-800 rounded cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedMetrics.includes(metric.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedMetrics([...selectedMetrics, metric.id]);
+                                    } else {
+                                      setSelectedMetrics(selectedMetrics.filter(m => m !== metric.id));
+                                    }
+                                  }}
+                                  className="rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-white">{metric.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Applied Filters Summary */}
+              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-700">
+                <span className="text-slate-500 text-xs">Применено:</span>
+                <div className="flex gap-2 flex-wrap">
+                  <span className="bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded text-xs">
+                    {filterDateFrom} — {filterDateTo}
+                  </span>
+                  {filterAppVersion !== 'all' && (
+                    <span className="bg-emerald-600/20 text-emerald-400 px-2 py-0.5 rounded text-xs flex items-center gap-1">
+                      v{filterAppVersion}
+                      <button onClick={() => setFilterAppVersion('all')} className="hover:text-white">×</button>
+                    </span>
+                  )}
+                  {filterCountry !== 'all' && (
+                    <span className="bg-amber-600/20 text-amber-400 px-2 py-0.5 rounded text-xs flex items-center gap-1">
+                      {filterCountry}
+                      <button onClick={() => setFilterCountry('all')} className="hover:text-white">×</button>
+                    </span>
+                  )}
+                  <span className="bg-purple-600/20 text-purple-400 px-2 py-0.5 rounded text-xs">
+                    {breakdownOptions.find(b => b.id === breakdownType)?.label}
+                  </span>
+                </div>
+                <div className="flex-1"></div>
+                <button className="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg text-xs font-medium">
+                  Применить
+                </button>
+              </div>
+            </div>
+
             <div className="flex justify-center gap-2 mb-6 flex-wrap">
               {apps.map(app => (
                 <button
@@ -1889,15 +2119,6 @@ export default function MetricTree() {
               </div>
             )}
           </>
-        )}
-
-        {activeTab === 'tree' && (
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 overflow-x-auto">
-            <p className="text-slate-400 text-sm mb-6 text-center">Кликните на карточку для раскрытия детализации. Роль указана внизу каждой карточки.</p>
-            <div className="flex justify-center min-w-max pb-4">
-              <TreeNode node={treeData} />
-            </div>
-          </div>
         )}
 
         {activeTab === 'glossary' && (
