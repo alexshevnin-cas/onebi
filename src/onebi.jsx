@@ -25,12 +25,14 @@ export default function MetricTree() {
   const [filterDateFrom, setFilterDateFrom] = useState('2025-12-01');
   const [filterDateTo, setFilterDateTo] = useState('2025-12-31');
   const [filterAppVersion, setFilterAppVersion] = useState('all');
+  const [filterSdkVersion, setFilterSdkVersion] = useState('all');
   const [filterCountry, setFilterCountry] = useState('all');
   const [breakdownType, setBreakdownType] = useState('month');
-  const [selectedMetrics, setSelectedMetrics] = useState(['installs', 'dau', 'sessions', 'session_duration', 'd1_retention', 'd7_retention', 'impressions', 'impr_per_dau', 'ecpm', 'fill_rate', 'arpdau', 'revenue']);
+  const [selectedMetrics, setSelectedMetrics] = useState(['dau', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']);
   const [showMetricsDropdown, setShowMetricsDropdown] = useState(false);
   const [activeFilters, setActiveFilters] = useState(['app']); // по умолчанию только приложение
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [openFilterValue, setOpenFilterValue] = useState(null); // какой фильтр сейчас раскрыт для выбора значения
   const [activeBreakdowns, setActiveBreakdowns] = useState([]); // активные разбивки
   const [showBreakdownDropdown, setShowBreakdownDropdown] = useState(false);
   const [showMetricAddDropdown, setShowMetricAddDropdown] = useState(false);
@@ -68,18 +70,20 @@ export default function MetricTree() {
     { id: 'app', label: 'Приложение' },
     { id: 'period', label: 'Период' },
     { id: 'appVersion', label: 'Версия приложения' },
+    { id: 'sdkVersion', label: 'Версия SDK' },
     { id: 'country', label: 'Страна' },
+  ];
+
+  // Доступные разбивки
+  const availableBreakdowns = [
+    { id: 'appVersion', label: 'По версии приложения' },
+    { id: 'sdkVersion', label: 'По версии SDK' },
   ];
 
   // Filter options
   const appVersions = ['all', '2.4.1', '2.4.0', '2.3.8', '2.3.5', '2.2.0'];
+  const sdkVersionsFilter = ['all', '4.5.4', '4.5.2', '4.4.8', '4.4.5', '4.3.0'];
   const countries = ['all', 'US', 'GB', 'DE', 'FR', 'JP', 'KR', 'BR', 'IN', 'RU'];
-  const breakdownOptions = [
-    { id: 'day', label: 'По дням' },
-    { id: 'week', label: 'По неделям' },
-    { id: 'month', label: 'По месяцам' },
-    { id: 'app_version', label: 'По версии' },
-  ];
   const allMetricsOptions = [
     { id: 'installs', name: 'Installs', section: 'ua' },
     { id: 'dau', name: 'DAU', section: 'engagement' },
@@ -291,6 +295,118 @@ export default function MetricTree() {
   };
 
   // Helper to get data based on period type
+  // Версии приложений для разбивки
+  const appVersionsList = {
+    puzzle: ['2.4.1', '2.4.0', '2.3.8'],
+    idle: ['1.8.0', '1.7.5', '1.6.0'],
+    stack: ['3.2.1', '3.1.8', '3.0.0'],
+    merge: ['1.2.0', '1.1.5', '1.0.8'],
+    clevel: ['Portfolio'],
+  };
+
+  const versionColors = {
+    '2.4.1': '#3b82f6', '2.4.0': '#8b5cf6', '2.3.8': '#ec4899',
+    '1.8.0': '#3b82f6', '1.7.5': '#8b5cf6', '1.6.0': '#ec4899',
+    '3.2.1': '#3b82f6', '3.1.8': '#8b5cf6', '3.0.0': '#ec4899',
+    '1.2.0': '#3b82f6', '1.1.5': '#8b5cf6', '1.0.8': '#ec4899',
+    'Portfolio': '#3b82f6',
+  };
+
+  // Версии CAS SDK для разбивки
+  const sdkVersionsList = ['4.5.4', '4.5.2', '4.4.8'];
+
+  const sdkVersionColors = {
+    '4.5.4': '#10b981',
+    '4.5.2': '#f59e0b',
+    '4.4.8': '#ef4444',
+  };
+
+  // Генерация данных с разбивкой по версиям приложения
+  const expandByVersion = (data, app) => {
+    const versions = appVersionsList[app] || [];
+    if (versions.length === 0) return data;
+
+    const expanded = [];
+    data.forEach(row => {
+      versions.forEach((version, vIdx) => {
+        const factor = vIdx === 0 ? 0.55 : vIdx === 1 ? 0.30 : 0.15;
+        expanded.push({
+          ...row,
+          month: row.month || row.period,
+          period: row.month || row.period,
+          appVersion: version,
+          installs: Math.round((row.installs || 0) * factor),
+          dau: Math.round((row.dau || 0) * factor),
+          wau: Math.round((row.wau || 0) * factor),
+          mau: Math.round((row.mau || 0) * factor),
+          impressions: Math.round((row.impressions || 0) * factor),
+          revenue: (row.revenue || 0) * factor,
+          d1Retention: row.d1Retention ? +(row.d1Retention * (1 + (0.05 - vIdx * 0.03))).toFixed(1) : null,
+          d7Retention: row.d7Retention ? +(row.d7Retention * (1 + (0.05 - vIdx * 0.03))).toFixed(1) : null,
+          d30Retention: row.d30Retention ? +(row.d30Retention * (1 + (0.05 - vIdx * 0.03))).toFixed(1) : null,
+          ecpm: row.ecpm ? +(row.ecpm * (1 + (0.08 - vIdx * 0.04))).toFixed(2) : null,
+          ltv: row.ltv ? +(row.ltv * (1 + (0.06 - vIdx * 0.03))).toFixed(2) : null,
+          arpdau: row.arpdau ? +(row.arpdau * (1 + (0.06 - vIdx * 0.03))).toFixed(4) : null,
+          cpi: row.cpi ? +(row.cpi * (1 - (0.05 - vIdx * 0.02))).toFixed(3) : null,
+          roas: row.roas ? Math.round(row.roas * (1 + (0.08 - vIdx * 0.04))) : null,
+        });
+      });
+    });
+    return expanded;
+  };
+
+  // Генерация данных с разбивкой по версиям SDK
+  const expandBySdkVersion = (data) => {
+    const expanded = [];
+    data.forEach(row => {
+      sdkVersionsList.forEach((sdkVersion, vIdx) => {
+        // Коэффициенты: новый SDK = лучше метрики, больше пользователей
+        const userFactor = vIdx === 0 ? 0.50 : vIdx === 1 ? 0.35 : 0.15;
+        const perfFactor = 1 + (0.10 - vIdx * 0.05); // SDK влияет на производительность
+        expanded.push({
+          ...row,
+          month: row.month || row.period,
+          period: row.month || row.period,
+          sdkVersion: sdkVersion,
+          installs: Math.round((row.installs || 0) * userFactor),
+          dau: Math.round((row.dau || 0) * userFactor),
+          wau: Math.round((row.wau || 0) * userFactor),
+          mau: Math.round((row.mau || 0) * userFactor),
+          impressions: Math.round((row.impressions || 0) * userFactor * perfFactor),
+          revenue: +((row.revenue || 0) * userFactor * perfFactor).toFixed(2),
+          d1Retention: row.d1Retention ? +(row.d1Retention * perfFactor).toFixed(1) : null,
+          d7Retention: row.d7Retention ? +(row.d7Retention * perfFactor).toFixed(1) : null,
+          d30Retention: row.d30Retention ? +(row.d30Retention * perfFactor).toFixed(1) : null,
+          ecpm: row.ecpm ? +(row.ecpm * perfFactor).toFixed(2) : null,
+          ltv: row.ltv ? +(row.ltv * perfFactor).toFixed(2) : null,
+          arpdau: row.arpdau ? +(row.arpdau * perfFactor).toFixed(4) : null,
+          cpi: row.cpi ? +(row.cpi * (1 / perfFactor)).toFixed(3) : null,
+          roas: row.roas ? Math.round(row.roas * perfFactor) : null,
+        });
+      });
+    });
+    return expanded;
+  };
+
+  // Переключатели разбивки (взаимоисключающие)
+  const toggleAppVersionBreakdown = () => {
+    if (!breakdownByAppVersion) {
+      setBreakdownByAppVersion(true);
+      setBreakdownByCasVersion(false);
+    } else {
+      setBreakdownByAppVersion(false);
+    }
+  };
+
+  const toggleSdkVersionBreakdown = () => {
+    if (!breakdownByCasVersion) {
+      setBreakdownByCasVersion(true);
+      setBreakdownByAppVersion(false);
+    } else {
+      setBreakdownByCasVersion(false);
+    }
+  };
+
   const getTableData = (app, tableName) => {
     const appData = dashboardData[app];
     if (!appData) return [];
@@ -302,10 +418,20 @@ export default function MetricTree() {
       data = appData[tableName] || [];
     }
 
-    // Фильтр по периоду: 1m = 1 запись, 3m = 3 записи
+    // Фильтр по периоду: 1m = 1 запись, 3m = 3 записи, 6m = 6 записей
     if (activeFilters.includes('period')) {
-      const limit = periodRange === '1m' ? 1 : 3;
-      return data.slice(0, limit);
+      const limit = periodRange === '1m' ? 1 : periodRange === '3m' ? 3 : 6;
+      data = data.slice(0, limit);
+    }
+
+    // Разбивка по версии приложения
+    if (breakdownByAppVersion && tableName === 'cohortTable') {
+      return expandByVersion(data, app);
+    }
+
+    // Разбивка по версии SDK
+    if (breakdownByCasVersion && tableName === 'cohortTable') {
+      return expandBySdkVersion(data);
     }
 
     return data;
@@ -319,24 +445,40 @@ export default function MetricTree() {
       current: { dau: 890000, arpdau: 0.054, retention_d7: 28, ltv: 0.42, roas: 145 },
       previous: { dau: 795000, arpdau: 0.051, retention_d7: 26, ltv: 0.38, roas: 132 },
       cohortTable: [
-        { month: 'October 2025', installs: 45200, dau: 125600, d1Retention: 42.1, d7Retention: 26.8, impressions: 892000, clicks: 4280, ctr: 0.48, ecpm: 4.8500, revenue: 4326.20 },
-        { month: 'November 2025', installs: 52800, dau: 148200, d1Retention: 43.5, d7Retention: 27.4, impressions: 1124000, clicks: 5620, ctr: 0.50, ecpm: 5.1200, revenue: 5754.88 },
-        { month: 'December 2025', installs: 61400, dau: 168500, d1Retention: 44.2, d7Retention: 28.1, impressions: 1356000, clicks: 7120, ctr: 0.52, ecpm: 5.3800, revenue: 7295.28 },
+        { month: 'January 2026', installs: 68200, dau: 185400, wau: 462000, mau: 1320000, d1Retention: 45.1, d7Retention: 28.9, d30Retention: 14.5, impressions: 1520000, clicks: 8210, ctr: 0.54, ecpm: 5.6200, revenue: 8542.40, ltv: 0.44, cpi: 0.064, roas: 152 },
+        { month: 'December 2025', installs: 61400, dau: 168500, wau: 420000, mau: 1200000, d1Retention: 44.2, d7Retention: 28.1, d30Retention: 13.8, impressions: 1356000, clicks: 7120, ctr: 0.52, ecpm: 5.3800, revenue: 7295.28, ltv: 0.42, cpi: 0.065, roas: 145 },
+        { month: 'November 2025', installs: 52800, dau: 148200, wau: 368000, mau: 1050000, d1Retention: 43.5, d7Retention: 27.4, d30Retention: 13.1, impressions: 1124000, clicks: 5620, ctr: 0.50, ecpm: 5.1200, revenue: 5754.88, ltv: 0.40, cpi: 0.065, roas: 135 },
+        { month: 'October 2025', installs: 45200, dau: 125600, wau: 312000, mau: 890000, d1Retention: 42.1, d7Retention: 26.8, d30Retention: 12.4, impressions: 892000, clicks: 4280, ctr: 0.48, ecpm: 4.8500, revenue: 4326.20, ltv: 0.38, cpi: 0.066, roas: 128 },
+        { month: 'September 2025', installs: 38500, dau: 108400, wau: 268000, mau: 765000, d1Retention: 41.2, d7Retention: 25.9, d30Retention: 11.8, impressions: 756000, clicks: 3480, ctr: 0.46, ecpm: 4.5200, revenue: 3417.12, ltv: 0.35, cpi: 0.068, roas: 118 },
+        { month: 'August 2025', installs: 32100, dau: 92800, wau: 228000, mau: 652000, d1Retention: 40.5, d7Retention: 25.2, d30Retention: 11.2, impressions: 628000, clicks: 2760, ctr: 0.44, ecpm: 4.2800, revenue: 2687.84, ltv: 0.32, cpi: 0.070, roas: 108 },
+        { month: 'July 2025', installs: 26800, dau: 78200, wau: 195000, mau: 553000, d1Retention: 39.8, d7Retention: 24.6, d30Retention: 10.8, impressions: 532000, clicks: 2280, ctr: 0.43, ecpm: 4.0200, revenue: 2138.64, ltv: 0.29, cpi: 0.072, roas: 98 },
       ],
       monetisationTable: [
-        { month: 'October 2025', adRevenue: 4326, arpdau: 0.0344, imprPerDau: 7.1, imprBanner: 2.8, imprInter: 1.2, imprReward: 0.8, ecpm: 4.85, fillRate: 94.2 },
-        { month: 'November 2025', adRevenue: 5755, arpdau: 0.0388, imprPerDau: 7.6, imprBanner: 3.0, imprInter: 1.4, imprReward: 0.9, ecpm: 5.12, fillRate: 95.1 },
+        { month: 'January 2026', adRevenue: 8542, arpdau: 0.0461, imprPerDau: 8.2, imprBanner: 3.4, imprInter: 1.6, imprReward: 1.1, ecpm: 5.62, fillRate: 97.1 },
         { month: 'December 2025', adRevenue: 7295, arpdau: 0.0433, imprPerDau: 8.0, imprBanner: 3.2, imprInter: 1.5, imprReward: 1.0, ecpm: 5.38, fillRate: 96.3 },
+        { month: 'November 2025', adRevenue: 5755, arpdau: 0.0388, imprPerDau: 7.6, imprBanner: 3.0, imprInter: 1.4, imprReward: 0.9, ecpm: 5.12, fillRate: 95.1 },
+        { month: 'October 2025', adRevenue: 4326, arpdau: 0.0344, imprPerDau: 7.1, imprBanner: 2.8, imprInter: 1.2, imprReward: 0.8, ecpm: 4.85, fillRate: 94.2 },
+        { month: 'September 2025', adRevenue: 3417, arpdau: 0.0315, imprPerDau: 6.8, imprBanner: 2.6, imprInter: 1.1, imprReward: 0.7, ecpm: 4.52, fillRate: 93.5 },
+        { month: 'August 2025', adRevenue: 2688, arpdau: 0.0290, imprPerDau: 6.5, imprBanner: 2.4, imprInter: 1.0, imprReward: 0.6, ecpm: 4.28, fillRate: 92.8 },
+        { month: 'July 2025', adRevenue: 2139, arpdau: 0.0273, imprPerDau: 6.8, imprBanner: 2.5, imprInter: 1.0, imprReward: 0.5, ecpm: 4.02, fillRate: 92.1 },
       ],
       uaTable: [
-        { month: 'October 2025', uaCost: 2980, installs: 45200, cpi: 0.066, organic: 12400, paid: 32800, roasD7: 128, roasD30: 145, payback: 18 },
-        { month: 'November 2025', uaCost: 3420, installs: 52800, cpi: 0.065, organic: 14200, paid: 38600, roasD7: 135, roasD30: 168, payback: 16 },
+        { month: 'January 2026', uaCost: 4368, installs: 68200, cpi: 0.064, organic: 18600, paid: 49600, roasD7: 148, roasD30: 196, payback: 13 },
         { month: 'December 2025', uaCost: 3980, installs: 61400, cpi: 0.065, organic: 16800, paid: 44600, roasD7: 142, roasD30: 183, payback: 14 },
+        { month: 'November 2025', uaCost: 3420, installs: 52800, cpi: 0.065, organic: 14200, paid: 38600, roasD7: 135, roasD30: 168, payback: 16 },
+        { month: 'October 2025', uaCost: 2980, installs: 45200, cpi: 0.066, organic: 12400, paid: 32800, roasD7: 128, roasD30: 145, payback: 18 },
+        { month: 'September 2025', uaCost: 2618, installs: 38500, cpi: 0.068, organic: 10800, paid: 27700, roasD7: 118, roasD30: 132, payback: 20 },
+        { month: 'August 2025', uaCost: 2247, installs: 32100, cpi: 0.070, organic: 9200, paid: 22900, roasD7: 108, roasD30: 118, payback: 23 },
+        { month: 'July 2025', uaCost: 1928, installs: 26800, cpi: 0.072, organic: 7700, paid: 19100, roasD7: 98, roasD30: 108, payback: 26 },
       ],
       engagementTable: [
-        { month: 'October 2025', dau: 125600, avgSessions: 3.2, avgDuration: 8.4, davDau: 78.2, pauConversion: 2.1 },
-        { month: 'November 2025', dau: 148200, avgSessions: 3.4, avgDuration: 8.8, davDau: 80.5, pauConversion: 2.3 },
+        { month: 'January 2026', dau: 185400, avgSessions: 3.6, avgDuration: 9.5, davDau: 83.8, pauConversion: 2.5 },
         { month: 'December 2025', dau: 168500, avgSessions: 3.5, avgDuration: 9.2, davDau: 82.1, pauConversion: 2.4 },
+        { month: 'November 2025', dau: 148200, avgSessions: 3.4, avgDuration: 8.8, davDau: 80.5, pauConversion: 2.3 },
+        { month: 'October 2025', dau: 125600, avgSessions: 3.2, avgDuration: 8.4, davDau: 78.2, pauConversion: 2.1 },
+        { month: 'September 2025', dau: 108400, avgSessions: 3.1, avgDuration: 8.1, davDau: 76.5, pauConversion: 2.0 },
+        { month: 'August 2025', dau: 92800, avgSessions: 3.0, avgDuration: 7.8, davDau: 74.8, pauConversion: 1.9 },
+        { month: 'July 2025', dau: 78200, avgSessions: 2.9, avgDuration: 7.5, davDau: 73.2, pauConversion: 1.8 },
       ],
       networksTable: [
         { network: 'AppLovin', revenue: 2335, impressions: 449000, ecpm: 5.20, fillRate: 98.2, sov: 32, winRate: 38, latency: 145 },
@@ -356,24 +498,40 @@ export default function MetricTree() {
       current: { dau: 520000, arpdau: 0.075, retention_d7: 32, ltv: 0.58, roas: 168 },
       previous: { dau: 433000, arpdau: 0.072, retention_d7: 30, ltv: 0.52, roas: 155 },
       cohortTable: [
-        { month: 'October 2025', installs: 28400, dau: 78200, d1Retention: 46.2, d7Retention: 29.5, impressions: 624000, clicks: 3120, ctr: 0.50, ecpm: 6.2400, revenue: 3893.76 },
-        { month: 'November 2025', installs: 34600, dau: 95400, d1Retention: 47.8, d7Retention: 30.8, impressions: 812000, clicks: 4220, ctr: 0.52, ecpm: 6.8500, revenue: 5562.20 },
-        { month: 'December 2025', installs: 41200, dau: 112800, d1Retention: 48.5, d7Retention: 32.1, impressions: 1028000, clicks: 5540, ctr: 0.54, ecpm: 7.2100, revenue: 7411.88 },
+        { month: 'January 2026', installs: 48500, dau: 128600, wau: 321000, mau: 858000, d1Retention: 49.2, d7Retention: 33.2, d30Retention: 18.4, impressions: 1215000, clicks: 6680, ctr: 0.55, ecpm: 7.5800, revenue: 9209.70, ltv: 0.61, cpi: 0.076, roas: 178 },
+        { month: 'December 2025', installs: 41200, dau: 112800, wau: 282000, mau: 752000, d1Retention: 48.5, d7Retention: 32.1, d30Retention: 17.6, impressions: 1028000, clicks: 5540, ctr: 0.54, ecpm: 7.2100, revenue: 7411.88, ltv: 0.58, cpi: 0.078, roas: 168 },
+        { month: 'November 2025', installs: 34600, dau: 95400, wau: 238000, mau: 634000, d1Retention: 47.8, d7Retention: 30.8, d30Retention: 16.4, impressions: 812000, clicks: 4220, ctr: 0.52, ecpm: 6.8500, revenue: 5562.20, ltv: 0.55, cpi: 0.080, roas: 158 },
+        { month: 'October 2025', installs: 28400, dau: 78200, wau: 195000, mau: 520000, d1Retention: 46.2, d7Retention: 29.5, d30Retention: 15.2, impressions: 624000, clicks: 3120, ctr: 0.50, ecpm: 6.2400, revenue: 3893.76, ltv: 0.52, cpi: 0.082, roas: 142 },
+        { month: 'September 2025', installs: 23200, dau: 64500, wau: 160000, mau: 428000, d1Retention: 45.1, d7Retention: 28.2, d30Retention: 14.1, impressions: 498000, clicks: 2390, ctr: 0.48, ecpm: 5.8200, revenue: 2898.36, ltv: 0.48, cpi: 0.085, roas: 128 },
+        { month: 'August 2025', installs: 18800, dau: 52100, wau: 128000, mau: 345000, d1Retention: 44.2, d7Retention: 27.1, d30Retention: 13.2, impressions: 392000, clicks: 1820, ctr: 0.46, ecpm: 5.4500, revenue: 2136.40, ltv: 0.44, cpi: 0.088, roas: 115 },
+        { month: 'July 2025', installs: 15600, dau: 43400, wau: 108000, mau: 289000, d1Retention: 43.2, d7Retention: 26.1, d30Retention: 12.4, impressions: 328000, clicks: 1480, ctr: 0.45, ecpm: 5.1200, revenue: 1680.96, ltv: 0.40, cpi: 0.091, roas: 105 },
       ],
       monetisationTable: [
-        { month: 'October 2025', adRevenue: 3894, arpdau: 0.0498, imprPerDau: 8.0, imprBanner: 3.2, imprInter: 1.8, imprReward: 1.2, ecpm: 6.24, fillRate: 92.8 },
-        { month: 'November 2025', adRevenue: 5562, arpdau: 0.0583, imprPerDau: 8.5, imprBanner: 3.4, imprInter: 2.0, imprReward: 1.4, ecpm: 6.85, fillRate: 93.5 },
+        { month: 'January 2026', adRevenue: 9210, arpdau: 0.0716, imprPerDau: 9.4, imprBanner: 3.8, imprInter: 2.4, imprReward: 1.6, ecpm: 7.58, fillRate: 94.8 },
         { month: 'December 2025', adRevenue: 7412, arpdau: 0.0657, imprPerDau: 9.1, imprBanner: 3.6, imprInter: 2.2, imprReward: 1.5, ecpm: 7.21, fillRate: 94.2 },
+        { month: 'November 2025', adRevenue: 5562, arpdau: 0.0583, imprPerDau: 8.5, imprBanner: 3.4, imprInter: 2.0, imprReward: 1.4, ecpm: 6.85, fillRate: 93.5 },
+        { month: 'October 2025', adRevenue: 3894, arpdau: 0.0498, imprPerDau: 8.0, imprBanner: 3.2, imprInter: 1.8, imprReward: 1.2, ecpm: 6.24, fillRate: 92.8 },
+        { month: 'September 2025', adRevenue: 2898, arpdau: 0.0449, imprPerDau: 7.5, imprBanner: 3.0, imprInter: 1.6, imprReward: 1.1, ecpm: 5.82, fillRate: 92.1 },
+        { month: 'August 2025', adRevenue: 2136, arpdau: 0.0410, imprPerDau: 7.2, imprBanner: 2.8, imprInter: 1.5, imprReward: 1.0, ecpm: 5.45, fillRate: 91.4 },
+        { month: 'July 2025', adRevenue: 1681, arpdau: 0.0388, imprPerDau: 7.5, imprBanner: 2.9, imprInter: 1.5, imprReward: 0.9, ecpm: 5.12, fillRate: 90.8 },
       ],
       uaTable: [
-        { month: 'October 2025', uaCost: 2320, installs: 28400, cpi: 0.082, organic: 8200, paid: 20200, roasD7: 142, roasD30: 168, payback: 15 },
-        { month: 'November 2025', uaCost: 2768, installs: 34600, cpi: 0.080, organic: 9800, paid: 24800, roasD7: 158, roasD30: 185, payback: 13 },
+        { month: 'January 2026', uaCost: 3686, installs: 48500, cpi: 0.076, organic: 13200, paid: 35300, roasD7: 178, roasD30: 215, payback: 11 },
         { month: 'December 2025', uaCost: 3214, installs: 41200, cpi: 0.078, organic: 11400, paid: 29800, roasD7: 168, roasD30: 198, payback: 12 },
+        { month: 'November 2025', uaCost: 2768, installs: 34600, cpi: 0.080, organic: 9800, paid: 24800, roasD7: 158, roasD30: 185, payback: 13 },
+        { month: 'October 2025', uaCost: 2320, installs: 28400, cpi: 0.082, organic: 8200, paid: 20200, roasD7: 142, roasD30: 168, payback: 15 },
+        { month: 'September 2025', uaCost: 1972, installs: 23200, cpi: 0.085, organic: 6800, paid: 16400, roasD7: 128, roasD30: 148, payback: 17 },
+        { month: 'August 2025', uaCost: 1654, installs: 18800, cpi: 0.088, organic: 5600, paid: 13200, roasD7: 115, roasD30: 132, payback: 19 },
+        { month: 'July 2025', uaCost: 1420, installs: 15600, cpi: 0.091, organic: 4700, paid: 10900, roasD7: 105, roasD30: 122, payback: 21 },
       ],
       engagementTable: [
-        { month: 'October 2025', dau: 78200, avgSessions: 4.1, avgDuration: 12.5, davDau: 85.2, pauConversion: 3.8 },
-        { month: 'November 2025', dau: 95400, avgSessions: 4.3, avgDuration: 13.2, davDau: 86.8, pauConversion: 4.1 },
+        { month: 'January 2026', dau: 128600, avgSessions: 4.6, avgDuration: 14.5, davDau: 89.5, pauConversion: 4.6 },
         { month: 'December 2025', dau: 112800, avgSessions: 4.5, avgDuration: 14.0, davDau: 88.2, pauConversion: 4.4 },
+        { month: 'November 2025', dau: 95400, avgSessions: 4.3, avgDuration: 13.2, davDau: 86.8, pauConversion: 4.1 },
+        { month: 'October 2025', dau: 78200, avgSessions: 4.1, avgDuration: 12.5, davDau: 85.2, pauConversion: 3.8 },
+        { month: 'September 2025', dau: 64500, avgSessions: 3.9, avgDuration: 11.8, davDau: 83.6, pauConversion: 3.5 },
+        { month: 'August 2025', dau: 52100, avgSessions: 3.8, avgDuration: 11.2, davDau: 82.1, pauConversion: 3.2 },
+        { month: 'July 2025', dau: 43400, avgSessions: 3.7, avgDuration: 10.8, davDau: 80.8, pauConversion: 3.0 },
       ],
       networksTable: [
         { network: 'AppLovin', revenue: 2890, impressions: 401400, ecpm: 7.20, fillRate: 97.5, sov: 35, winRate: 42, latency: 142 },
@@ -393,24 +551,40 @@ export default function MetricTree() {
       current: { dau: 2100000, arpdau: 0.034, retention_d7: 18, ltv: 0.22, roas: 128 },
       previous: { dau: 1615000, arpdau: 0.032, retention_d7: 16, ltv: 0.19, roas: 112 },
       cohortTable: [
-        { month: 'October 2025', installs: 185000, dau: 420000, d1Retention: 32.4, d7Retention: 14.8, impressions: 2940000, clicks: 11760, ctr: 0.40, ecpm: 2.8500, revenue: 8379.00 },
-        { month: 'November 2025', installs: 224000, dau: 518000, d1Retention: 33.8, d7Retention: 15.9, impressions: 3885000, clicks: 15540, ctr: 0.40, ecpm: 3.1200, revenue: 12121.20 },
-        { month: 'December 2025', installs: 268000, dau: 645000, d1Retention: 35.2, d7Retention: 17.2, impressions: 5160000, clicks: 21672, ctr: 0.42, ecpm: 3.3800, revenue: 17440.80 },
+        { month: 'January 2026', installs: 312000, dau: 782000, wau: 1955000, mau: 3910000, d1Retention: 36.4, d7Retention: 18.5, d30Retention: 8.8, impressions: 6420000, clicks: 27540, ctr: 0.43, ecpm: 3.5800, revenue: 22983.60, ltv: 0.24, cpi: 0.032, roas: 138 },
+        { month: 'December 2025', installs: 268000, dau: 645000, wau: 1612000, mau: 3225000, d1Retention: 35.2, d7Retention: 17.2, d30Retention: 8.0, impressions: 5160000, clicks: 21672, ctr: 0.42, ecpm: 3.3800, revenue: 17440.80, ltv: 0.22, cpi: 0.033, roas: 128 },
+        { month: 'November 2025', installs: 224000, dau: 518000, wau: 1295000, mau: 2590000, d1Retention: 33.8, d7Retention: 15.9, d30Retention: 7.1, impressions: 3885000, clicks: 15540, ctr: 0.40, ecpm: 3.1200, revenue: 12121.20, ltv: 0.21, cpi: 0.034, roas: 118 },
+        { month: 'October 2025', installs: 185000, dau: 420000, wau: 1050000, mau: 2100000, d1Retention: 32.4, d7Retention: 14.8, d30Retention: 6.2, impressions: 2940000, clicks: 11760, ctr: 0.40, ecpm: 2.8500, revenue: 8379.00, ltv: 0.19, cpi: 0.035, roas: 108 },
+        { month: 'September 2025', installs: 152000, dau: 345000, wau: 862000, mau: 1724000, d1Retention: 31.2, d7Retention: 13.6, d30Retention: 5.5, impressions: 2280000, clicks: 8890, ctr: 0.39, ecpm: 2.6200, revenue: 5973.60, ltv: 0.17, cpi: 0.036, roas: 98 },
+        { month: 'August 2025', installs: 124000, dau: 278000, wau: 695000, mau: 1390000, d1Retention: 30.1, d7Retention: 12.5, d30Retention: 4.9, impressions: 1752000, clicks: 6660, ctr: 0.38, ecpm: 2.4200, revenue: 4239.84, ltv: 0.15, cpi: 0.038, roas: 88 },
+        { month: 'July 2025', installs: 102000, dau: 228000, wau: 570000, mau: 1140000, d1Retention: 29.2, d7Retention: 11.8, d30Retention: 4.5, impressions: 1432000, clicks: 5424, ctr: 0.38, ecpm: 2.2800, revenue: 3263.36, ltv: 0.14, cpi: 0.039, roas: 78 },
       ],
       monetisationTable: [
-        { month: 'October 2025', adRevenue: 8379, arpdau: 0.0199, imprPerDau: 7.0, imprBanner: 4.2, imprInter: 2.4, imprReward: 0.4, ecpm: 2.85, fillRate: 89.5 },
-        { month: 'November 2025', adRevenue: 12121, arpdau: 0.0234, imprPerDau: 7.5, imprBanner: 4.5, imprInter: 2.6, imprReward: 0.5, ecpm: 3.12, fillRate: 90.8 },
+        { month: 'January 2026', adRevenue: 22984, arpdau: 0.0294, imprPerDau: 8.2, imprBanner: 4.9, imprInter: 2.9, imprReward: 0.7, ecpm: 3.58, fillRate: 91.8 },
         { month: 'December 2025', adRevenue: 17441, arpdau: 0.0270, imprPerDau: 8.0, imprBanner: 4.8, imprInter: 2.8, imprReward: 0.6, ecpm: 3.38, fillRate: 91.2 },
+        { month: 'November 2025', adRevenue: 12121, arpdau: 0.0234, imprPerDau: 7.5, imprBanner: 4.5, imprInter: 2.6, imprReward: 0.5, ecpm: 3.12, fillRate: 90.8 },
+        { month: 'October 2025', adRevenue: 8379, arpdau: 0.0199, imprPerDau: 7.0, imprBanner: 4.2, imprInter: 2.4, imprReward: 0.4, ecpm: 2.85, fillRate: 89.5 },
+        { month: 'September 2025', adRevenue: 5974, arpdau: 0.0173, imprPerDau: 6.6, imprBanner: 4.0, imprInter: 2.2, imprReward: 0.4, ecpm: 2.62, fillRate: 88.8 },
+        { month: 'August 2025', adRevenue: 4240, arpdau: 0.0152, imprPerDau: 6.3, imprBanner: 3.8, imprInter: 2.1, imprReward: 0.3, ecpm: 2.42, fillRate: 88.1 },
+        { month: 'July 2025', adRevenue: 3263, arpdau: 0.0143, imprPerDau: 6.3, imprBanner: 3.8, imprInter: 2.0, imprReward: 0.3, ecpm: 2.28, fillRate: 87.5 },
       ],
       uaTable: [
-        { month: 'October 2025', uaCost: 6475, installs: 185000, cpi: 0.035, organic: 52000, paid: 133000, roasD7: 108, roasD30: 129, payback: 24 },
-        { month: 'November 2025', uaCost: 7616, installs: 224000, cpi: 0.034, organic: 64000, paid: 160000, roasD7: 118, roasD30: 159, payback: 21 },
+        { month: 'January 2026', uaCost: 9984, installs: 312000, cpi: 0.032, organic: 92000, paid: 220000, roasD7: 138, roasD30: 218, payback: 16 },
         { month: 'December 2025', uaCost: 8844, installs: 268000, cpi: 0.033, organic: 78000, paid: 190000, roasD7: 128, roasD30: 197, payback: 18 },
+        { month: 'November 2025', uaCost: 7616, installs: 224000, cpi: 0.034, organic: 64000, paid: 160000, roasD7: 118, roasD30: 159, payback: 21 },
+        { month: 'October 2025', uaCost: 6475, installs: 185000, cpi: 0.035, organic: 52000, paid: 133000, roasD7: 108, roasD30: 129, payback: 24 },
+        { month: 'September 2025', uaCost: 5472, installs: 152000, cpi: 0.036, organic: 42000, paid: 110000, roasD7: 98, roasD30: 112, payback: 27 },
+        { month: 'August 2025', uaCost: 4712, installs: 124000, cpi: 0.038, organic: 34000, paid: 90000, roasD7: 88, roasD30: 98, payback: 30 },
+        { month: 'July 2025', uaCost: 3978, installs: 102000, cpi: 0.039, organic: 28000, paid: 74000, roasD7: 78, roasD30: 88, payback: 33 },
       ],
       engagementTable: [
-        { month: 'October 2025', dau: 420000, avgSessions: 2.4, avgDuration: 4.2, davDau: 92.5, pauConversion: 0.8 },
-        { month: 'November 2025', dau: 518000, avgSessions: 2.5, avgDuration: 4.5, davDau: 93.2, pauConversion: 0.9 },
+        { month: 'January 2026', dau: 782000, avgSessions: 2.7, avgDuration: 5.0, davDau: 94.8, pauConversion: 1.1 },
         { month: 'December 2025', dau: 645000, avgSessions: 2.6, avgDuration: 4.8, davDau: 94.1, pauConversion: 1.0 },
+        { month: 'November 2025', dau: 518000, avgSessions: 2.5, avgDuration: 4.5, davDau: 93.2, pauConversion: 0.9 },
+        { month: 'October 2025', dau: 420000, avgSessions: 2.4, avgDuration: 4.2, davDau: 92.5, pauConversion: 0.8 },
+        { month: 'September 2025', dau: 345000, avgSessions: 2.3, avgDuration: 4.0, davDau: 91.8, pauConversion: 0.7 },
+        { month: 'August 2025', dau: 278000, avgSessions: 2.2, avgDuration: 3.8, davDau: 91.2, pauConversion: 0.6 },
+        { month: 'July 2025', dau: 228000, avgSessions: 2.1, avgDuration: 3.5, davDau: 90.5, pauConversion: 0.5 },
       ],
       networksTable: [
         { network: 'AppLovin', revenue: 5580, impressions: 1548000, ecpm: 3.60, fillRate: 96.8, sov: 30, winRate: 35, latency: 138 },
@@ -430,9 +604,40 @@ export default function MetricTree() {
       current: { dau: 280000, arpdau: 0.136, retention_d7: 38, ltv: 1.24, roas: 195 },
       previous: { dau: 259000, arpdau: 0.128, retention_d7: 35, ltv: 1.08, roas: 172 },
       cohortTable: [
-        { month: 'October 2025', installs: 12800, dau: 52400, d1Retention: 52.4, d7Retention: 34.2, impressions: 418000, clicks: 2926, ctr: 0.70, ecpm: 11.2400, revenue: 4698.32 },
-        { month: 'November 2025', installs: 15400, dau: 64200, d1Retention: 54.1, d7Retention: 35.8, impressions: 545000, clicks: 3978, ctr: 0.73, ecpm: 12.4500, revenue: 6785.25 },
-        { month: 'December 2025', installs: 18200, dau: 78600, d1Retention: 55.8, d7Retention: 37.4, impressions: 692000, clicks: 5190, ctr: 0.75, ecpm: 13.2800, revenue: 9187.76 },
+        { month: 'January 2026', installs: 21400, dau: 94200, wau: 235500, mau: 471000, d1Retention: 57.2, d7Retention: 38.8, d30Retention: 22.5, impressions: 858000, clicks: 6435, ctr: 0.75, ecpm: 14.1200, revenue: 12114.96, ltv: 1.32, cpi: 0.108, roas: 208 },
+        { month: 'December 2025', installs: 18200, dau: 78600, wau: 196500, mau: 393000, d1Retention: 55.8, d7Retention: 37.4, d30Retention: 21.2, impressions: 692000, clicks: 5190, ctr: 0.75, ecpm: 13.2800, revenue: 9187.76, ltv: 1.24, cpi: 0.112, roas: 195 },
+        { month: 'November 2025', installs: 15400, dau: 64200, wau: 160500, mau: 321000, d1Retention: 54.1, d7Retention: 35.8, d30Retention: 19.8, impressions: 545000, clicks: 3978, ctr: 0.73, ecpm: 12.4500, revenue: 6785.25, ltv: 1.16, cpi: 0.118, roas: 184 },
+        { month: 'October 2025', installs: 12800, dau: 52400, wau: 131000, mau: 262000, d1Retention: 52.4, d7Retention: 34.2, d30Retention: 18.5, impressions: 418000, clicks: 2926, ctr: 0.70, ecpm: 11.2400, revenue: 4698.32, ltv: 1.08, cpi: 0.124, roas: 172 },
+        { month: 'September 2025', installs: 10500, dau: 42800, wau: 107000, mau: 214000, d1Retention: 51.1, d7Retention: 32.8, d30Retention: 17.2, impressions: 328000, clicks: 2230, ctr: 0.68, ecpm: 10.4800, revenue: 3437.44, ltv: 0.98, cpi: 0.132, roas: 158 },
+        { month: 'August 2025', installs: 8600, dau: 34800, wau: 87000, mau: 174000, d1Retention: 49.8, d7Retention: 31.5, d30Retention: 16.1, impressions: 258000, clicks: 1720, ctr: 0.67, ecpm: 9.8200, revenue: 2533.56, ltv: 0.88, cpi: 0.142, roas: 145 },
+        { month: 'July 2025', installs: 7200, dau: 29200, wau: 73000, mau: 146000, d1Retention: 48.6, d7Retention: 30.2, d30Retention: 15.1, impressions: 216000, clicks: 1440, ctr: 0.67, ecpm: 9.2400, revenue: 1996.20, ltv: 0.79, cpi: 0.150, roas: 132 },
+      ],
+      monetisationTable: [
+        { month: 'January 2026', adRevenue: 12115, arpdau: 0.1286, imprPerDau: 9.1, imprBanner: 2.2, imprInter: 2.8, imprReward: 2.4, ecpm: 14.12, fillRate: 96.8 },
+        { month: 'December 2025', adRevenue: 9188, arpdau: 0.1169, imprPerDau: 8.8, imprBanner: 2.1, imprInter: 2.6, imprReward: 2.2, ecpm: 13.28, fillRate: 96.2 },
+        { month: 'November 2025', adRevenue: 6785, arpdau: 0.1057, imprPerDau: 8.5, imprBanner: 2.0, imprInter: 2.4, imprReward: 2.0, ecpm: 12.45, fillRate: 95.5 },
+        { month: 'October 2025', adRevenue: 4698, arpdau: 0.0897, imprPerDau: 8.0, imprBanner: 1.9, imprInter: 2.2, imprReward: 1.8, ecpm: 11.24, fillRate: 94.8 },
+        { month: 'September 2025', adRevenue: 3437, arpdau: 0.0803, imprPerDau: 7.7, imprBanner: 1.8, imprInter: 2.0, imprReward: 1.6, ecpm: 10.48, fillRate: 94.1 },
+        { month: 'August 2025', adRevenue: 2534, arpdau: 0.0728, imprPerDau: 7.4, imprBanner: 1.7, imprInter: 1.9, imprReward: 1.5, ecpm: 9.82, fillRate: 93.5 },
+        { month: 'July 2025', adRevenue: 1996, arpdau: 0.0684, imprPerDau: 7.4, imprBanner: 1.8, imprInter: 1.8, imprReward: 1.4, ecpm: 9.24, fillRate: 92.8 },
+      ],
+      engagementTable: [
+        { month: 'January 2026', dau: 94200, avgSessions: 5.8, avgDuration: 22.5, davDau: 92.8, pauConversion: 8.2 },
+        { month: 'December 2025', dau: 78600, avgSessions: 5.6, avgDuration: 21.2, davDau: 91.5, pauConversion: 7.8 },
+        { month: 'November 2025', dau: 64200, avgSessions: 5.4, avgDuration: 19.8, davDau: 90.2, pauConversion: 7.4 },
+        { month: 'October 2025', dau: 52400, avgSessions: 5.2, avgDuration: 18.5, davDau: 88.8, pauConversion: 6.9 },
+        { month: 'September 2025', dau: 42800, avgSessions: 5.0, avgDuration: 17.2, davDau: 87.5, pauConversion: 6.4 },
+        { month: 'August 2025', dau: 34800, avgSessions: 4.8, avgDuration: 16.1, davDau: 86.2, pauConversion: 6.0 },
+        { month: 'July 2025', dau: 29200, avgSessions: 4.7, avgDuration: 15.2, davDau: 85.1, pauConversion: 5.8 },
+      ],
+      uaTable: [
+        { month: 'January 2026', uaCost: 2311, installs: 21400, cpi: 0.108, organic: 5820, paid: 15580, roasD7: 208, roasD30: 272, payback: 9 },
+        { month: 'December 2025', uaCost: 2040, installs: 18200, cpi: 0.112, organic: 4960, paid: 13240, roasD7: 195, roasD30: 251, payback: 10 },
+        { month: 'November 2025', uaCost: 1819, installs: 15400, cpi: 0.118, organic: 4180, paid: 11220, roasD7: 184, roasD30: 228, payback: 11 },
+        { month: 'October 2025', uaCost: 1590, installs: 12800, cpi: 0.124, organic: 3460, paid: 9340, roasD7: 172, roasD30: 205, payback: 12 },
+        { month: 'September 2025', uaCost: 1386, installs: 10500, cpi: 0.132, organic: 2860, paid: 7640, roasD7: 158, roasD30: 185, payback: 13 },
+        { month: 'August 2025', uaCost: 1221, installs: 8600, cpi: 0.142, organic: 2320, paid: 6280, roasD7: 145, roasD30: 162, payback: 15 },
+        { month: 'July 2025', uaCost: 1080, installs: 7200, cpi: 0.150, organic: 1950, paid: 5250, roasD7: 132, roasD30: 148, payback: 17 },
       ]
     },
     clevel: {
@@ -441,9 +646,13 @@ export default function MetricTree() {
       current: { mrr: 2850000, arr: 34200000, apps: 8, totalDau: 3790000, avgArpdau: 0.062, avgRoas: 152 },
       previous: { mrr: 2340000, arr: 28080000, apps: 7, totalDau: 3102000, avgArpdau: 0.058, avgRoas: 138 },
       cohortTable: [
-        { month: 'October 2025', installs: 271400, dau: 676200, d1Retention: 38.2, d7Retention: 22.4, impressions: 4874000, clicks: 22082, ctr: 0.45, ecpm: 4.82, revenue: 23492.68 },
-        { month: 'November 2025', installs: 326800, dau: 825800, d1Retention: 39.8, d7Retention: 23.6, impressions: 6366000, clicks: 29364, ctr: 0.46, ecpm: 5.24, revenue: 33357.84 },
-        { month: 'December 2025', installs: 388800, dau: 1004900, d1Retention: 41.2, d7Retention: 24.8, impressions: 8236000, clicks: 39522, ctr: 0.48, ecpm: 5.68, revenue: 46780.48 },
+        { month: 'January 2026', installs: 450100, dau: 1190400, wau: 2976000, mau: 5952000, d1Retention: 42.5, d7Retention: 25.9, d30Retention: 13.2, impressions: 10013000, clicks: 48562, ctr: 0.49, ecpm: 6.12, revenue: 61279.56, ltv: 0.60, cpi: 0.046, roas: 162 },
+        { month: 'December 2025', installs: 388800, dau: 1004900, wau: 2512250, mau: 5024500, d1Retention: 41.2, d7Retention: 24.8, d30Retention: 12.4, impressions: 8236000, clicks: 39522, ctr: 0.48, ecpm: 5.68, revenue: 46780.48, ltv: 0.56, cpi: 0.048, roas: 152 },
+        { month: 'November 2025', installs: 326800, dau: 825800, wau: 2064500, mau: 4129000, d1Retention: 39.8, d7Retention: 23.6, d30Retention: 11.6, impressions: 6366000, clicks: 29364, ctr: 0.46, ecpm: 5.24, revenue: 33357.84, ltv: 0.52, cpi: 0.050, roas: 145 },
+        { month: 'October 2025', installs: 271400, dau: 676200, wau: 1690500, mau: 3381000, d1Retention: 38.2, d7Retention: 22.4, d30Retention: 10.8, impressions: 4874000, clicks: 22082, ctr: 0.45, ecpm: 4.82, revenue: 23492.68, ltv: 0.48, cpi: 0.052, roas: 138 },
+        { month: 'September 2025', installs: 224200, dau: 560400, wau: 1401000, mau: 2802000, d1Retention: 36.8, d7Retention: 21.2, d30Retention: 10.1, impressions: 3862000, clicks: 17150, ctr: 0.44, ecpm: 4.42, revenue: 17066.04, ltv: 0.44, cpi: 0.055, roas: 128 },
+        { month: 'August 2025', installs: 183500, dau: 457700, wau: 1144250, mau: 2288500, d1Retention: 35.5, d7Retention: 20.1, d30Retention: 9.4, impressions: 3030000, clicks: 13180, ctr: 0.43, ecpm: 4.08, revenue: 12362.40, ltv: 0.40, cpi: 0.058, roas: 118 },
+        { month: 'July 2025', installs: 151200, dau: 378600, wau: 946500, mau: 1893000, d1Retention: 34.5, d7Retention: 19.2, d30Retention: 8.8, impressions: 2476000, clicks: 10728, ctr: 0.43, ecpm: 3.82, revenue: 9457.32, ltv: 0.36, cpi: 0.060, roas: 108 },
       ],
       appsBreakdown: [
         { name: 'Puzzle Game', profit: 320000, dau: 890000, share: 11.2, manager: 'Anton Smirnov' },
@@ -1063,30 +1272,151 @@ export default function MetricTree() {
                 <div className="flex items-start gap-3">
                   <span className="text-slate-500 text-xs font-medium uppercase tracking-wider pt-1.5 shrink-0 w-20">Фильтры</span>
                   <div className="flex flex-wrap gap-2 flex-1">
-                    {/* Active filter chips */}
+                    {/* Active filter chips with clickable dropdowns */}
                     {activeFilters.includes('app') && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {apps.find(a => a.id === selectedApp)?.name}
-                        <button onClick={() => setActiveFilters(activeFilters.filter(f => f !== 'app'))} className="hover:text-emerald-200 ml-0.5">×</button>
-                      </span>
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenFilterValue(openFilterValue === 'app' ? null : 'app')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
+                        >
+                          <span className="text-emerald-600">App:</span>
+                          {apps.find(a => a.id === selectedApp)?.name}
+                          <span className="text-emerald-600">▾</span>
+                        </button>
+                        <button
+                          onClick={() => setActiveFilters(activeFilters.filter(f => f !== 'app'))}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
+                        >×</button>
+                        {openFilterValue === 'app' && (
+                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[160px] max-h-48 overflow-y-auto">
+                            {apps.filter(a => !['clevel', 'rnd'].includes(a.id)).map(app => (
+                              <button
+                                key={app.id}
+                                onClick={() => { setSelectedApp(app.id); setOpenFilterValue(null); }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${selectedApp === app.id ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                              >
+                                {app.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                     {activeFilters.includes('period') && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {periodRange === '1m' ? '1 месяц' : '3 месяца'}
-                        <button onClick={() => setActiveFilters(activeFilters.filter(f => f !== 'period'))} className="hover:text-emerald-200 ml-0.5">×</button>
-                      </span>
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenFilterValue(openFilterValue === 'period' ? null : 'period')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
+                        >
+                          <span className="text-emerald-600">Период:</span>
+                          {periodRange === '1m' ? '1 мес' : periodRange === '3m' ? '3 мес' : '6 мес'}
+                          <span className="text-emerald-600">▾</span>
+                        </button>
+                        <button
+                          onClick={() => setActiveFilters(activeFilters.filter(f => f !== 'period'))}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
+                        >×</button>
+                        {openFilterValue === 'period' && (
+                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[120px]">
+                            {[{ id: '1m', label: '1 месяц' }, { id: '3m', label: '3 месяца' }, { id: '6m', label: '6 месяцев' }].map(p => (
+                              <button
+                                key={p.id}
+                                onClick={() => { setPeriodRange(p.id); setOpenFilterValue(null); }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${periodRange === p.id ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
-                    {activeFilters.includes('appVersion') && filterAppVersion !== 'all' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        v{filterAppVersion}
-                        <button onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'appVersion')); setFilterAppVersion('all'); }} className="hover:text-emerald-200 ml-0.5">×</button>
-                      </span>
+                    {activeFilters.includes('appVersion') && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenFilterValue(openFilterValue === 'appVersion' ? null : 'appVersion')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
+                        >
+                          <span className="text-emerald-600">Версия:</span>
+                          {filterAppVersion === 'all' ? 'Все' : `v${filterAppVersion}`}
+                          <span className="text-emerald-600">▾</span>
+                        </button>
+                        <button
+                          onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'appVersion')); setFilterAppVersion('all'); }}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
+                        >×</button>
+                        {openFilterValue === 'appVersion' && (
+                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[120px] max-h-48 overflow-y-auto">
+                            {appVersions.map(v => (
+                              <button
+                                key={v}
+                                onClick={() => { setFilterAppVersion(v); setOpenFilterValue(null); }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${filterAppVersion === v ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                              >
+                                {v === 'all' ? 'Все версии' : `v${v}`}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
-                    {activeFilters.includes('country') && filterCountry !== 'all' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {filterCountry}
-                        <button onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'country')); setFilterCountry('all'); }} className="hover:text-emerald-200 ml-0.5">×</button>
-                      </span>
+                    {activeFilters.includes('sdkVersion') && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenFilterValue(openFilterValue === 'sdkVersion' ? null : 'sdkVersion')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
+                        >
+                          <span className="text-emerald-600">SDK:</span>
+                          {filterSdkVersion === 'all' ? 'Все' : filterSdkVersion}
+                          <span className="text-emerald-600">▾</span>
+                        </button>
+                        <button
+                          onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'sdkVersion')); setFilterSdkVersion('all'); }}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
+                        >×</button>
+                        {openFilterValue === 'sdkVersion' && (
+                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[120px] max-h-48 overflow-y-auto">
+                            {sdkVersionsFilter.map(v => (
+                              <button
+                                key={v}
+                                onClick={() => { setFilterSdkVersion(v); setOpenFilterValue(null); }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${filterSdkVersion === v ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                              >
+                                {v === 'all' ? 'Все SDK' : v}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {activeFilters.includes('country') && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenFilterValue(openFilterValue === 'country' ? null : 'country')}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
+                        >
+                          <span className="text-emerald-600">Страна:</span>
+                          {filterCountry === 'all' ? 'Все' : filterCountry}
+                          <span className="text-emerald-600">▾</span>
+                        </button>
+                        <button
+                          onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'country')); setFilterCountry('all'); }}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
+                        >×</button>
+                        {openFilterValue === 'country' && (
+                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[140px] max-h-48 overflow-y-auto">
+                            {countries.map(c => (
+                              <button
+                                key={c}
+                                onClick={() => { setFilterCountry(c); setOpenFilterValue(null); }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${filterCountry === c ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                              >
+                                {c === 'all' ? 'Все страны' : c}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* Add filter dropdown */}
@@ -1118,26 +1448,6 @@ export default function MetricTree() {
                       )}
                     </div>
 
-                    {/* Period selector inline */}
-                    {activeFilters.includes('period') && (
-                      <div className="flex gap-0.5 bg-slate-900/50 rounded p-0.5 ml-2">
-                        <button onClick={() => setPeriodRange('1m')} className={`px-2 py-1 rounded text-xs ${periodRange === '1m' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>1м</button>
-                        <button onClick={() => setPeriodRange('3m')} className={`px-2 py-1 rounded text-xs ${periodRange === '3m' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}>3м</button>
-                      </div>
-                    )}
-
-                    {/* App selector inline */}
-                    {activeFilters.includes('app') && (
-                      <select
-                        value={selectedApp}
-                        onChange={(e) => setSelectedApp(e.target.value)}
-                        className="bg-slate-900/50 border border-slate-600/50 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none ml-2"
-                      >
-                        {apps.filter(a => !['clevel', 'rnd'].includes(a.id)).map(app => (
-                          <option key={app.id} value={app.id}>{app.name}</option>
-                        ))}
-                      </select>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1147,46 +1457,79 @@ export default function MetricTree() {
                 <div className="flex items-start gap-3">
                   <span className="text-slate-500 text-xs font-medium uppercase tracking-wider pt-1.5 shrink-0 w-20">Разбивка</span>
                   <div className="flex flex-wrap gap-2 flex-1">
-                    {/* Time breakdown toggle */}
-                    <div className="flex gap-0.5 bg-slate-900/50 rounded p-0.5">
-                      <button
-                        onClick={() => setPeriodType('week')}
-                        className={`px-2.5 py-1 rounded text-xs font-medium transition ${periodType === 'week' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        Недели
-                      </button>
-                      <button
-                        onClick={() => setPeriodType('month')}
-                        className={`px-2.5 py-1 rounded text-xs font-medium transition ${periodType === 'month' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        Месяцы
-                      </button>
+                    {/* Time breakdown toggle - always visible */}
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50">
+                      <span className="text-slate-500">Период:</span>
+                      <div className="flex gap-0.5 bg-slate-900/50 rounded p-0.5">
+                        <button
+                          onClick={() => setPeriodType('week')}
+                          className={`px-2 py-0.5 rounded text-xs font-medium transition ${periodType === 'week' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Недели
+                        </button>
+                        <button
+                          onClick={() => setPeriodType('month')}
+                          className={`px-2 py-0.5 rounded text-xs font-medium transition ${periodType === 'month' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Месяцы
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Additional breakdowns */}
-                    <button
-                      onClick={() => setBreakdownByAppVersion(!breakdownByAppVersion)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition border ${
-                        breakdownByAppVersion
-                          ? 'bg-slate-600/50 text-slate-200 border-slate-500'
-                          : 'bg-slate-800/50 text-slate-400 border-slate-700/50 hover:border-slate-600'
-                      }`}
-                    >
-                      App Version
-                      {breakdownByAppVersion && <span className="text-slate-400">×</span>}
-                    </button>
+                    {/* App Version breakdown chip */}
+                    {breakdownByAppVersion && (
+                      <div className="relative">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-600/30 text-blue-300 border border-blue-500/50">
+                          <span className="text-blue-400">+</span> По версии приложения
+                        </span>
+                        <button
+                          onClick={toggleAppVersionBreakdown}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
+                        >×</button>
+                      </div>
+                    )}
 
-                    <button
-                      onClick={() => setBreakdownByCasVersion(!breakdownByCasVersion)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition border ${
-                        breakdownByCasVersion
-                          ? 'bg-slate-600/50 text-slate-200 border-slate-500'
-                          : 'bg-slate-800/50 text-slate-400 border-slate-700/50 hover:border-slate-600'
-                      }`}
-                    >
-                      CAS SDK
-                      {breakdownByCasVersion && <span className="text-slate-400">×</span>}
-                    </button>
+                    {/* SDK Version breakdown chip */}
+                    {breakdownByCasVersion && (
+                      <div className="relative">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-teal-600/30 text-teal-300 border border-teal-500/50">
+                          <span className="text-teal-400">+</span> По версии SDK
+                        </span>
+                        <button
+                          onClick={toggleSdkVersionBreakdown}
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
+                        >×</button>
+                      </div>
+                    )}
+
+                    {/* Add breakdown dropdown */}
+                    {!breakdownByAppVersion && !breakdownByCasVersion && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowBreakdownDropdown(!showBreakdownDropdown)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 border border-slate-600/50"
+                        >
+                          <span>+</span> Разбивка
+                        </button>
+                        {showBreakdownDropdown && (
+                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px]">
+                            {availableBreakdowns.map(breakdown => (
+                              <button
+                                key={breakdown.id}
+                                onClick={() => {
+                                  if (breakdown.id === 'appVersion') toggleAppVersionBreakdown();
+                                  else if (breakdown.id === 'sdkVersion') toggleSdkVersionBreakdown();
+                                  setShowBreakdownDropdown(false);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800"
+                              >
+                                {breakdown.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1254,7 +1597,7 @@ export default function MetricTree() {
                 <div className="flex flex-wrap gap-1.5 flex-1 text-[10px]">
                   <span className="text-slate-500">{apps.find(a => a.id === selectedApp)?.name}</span>
                   <span className="text-slate-600">•</span>
-                  <span className="text-slate-500">{periodRange === '1m' ? '1 мес' : '3 мес'}</span>
+                  <span className="text-slate-500">{periodRange === '1m' ? '1 мес' : periodRange === '3m' ? '3 мес' : '6 мес'}</span>
                   <span className="text-slate-600">•</span>
                   <span className="text-slate-500">{periodType === 'week' ? 'недели' : 'месяцы'}</span>
                   {breakdownByAppVersion && <><span className="text-slate-600">•</span><span className="text-slate-500">+app ver</span></>}
@@ -1897,6 +2240,12 @@ export default function MetricTree() {
                     <thead>
                       <tr className="border-b border-slate-600">
                         <th className="text-left py-3 px-2 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Period'}</th>
+                        {breakdownByAppVersion && (
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">App Version</th>
+                        )}
+                        {breakdownByCasVersion && (
+                          <th className="text-left py-3 px-2 text-slate-400 font-medium">SDK Version</th>
+                        )}
                         {selectedMetrics.map(metricId => {
                           const metric = allMetricsOptions.find(m => m.id === metricId);
                           return (
@@ -1953,8 +2302,28 @@ export default function MetricTree() {
                         };
 
                         return (
-                          <tr key={row.month || row.period} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
+                          <tr key={`${row.month || row.period}-${row.appVersion || row.sdkVersion || i}`} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
                             <td className="py-3 px-2 font-medium text-white">{row.month || row.period}</td>
+                            {breakdownByAppVersion && (
+                              <td className="py-3 px-2">
+                                <span
+                                  className="px-2 py-0.5 rounded text-xs font-medium"
+                                  style={{ backgroundColor: versionColors[row.appVersion] + '30', color: versionColors[row.appVersion] }}
+                                >
+                                  v{row.appVersion}
+                                </span>
+                              </td>
+                            )}
+                            {breakdownByCasVersion && (
+                              <td className="py-3 px-2">
+                                <span
+                                  className="px-2 py-0.5 rounded text-xs font-medium"
+                                  style={{ backgroundColor: sdkVersionColors[row.sdkVersion] + '30', color: sdkVersionColors[row.sdkVersion] }}
+                                >
+                                  {row.sdkVersion}
+                                </span>
+                              </td>
+                            )}
                             {selectedMetrics.map(metricId => (
                               <td key={metricId} className={`py-3 px-2 text-right ${getMetricStyle(metricId)}`}>
                                 {getMetricValue(metricId)}
@@ -1976,22 +2345,37 @@ export default function MetricTree() {
                   const tableData = getTableData(selectedApp, 'cohortTable');
                   const monData = getTableData(selectedApp, 'monetisationTable');
                   const engData = getTableData(selectedApp, 'engagementTable');
+                  const appVersions = appVersionsList[selectedApp] || [];
+                  const hasBreakdown = breakdownByAppVersion || breakdownByCasVersion;
+                  const breakdownVersions = breakdownByAppVersion ? appVersions : sdkVersionsList;
+                  const breakdownColors = breakdownByAppVersion ? versionColors : sdkVersionColors;
+                  const breakdownKey = breakdownByAppVersion ? 'appVersion' : 'sdkVersion';
 
                   const metricConfigs = {
-                    installs: { color: 'bg-blue-500', getValue: (row) => row.installs || 0 },
-                    dau: { color: 'bg-purple-500', getValue: (row) => row.dau || 0 },
-                    sessions: { color: 'bg-indigo-500', getValue: (row, i) => engData[i]?.avgSessions || 0 },
-                    session_duration: { color: 'bg-violet-500', getValue: (row, i) => engData[i]?.avgDuration || 0 },
-                    d1_retention: { color: 'bg-amber-500', getValue: (row) => row.d1Retention || 0 },
-                    d7_retention: { color: 'bg-orange-500', getValue: (row) => row.d7Retention || 0 },
-                    d30_retention: { color: 'bg-red-500', getValue: (row) => row.d30Retention || 0 },
-                    impressions: { color: 'bg-cyan-500', getValue: (row) => row.impressions || 0 },
-                    impr_per_dau: { color: 'bg-sky-500', getValue: (row, i) => monData[i]?.imprPerDau || 0 },
-                    ecpm: { color: 'bg-emerald-500', getValue: (row) => row.ecpm || 0 },
-                    fill_rate: { color: 'bg-lime-500', getValue: (row, i) => monData[i]?.fillRate || 0 },
-                    arpdau: { color: 'bg-teal-500', getValue: (row, i) => monData[i]?.arpdau || 0 },
-                    revenue: { color: 'bg-green-500', getValue: (row) => row.revenue || 0 },
+                    installs: { getValue: (row) => row.installs || 0 },
+                    dau: { getValue: (row) => row.dau || 0 },
+                    wau: { getValue: (row) => row.wau || 0 },
+                    mau: { getValue: (row) => row.mau || 0 },
+                    sessions: { getValue: (row, i) => engData[i]?.avgSessions || 0 },
+                    session_duration: { getValue: (row, i) => engData[i]?.avgDuration || 0 },
+                    d1_retention: { getValue: (row) => row.d1Retention || 0 },
+                    d7_retention: { getValue: (row) => row.d7Retention || 0 },
+                    d30_retention: { getValue: (row) => row.d30Retention || 0 },
+                    impressions: { getValue: (row) => row.impressions || 0 },
+                    impr_per_dau: { getValue: (row, i) => monData[i]?.imprPerDau || 0 },
+                    ecpm: { getValue: (row) => row.ecpm || 0 },
+                    fill_rate: { getValue: (row, i) => monData[i]?.fillRate || 0 },
+                    arpdau: { getValue: (row, i) => monData[i]?.arpdau || 0 },
+                    revenue: { getValue: (row) => row.revenue || 0 },
+                    ltv: { getValue: (row) => row.ltv || 0 },
+                    cpi: { getValue: (row) => row.cpi || 0 },
+                    roas: { getValue: (row) => row.roas || 0 },
                   };
+
+                  // Группировка по периодам для breakdown
+                  const periods = hasBreakdown
+                    ? [...new Set(tableData.map(r => r.month || r.period))]
+                    : tableData.map(r => r.month || r.period);
 
                   return selectedMetrics.filter(id => metricConfigs[id]).map(metricId => {
                     const metric = allMetricsOptions.find(m => m.id === metricId);
@@ -2001,23 +2385,59 @@ export default function MetricTree() {
 
                     return (
                       <div key={metricId} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                        <h4 className="text-sm font-medium text-slate-300 mb-3">{metric?.name}</h4>
-                        <div className="flex items-end justify-between gap-1 h-32">
-                          {tableData.map((row, i) => {
-                            const value = config.getValue(row, i);
-                            const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                            return (
-                              <div key={row.month || row.period} className="flex flex-col items-center flex-1 h-full">
-                                <span className="text-[10px] text-slate-300 mb-1">
-                                  {typeof value === 'number' ? (value >= 1000 ? (value/1000).toFixed(1)+'k' : value.toFixed(1)) : value}
-                                </span>
-                                <div className="flex-1 w-full flex items-end justify-center">
-                                  <div className={`w-full max-w-8 ${config.color} rounded-t transition-all duration-300`} style={{ height: `${height}%` }} />
+                        <h4 className="text-sm font-medium text-slate-300 mb-2">{metric?.name}</h4>
+                        {hasBreakdown && (
+                          <div className="flex gap-2 mb-2 flex-wrap">
+                            {breakdownVersions.map(v => (
+                              <span key={v} className="flex items-center gap-1 text-[9px]">
+                                <span className="w-2 h-2 rounded" style={{ backgroundColor: breakdownColors[v] }} />
+                                <span className="text-slate-400">{breakdownByAppVersion ? `v${v}` : v}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-end justify-between gap-2 h-32">
+                          {hasBreakdown ? (
+                            periods.map(period => {
+                              const periodRows = tableData.filter(r => (r.month || r.period) === period);
+                              return (
+                                <div key={period} className="flex flex-col items-center flex-1 h-full">
+                                  <div className="flex-1 w-full flex items-end justify-center gap-0.5">
+                                    {periodRows.map((row, vi) => {
+                                      const value = config.getValue(row, vi);
+                                      const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                                      const versionLabel = row[breakdownKey];
+                                      return (
+                                        <div
+                                          key={versionLabel}
+                                          className="flex-1 max-w-3 rounded-t transition-all duration-300"
+                                          style={{ height: `${height}%`, backgroundColor: breakdownColors[versionLabel] }}
+                                          title={`${breakdownByAppVersion ? 'v' : ''}${versionLabel}: ${typeof value === 'number' ? (value >= 1000 ? (value/1000).toFixed(1)+'k' : value.toFixed(1)) : value}`}
+                                        />
+                                      );
+                                    })}
+                                  </div>
+                                  <span className="text-[8px] text-slate-400 mt-1 truncate w-full text-center">{period.split(' ')[0]}</span>
                                 </div>
-                                <span className="text-[9px] text-slate-400 mt-1 truncate w-full text-center">{row.month || row.period}</span>
-                              </div>
-                            );
-                          })}
+                              );
+                            })
+                          ) : (
+                            tableData.map((row, i) => {
+                              const value = config.getValue(row, i);
+                              const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                              return (
+                                <div key={row.month || row.period} className="flex flex-col items-center flex-1 h-full">
+                                  <span className="text-[10px] text-slate-300 mb-1">
+                                    {typeof value === 'number' ? (value >= 1000 ? (value/1000).toFixed(1)+'k' : value.toFixed(1)) : value}
+                                  </span>
+                                  <div className="flex-1 w-full flex items-end justify-center">
+                                    <div className="w-full max-w-8 bg-blue-500 rounded-t transition-all duration-300" style={{ height: `${height}%` }} />
+                                  </div>
+                                  <span className="text-[9px] text-slate-400 mt-1 truncate w-full text-center">{row.month || row.period}</span>
+                                </div>
+                              );
+                            })
+                          )}
                         </div>
                       </div>
                     );
@@ -2033,21 +2453,32 @@ export default function MetricTree() {
                   const tableData = getTableData(selectedApp, 'cohortTable');
                   const monData = getTableData(selectedApp, 'monetisationTable');
                   const engData = getTableData(selectedApp, 'engagementTable');
+                  const appVersions = appVersionsList[selectedApp] || [];
+                  const hasBreakdown = breakdownByAppVersion || breakdownByCasVersion;
+                  const breakdownVersions = breakdownByAppVersion ? appVersions : sdkVersionsList;
+                  const breakdownColors = breakdownByAppVersion ? versionColors : sdkVersionColors;
+                  const breakdownKey = breakdownByAppVersion ? 'appVersion' : 'sdkVersion';
+                  const periods = [...new Set(tableData.map(r => r.month || r.period))];
 
                   const metricConfigs = {
-                    installs: { color: '#3b82f6', getValue: (row) => row.installs || 0 },
-                    dau: { color: '#a855f7', getValue: (row) => row.dau || 0 },
-                    sessions: { color: '#6366f1', getValue: (row, i) => engData[i]?.avgSessions || 0 },
-                    session_duration: { color: '#8b5cf6', getValue: (row, i) => engData[i]?.avgDuration || 0 },
-                    d1_retention: { color: '#f59e0b', getValue: (row) => row.d1Retention || 0 },
-                    d7_retention: { color: '#f97316', getValue: (row) => row.d7Retention || 0 },
-                    d30_retention: { color: '#ef4444', getValue: (row) => row.d30Retention || 0 },
-                    impressions: { color: '#06b6d4', getValue: (row) => row.impressions || 0 },
-                    impr_per_dau: { color: '#0ea5e9', getValue: (row, i) => monData[i]?.imprPerDau || 0 },
-                    ecpm: { color: '#10b981', getValue: (row) => row.ecpm || 0 },
-                    fill_rate: { color: '#84cc16', getValue: (row, i) => monData[i]?.fillRate || 0 },
-                    arpdau: { color: '#14b8a6', getValue: (row, i) => monData[i]?.arpdau || 0 },
-                    revenue: { color: '#22c55e', getValue: (row) => row.revenue || 0 },
+                    installs: { getValue: (row) => row.installs || 0 },
+                    dau: { getValue: (row) => row.dau || 0 },
+                    wau: { getValue: (row) => row.wau || 0 },
+                    mau: { getValue: (row) => row.mau || 0 },
+                    sessions: { getValue: (row, i) => engData[i]?.avgSessions || 0 },
+                    session_duration: { getValue: (row, i) => engData[i]?.avgDuration || 0 },
+                    d1_retention: { getValue: (row) => row.d1Retention || 0 },
+                    d7_retention: { getValue: (row) => row.d7Retention || 0 },
+                    d30_retention: { getValue: (row) => row.d30Retention || 0 },
+                    impressions: { getValue: (row) => row.impressions || 0 },
+                    impr_per_dau: { getValue: (row, i) => monData[i]?.imprPerDau || 0 },
+                    ecpm: { getValue: (row) => row.ecpm || 0 },
+                    fill_rate: { getValue: (row, i) => monData[i]?.fillRate || 0 },
+                    arpdau: { getValue: (row, i) => monData[i]?.arpdau || 0 },
+                    revenue: { getValue: (row) => row.revenue || 0 },
+                    ltv: { getValue: (row) => row.ltv || 0 },
+                    cpi: { getValue: (row) => row.cpi || 0 },
+                    roas: { getValue: (row) => row.roas || 0 },
                   };
 
                   return selectedMetrics.filter(id => metricConfigs[id]).map(metricId => {
@@ -2057,28 +2488,61 @@ export default function MetricTree() {
                     const maxValue = Math.max(...values) || 1;
                     const minValue = Math.min(...values);
                     const range = maxValue - minValue || 1;
-                    const points = values.map((v, i) => {
-                      const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
-                      const y = 80 - ((v - minValue) / range) * 60;
-                      return `${x},${y}`;
-                    }).join(' ');
 
                     return (
                       <div key={metricId} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                        <h4 className="text-sm font-medium text-slate-300 mb-3">{metric?.name}</h4>
+                        <h4 className="text-sm font-medium text-slate-300 mb-2">{metric?.name}</h4>
+                        {hasBreakdown && (
+                          <div className="flex gap-2 mb-2 flex-wrap">
+                            {breakdownVersions.map(v => (
+                              <span key={v} className="flex items-center gap-1 text-[9px]">
+                                <span className="w-2 h-2 rounded" style={{ backgroundColor: breakdownColors[v] }} />
+                                <span className="text-slate-400">{breakdownByAppVersion ? `v${v}` : v}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <svg viewBox="0 0 300 100" className="w-full h-28">
                           <line x1="10" y1="20" x2="290" y2="20" stroke="#334155" strokeWidth="0.5" />
                           <line x1="10" y1="50" x2="290" y2="50" stroke="#334155" strokeWidth="0.5" />
                           <line x1="10" y1="80" x2="290" y2="80" stroke="#334155" strokeWidth="0.5" />
-                          <polyline fill="none" stroke={config.color} strokeWidth="2" points={points} />
-                          {values.map((v, i) => {
-                            const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
-                            const y = 80 - ((v - minValue) / range) * 60;
-                            return <circle key={i} cx={x} cy={y} r="3" fill={config.color} />;
-                          })}
-                          {tableData.map((row, i) => {
-                            const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
-                            return <text key={i} x={x} y="95" fill="#94a3b8" fontSize="8" textAnchor="middle">{row.month || row.period}</text>;
+                          {hasBreakdown ? (
+                            breakdownVersions.map(version => {
+                              const versionRows = tableData.filter(r => r[breakdownKey] === version);
+                              const versionValues = versionRows.map((row, i) => config.getValue(row, i));
+                              const points = versionValues.map((v, i) => {
+                                const x = periods.length > 1 ? (i / (periods.length - 1)) * 280 + 10 : 150;
+                                const y = 80 - ((v - minValue) / range) * 60;
+                                return `${x},${y}`;
+                              }).join(' ');
+                              return (
+                                <g key={version}>
+                                  <polyline fill="none" stroke={breakdownColors[version]} strokeWidth="2" points={points} />
+                                  {versionValues.map((v, i) => {
+                                    const x = periods.length > 1 ? (i / (periods.length - 1)) * 280 + 10 : 150;
+                                    const y = 80 - ((v - minValue) / range) * 60;
+                                    return <circle key={i} cx={x} cy={y} r="3" fill={breakdownColors[version]} />;
+                                  })}
+                                </g>
+                              );
+                            })
+                          ) : (
+                            <>
+                              <polyline fill="none" stroke="#3b82f6" strokeWidth="2" points={values.map((v, i) => {
+                                const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
+                                const y = 80 - ((v - minValue) / range) * 60;
+                                return `${x},${y}`;
+                              }).join(' ')} />
+                              {values.map((v, i) => {
+                                const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
+                                const y = 80 - ((v - minValue) / range) * 60;
+                                return <circle key={i} cx={x} cy={y} r="3" fill="#3b82f6" />;
+                              })}
+                            </>
+                          )}
+                          {periods.map((period, i) => {
+                            const x = periods.length > 1 ? (i / (periods.length - 1)) * 280 + 10 : 150;
+                            return <text key={i} x={x} y="95" fill="#94a3b8" fontSize="8" textAnchor="middle">{period.split(' ')[0]}</text>;
                           })}
                         </svg>
                         <div className="flex justify-between text-xs text-slate-400 mt-1">
