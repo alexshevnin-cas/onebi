@@ -2054,9 +2054,7 @@ export default function MetricTree() {
             <button onClick={() => setActiveScreen('reports')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeScreen === 'reports' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
               Reports
             </button>
-            <button onClick={() => setActiveScreen('glossary')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeScreen === 'glossary' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              Glossary
-            </button>
+            {/* Glossary hidden */}
           </div>
         </div>
 
