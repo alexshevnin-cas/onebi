@@ -1,9 +1,9 @@
 import React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function MetricTree() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedApp, setSelectedApp] = useState('puzzle');
+  const [activeScreen, setActiveScreen] = useState('quickview'); // quickview, reports, glossary
+  const [selectedApp, setSelectedApp] = useState('all');
   const [expandedNodes, setExpandedNodes] = useState(new Set(['mrr', 'manager_anton', 'manager_rashid', 'app1', 'ad_revenue_1', 'ua_cost_1', 'dau_1', 'arpdau_1']));
   const [editingId, setEditingId] = useState(null);
   const [filterSection, setFilterSection] = useState('all');
@@ -40,6 +40,667 @@ export default function MetricTree() {
   const [breakdownByCasVersion, setBreakdownByCasVersion] = useState(false);
   const [viewType, setViewType] = useState('table'); // table, bar, line
   const [draggedColumn, setDraggedColumn] = useState(null);
+
+  // Left nav (cabinet)
+  const [navExpanded, setNavExpanded] = useState(false);
+  const [activeNavItem, setActiveNavItem] = useState('analytics');
+
+  // Sidebar state (Reports)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState('');
+  const [collapsedSections, setCollapsedSections] = useState(new Set());
+  const [reportsSplits, setReportsSplits] = useState(['date']);
+
+  const toggleSidebarSection = (id) => {
+    const next = new Set(collapsedSections);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setCollapsedSections(next);
+  };
+
+  const addSplit = (id) => {
+    if (!reportsSplits.includes(id)) setReportsSplits([...reportsSplits, id]);
+  };
+  const removeSplit = (id) => setReportsSplits(reportsSplits.filter(s => s !== id));
+
+  const addMeasure = (id) => {
+    if (!selectedMetrics.includes(id)) setSelectedMetrics([...selectedMetrics, id]);
+  };
+
+  // Quick View states (B1-B4)
+  const [clientType, setClientType] = useState('L1'); // PubC, L1, L2, Pub, Admin, BD, Payments, RnD
+  const [adminGrossNet, setAdminGrossNet] = useState('gross'); // G3: gross/net toggle
+  const [hoveredTooltip, setHoveredTooltip] = useState(null); // H4: metric formula tooltips
+  const [qvPeriod, setQvPeriod] = useState('last30'); // today, last7, last30, thisMonth, custom
+  const [qvCompare, setQvCompare] = useState(false);
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+
+  // Reports table states (C1-C7)
+  const [reportsDensity, setReportsDensity] = useState('comfortable'); // compact, comfortable
+  const [reportsSearch, setReportsSearch] = useState('');
+  const [copiedCell, setCopiedCell] = useState(null); // {row, col} for feedback
+  const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [hiddenSeries, setHiddenSeries] = useState(new Set()); // D3: legend toggle
+  const [savedViews, setSavedViews] = useState(() => { try { return JSON.parse(localStorage.getItem('onebi_saved_views') || '[]'); } catch { return []; } }); // E3
+  const [showSavedViewsDD, setShowSavedViewsDD] = useState(false);
+  const [showExportDD, setShowExportDD] = useState(false);
+  const [showAppSelector, setShowAppSelector] = useState(false);
+  const [appSelectorSearch, setAppSelectorSearch] = useState('');
+
+  // E2: Load state from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('s')) setReportsSplits(params.get('s').split(',').filter(Boolean));
+    if (params.has('m')) setSelectedMetrics(params.get('m').split(',').filter(Boolean));
+    if (params.has('app')) setSelectedApp(params.get('app'));
+    if (params.has('country')) setFilterCountry(params.get('country'));
+    if (params.has('screen')) setActiveScreen(params.get('screen'));
+  }, []);
+
+  // H5: Keyboard shortcuts — Escape closes dropdowns
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'Escape') {
+        setShowPeriodDropdown(false);
+        setShowAppSelector(false);
+        setShowExportDD(false);
+        setShowSavedViewsDD(false);
+        setShowMetricAddDropdown(false);
+        setShowFilterDropdown(false);
+        setShowBreakdownDropdown(false);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  // Sidebar category definitions
+  const sidebarDimensions = [
+    { group: 'Common', items: [
+      { id: 'date', label: 'Activity Date' },
+      { id: 'country', label: 'Country' },
+      { id: 'os', label: 'OS' },
+      { id: 'deviceType', label: 'Device Type' },
+    ]},
+    { group: 'Monetization', items: [
+      { id: 'adType', label: 'Ad Type' },
+      { id: 'network', label: 'Network' },
+      { id: 'placement', label: 'Placement' },
+    ]},
+    { group: 'Version', items: [
+      { id: 'appVersion', label: 'Package Version' },
+      { id: 'sdkVersion', label: 'SDK Version' },
+    ]},
+  ];
+
+  const sidebarMeasures = [
+    { group: 'Monetization', items: [
+      { id: 'revenue', label: 'Revenue' },
+      { id: 'arpdau', label: 'ARPDAU' },
+      { id: 'ecpm', label: 'eCPM' },
+      { id: 'fill_rate', label: 'Fill Rate' },
+      { id: 'impressions', label: 'Impressions' },
+      { id: 'iap_revenue', label: 'IAP Revenue' },
+      { id: 'iap_arpdau', label: 'IAP ARPDAU' },
+      { id: 'paying_users', label: 'Paying Users' },
+      { id: 'purchases', label: 'Purchases' },
+      { id: 'iap_arppu', label: 'IAP ARPPU' },
+    ]},
+    { group: 'Session', items: [
+      { id: 'dau', label: 'DAU' },
+      { id: 'sessions', label: 'Sessions' },
+      { id: 'session_duration', label: 'Duration' },
+      { id: 'sessions_per_user', label: 'Sessions/User' },
+      { id: 'time_per_user', label: 'Time/User' },
+      { id: 'ad_session_length', label: 'Ad Session Len' },
+      { id: 'impr_per_session', label: 'Impr/Session' },
+      { id: 'session_count', label: 'Session Count' },
+    ]},
+    { group: 'Impressions', items: [
+      { id: 'impr_per_dau', label: 'Impr/DAU' },
+      { id: 'impr_inter_daily', label: 'Inter Impr/Day' },
+      { id: 'impr_reward_daily', label: 'Reward Impr/Day' },
+      { id: 'impr_banner_daily', label: 'Banner Impr/Day' },
+      { id: 'impr_mrec_daily', label: 'MREC Impr/Day' },
+      { id: 'ctr_inter', label: 'CTR Inter' },
+      { id: 'ctr_reward', label: 'CTR Reward' },
+      { id: 'ctr_banner', label: 'CTR Banner' },
+    ]},
+    { group: 'Retention', items: [
+      { id: 'd1_retention', label: 'D1 Retention' },
+      { id: 'd7_retention', label: 'D7 Retention' },
+      { id: 'd14_retention', label: 'D14 Retention' },
+      { id: 'd30_retention', label: 'D30 Retention' },
+      { id: 'd60_retention', label: 'D60 Retention' },
+      { id: 'd90_retention', label: 'D90 Retention' },
+      { id: 'rolling_ret_d7', label: 'Rolling Ret D7' },
+      { id: 'rolling_ret_d30', label: 'Rolling Ret D30' },
+      { id: 'churn_d7', label: 'Churn D7' },
+      { id: 'churn_d30', label: 'Churn D30' },
+      { id: 'stickiness', label: 'Stickiness' },
+      { id: 'avg_lifetime', label: 'Avg Lifetime' },
+    ]},
+    { group: 'Cohort', items: [
+      { id: 'ltv', label: 'LTV' },
+      { id: 'time_per_user_lt', label: 'Time/User LT' },
+      { id: 'sessions_per_user_lt', label: 'Sess/User LT' },
+      { id: 'time_per_user_daily', label: 'Time/User Daily' },
+      { id: 'sessions_per_user_daily', label: 'Sess/User Daily' },
+    ]},
+    { group: 'UA', items: [
+      { id: 'installs', label: 'Installs' },
+      { id: 'cpi', label: 'CPI' },
+      { id: 'roas', label: 'ROAS' },
+      { id: 'roas_todate', label: 'ROAS To-Date' },
+      { id: 'profit_cal', label: 'Profit Calendar' },
+      { id: 'att_optin', label: 'ATT Opt-In' },
+      { id: 'mmp_installs', label: 'MMP Installs' },
+      { id: 'eroas_d60', label: 'eROAS D60' },
+      { id: 'eroas_d365', label: 'eROAS D365' },
+      { id: 'arpu_d7', label: 'ARPU D7' },
+      { id: 'arpu_d14', label: 'ARPU D14' },
+      { id: 'arpu_d30', label: 'ARPU D30' },
+    ]},
+    { group: 'Network', items: [
+      { id: 'render_rate', label: 'Render Rate' },
+      { id: 'bid_price', label: 'Bid Price' },
+      { id: 'ctr_network', label: 'CTR Network' },
+      { id: 'bidding_share', label: 'Bidding %' },
+    ]},
+    { group: 'Diagnostic', items: [
+      { id: 'rev_by_sdk', label: 'Rev by SDK' },
+      { id: 'rev_by_platform', label: 'Rev by Platform' },
+      { id: 'ecpm_by_platform', label: 'eCPM by Platform' },
+      { id: 'anomaly_flag', label: 'Anomaly Flag' },
+      { id: 'network_gap', label: 'Network Gap' },
+      { id: 'dau_discrepancy', label: 'DAU Discrep.' },
+    ]},
+  ];
+
+  // Quick View — metric cards per client type
+  const qvCardDefs = {
+    PubC: [
+      { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
+      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v), planned: true },
+      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4), planned: true },
+      { id: 'd1_ret', label: 'Retention D1', key: 'd1Retention', format: v => v.toFixed(1) + '%' },
+    ],
+    L1: [
+      { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
+      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
+      { id: 'fill_rate', label: 'Fill Rate', key: 'fillRate', format: v => v.toFixed(1) + '%' },
+    ],
+    L2: [
+      { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
+      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
+      { id: 'fill_rate', label: 'Fill Rate', key: 'fillRate', format: v => v.toFixed(1) + '%' },
+      { id: 'd1_ret', label: 'Retention D1', key: 'd1Retention', format: v => v.toFixed(1) + '%' },
+    ],
+    Pub: [
+      { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
+      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
+      { id: 'ltv', label: 'LTV', key: 'ltv', format: v => '$' + v.toFixed(2) },
+      { id: 'roas', label: 'ROAS', key: 'roas', format: v => v + '%' },
+    ],
+    Admin: [
+      { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
+      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
+      { id: 'fill_rate', label: 'Fill Rate', key: 'fillRate', format: v => v.toFixed(1) + '%' },
+      { id: 'iap_revenue', label: 'IAP Revenue', key: 'iapRevenue', format: v => '$' + formatNum(v) },
+    ],
+    BD: [
+      { id: 'revenue', label: 'Total Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'dau', label: 'Total DAU', key: 'dau', format: v => formatNum(v) },
+      { id: 'arpdau', label: 'Avg ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+    ],
+    Payments: [
+      { id: 'revenue', label: 'Current Balance', key: 'revenue', format: v => '$' + formatNum(v) },
+    ],
+    RnD: [
+      { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
+      { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
+      { id: 'fill_rate', label: 'Fill Rate', key: 'fillRate', format: v => v.toFixed(1) + '%' },
+    ],
+  };
+
+  // H4: Metric tooltips with formulas
+  const metricTooltips = {
+    dau: { desc: 'Daily Active Users', formula: 'Unique users per day' },
+    revenue: { desc: 'Ad Revenue', formula: 'Impressions × eCPM / 1000' },
+    arpdau: { desc: 'Average Revenue Per DAU', formula: 'Revenue / DAU' },
+    ecpm: { desc: 'Effective Cost Per Mille', formula: 'Revenue / Impressions × 1000' },
+    fill_rate: { desc: 'Fill Rate', formula: 'Filled Requests / Total Requests × 100' },
+    impressions: { desc: 'Total Ad Impressions', formula: 'Sum of all ad views' },
+    d1_retention: { desc: 'Day 1 Retention', formula: 'Users D1 / Installs × 100' },
+    d7_retention: { desc: 'Day 7 Retention', formula: 'Users D7 / Installs × 100' },
+    d30_retention: { desc: 'Day 30 Retention', formula: 'Users D30 / Installs × 100' },
+    ltv: { desc: 'Lifetime Value', formula: 'Cumulative ARPU over user lifetime' },
+    roas: { desc: 'Return on Ad Spend', formula: 'Revenue / UA Cost × 100' },
+    cpi: { desc: 'Cost Per Install', formula: 'UA Cost / Installs' },
+    iap_revenue: { desc: 'In-App Purchase Revenue', formula: 'Sum of all IAP transactions' },
+    iap_arpdau: { desc: 'IAP ARPDAU', formula: 'IAP Revenue / DAU' },
+    stickiness: { desc: 'Stickiness', formula: 'DAU / MAU × 100' },
+    impr_per_dau: { desc: 'Impressions per DAU', formula: 'Impressions / DAU' },
+  };
+
+  // G5: BD mock client data
+  const bdClients = [
+    { name: 'GameStudio Pro', manager: 'Anton', revenue: 18420, dau: 890000, trend: +12, risk: 'low' },
+    { name: 'Idle Games Inc', manager: 'Anton', revenue: 12890, dau: 520000, trend: +8, risk: 'low' },
+    { name: 'PuzzleCraft', manager: 'Rashid', revenue: 8540, dau: 342000, trend: -5, risk: 'medium' },
+    { name: 'Stack Studios', manager: 'Rashid', revenue: 6210, dau: 218000, trend: -22, risk: 'high' },
+    { name: 'Merge World', manager: 'Anton', revenue: 4870, dau: 165000, trend: +3, risk: 'low' },
+    { name: 'CasualPlay', manager: 'Rashid', revenue: 2140, dau: 78000, trend: -8, risk: 'medium' },
+    { name: 'HyperRun', manager: 'Anton', revenue: 1560, dau: 52000, trend: -35, risk: 'high' },
+  ];
+
+  // G7: RnD SDK adoption mock
+  const rndSdkData = [
+    { version: 'CAS 4.0.1', adoption: 8, clients: 3, revDelta: '+15%', status: 'beta' },
+    { version: 'CAS 3.9.2', adoption: 48, clients: 42, revDelta: '+5.2%', status: 'latest' },
+    { version: 'CAS 3.8.5', adoption: 28, clients: 31, revDelta: 'baseline', status: 'stable' },
+    { version: 'CAS 3.7.1', adoption: 11, clients: 18, revDelta: '-3.1%', status: 'outdated' },
+    { version: 'CAS 3.6.0', adoption: 5, clients: 9, revDelta: '-8.4%', status: 'deprecated' },
+  ];
+
+  const qvPeriodOptions = [
+    { id: 'today', label: 'Today' },
+    { id: 'last7', label: 'Last 7 days' },
+    { id: 'last30', label: 'Last 30 days' },
+    { id: 'thisMonth', label: 'This month' },
+    { id: 'custom', label: 'Custom' },
+  ];
+
+  // Quick View — derive card values from latest month data
+  const getQvCardValuesSingle = (appId) => {
+    const d = dashboardData[appId];
+    if (!d) return { current: {}, previous: {} };
+    const cohort = d.cohortTable || [];
+    const mon = d.monetisationTable || [];
+    const eng = d.engagementTable || [];
+    const cur = { ...cohort[0], ...mon[0], ...eng[0] };
+    const prev = { ...cohort[1], ...mon[1], ...eng[1] };
+    return {
+      current: { dau: cur.dau, revenue: cur.adRevenue || cur.revenue, arpdau: cur.arpdau, ecpm: cur.ecpm, fillRate: cur.fillRate, d1Retention: cur.d1Retention, ltv: cur.ltv, roas: cur.roas || cur.roasD30, iapRevenue: (cur.adRevenue || cur.revenue || 0) * 0.12 },
+      previous: { dau: prev.dau, revenue: prev.adRevenue || prev.revenue, arpdau: prev.arpdau, ecpm: prev.ecpm, fillRate: prev.fillRate, d1Retention: prev.d1Retention, ltv: prev.ltv, roas: prev.roas || prev.roasD30, iapRevenue: (prev.adRevenue || prev.revenue || 0) * 0.12 },
+    };
+  };
+
+  const getQvCardValues = (appId) => {
+    if (appId !== 'all') return getQvCardValuesSingle(appId);
+    // Sum across all real apps
+    const allVals = realAppIds.map(id => getQvCardValuesSingle(id));
+    const sumKeys = ['dau', 'revenue', 'iapRevenue'];
+    const avgKeys = ['arpdau', 'ecpm', 'fillRate', 'd1Retention', 'ltv', 'roas'];
+    const merge = (period) => {
+      const result = {};
+      sumKeys.forEach(k => { result[k] = allVals.reduce((s, v) => s + (v[period][k] || 0), 0); });
+      avgKeys.forEach(k => { const vals = allVals.map(v => v[period][k]).filter(v => v != null); result[k] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null; });
+      return result;
+    };
+    return { current: merge('current'), previous: merge('previous') };
+  };
+
+  // Quick View — trend data: 30 daily revenue bars
+  const getQvTrendDataSingle = (appId) => {
+    const d = dashboardData[appId];
+    if (!d) return [];
+    const mon = d.monetisationTable || [];
+    // Latest month revenue as baseline, generate 30 daily values with variance
+    const latestRev = (mon[0]?.adRevenue || 1000);
+    const dailyBase = latestRev / 30;
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dayLabel = `${date.getMonth() + 1}/${date.getDate()}`;
+      const seed = (date.getDate() * 7 + appId.charCodeAt(0) * 13 + i * 3) % 100;
+      const variance = 0.85 + (seed / 100) * 0.3;
+      const weekendDip = (date.getDay() === 0 || date.getDay() === 6) ? 0.88 : 1.0;
+      // Last 3 days: drop then partial recovery on last day
+      const dropFactor = i === 2 ? 0.82 : i === 1 ? 0.62 : i === 0 ? 0.72 : 1.0;
+      const baseVal = i <= 2 ? dailyBase * weekendDip * dropFactor : dailyBase * variance * weekendDip;
+      days.push({ label: dayLabel, value: Math.round(baseVal) });
+    }
+    return days;
+  };
+
+  const getQvTrendData = (appId) => {
+    if (appId !== 'all') return getQvTrendDataSingle(appId);
+    // Sum daily values across all apps
+    const allTrends = realAppIds.map(id => getQvTrendDataSingle(id));
+    if (allTrends[0].length === 0) return [];
+    return allTrends[0].map((day, i) => ({
+      label: day.label,
+      value: allTrends.reduce((s, t) => s + (t[i]?.value || 0), 0),
+    }));
+  };
+
+  // Quick View — breakdown data
+  const getQvBreakdownAdType = (appId) => {
+    const ids = appId === 'all' ? realAppIds : [appId];
+    let totalBanner = 0, totalInter = 0, totalReward = 0;
+    ids.forEach(id => {
+      const mon = (dashboardData[id]?.monetisationTable || [])[0];
+      if (mon) { totalBanner += mon.imprBanner || 0; totalInter += mon.imprInter || 0; totalReward += mon.imprReward || 0; }
+    });
+    const total = totalBanner + totalInter + totalReward;
+    if (!total) return [];
+    return [
+      { label: 'Banner', value: totalBanner, pct: ((totalBanner / total) * 100).toFixed(0), color: '#94a3b8' },
+      { label: 'Interstitial', value: totalInter, pct: ((totalInter / total) * 100).toFixed(0), color: '#cbd5e1' },
+      { label: 'Rewarded', value: totalReward, pct: ((totalReward / total) * 100).toFixed(0), color: '#e2e8f0' },
+    ];
+  };
+
+  const getQvBreakdownCountry = () => {
+    return [
+      { label: 'US', pct: 38, color: '#e2e8f0' },
+      { label: 'DE', pct: 22, color: '#cbd5e1' },
+      { label: 'UK', pct: 15, color: '#94a3b8' },
+      { label: 'JP', pct: 12, color: '#64748b' },
+      { label: 'Other', pct: 13, color: '#475569' },
+    ];
+  };
+
+  // Reports table — build rows from dashboardData based on splits & measures
+  const pctFmt = v => v?.toFixed(1) + '%';
+  const dolFmt = v => '$' + v?.toFixed(2);
+  const numFmt = v => formatNum(v);
+  const decFmt = v => v?.toFixed(1);
+  const mk = (key, fmt, isNum = true) => ({ key, fmt, isNum });
+
+  const metricKeyMap = {
+    // Engagement / Session
+    dau: mk('dau', numFmt),
+    wau: mk('wau', numFmt),
+    mau: mk('mau', numFmt),
+    sessions: mk('avgSessions', decFmt),
+    session_duration: mk('avgDuration', v => v?.toFixed(1) + 'm'),
+    sessions_per_user: mk('sessionsPerUser', decFmt),
+    time_per_user: mk('timePerUser', v => v?.toFixed(1) + 'm'),
+    ad_session_length: mk('adSessionLength', v => v?.toFixed(1) + 's'),
+    impr_per_session: mk('imprPerSession', decFmt),
+    session_count: mk('sessionCount', numFmt),
+    // Monetisation
+    revenue: mk('revenue', v => '$' + (v >= 1000 ? formatNum(v) : v?.toFixed(2))),
+    arpdau: mk('arpdau', v => '$' + v?.toFixed(4)),
+    ecpm: mk('ecpm', dolFmt),
+    fill_rate: mk('fillRate', pctFmt),
+    impressions: mk('impressions', numFmt),
+    impr_per_dau: mk('imprPerDau', decFmt),
+    // F1: IAP
+    iap_revenue: mk('iapRevenue', dolFmt),
+    iap_arpdau: mk('iapArpdau', v => '$' + v?.toFixed(4)),
+    paying_users: mk('payingUsers', numFmt),
+    purchases: mk('purchases', numFmt),
+    iap_arppu: mk('iapArppu', dolFmt),
+    // F5: Impressions by Ad Type
+    impr_inter_daily: mk('imprInter', decFmt),
+    impr_reward_daily: mk('imprReward', decFmt),
+    impr_banner_daily: mk('imprBanner', decFmt),
+    impr_mrec_daily: mk('imprMrec', decFmt),
+    ctr_inter: mk('ctrInter', pctFmt),
+    ctr_reward: mk('ctrReward', pctFmt),
+    ctr_banner: mk('ctrBanner', pctFmt),
+    // Retention / Cohort
+    d1_retention: mk('d1Retention', pctFmt),
+    d7_retention: mk('d7Retention', pctFmt),
+    d14_retention: mk('d14Retention', pctFmt),
+    d30_retention: mk('d30Retention', pctFmt),
+    d60_retention: mk('d60Retention', pctFmt),
+    d90_retention: mk('d90Retention', pctFmt),
+    rolling_ret_d7: mk('rollingRetD7', pctFmt),
+    rolling_ret_d30: mk('rollingRetD30', pctFmt),
+    churn_d7: mk('churnD7', pctFmt),
+    churn_d30: mk('churnD30', pctFmt),
+    stickiness: mk('stickiness', pctFmt),
+    avg_lifetime: mk('avgLifetime', v => v?.toFixed(0) + 'd'),
+    ltv: mk('ltv', dolFmt),
+    // F4: Cohort Session
+    time_per_user_lt: mk('timePerUserLt', v => v?.toFixed(1) + 'h'),
+    sessions_per_user_lt: mk('sessionsPerUserLt', decFmt),
+    time_per_user_daily: mk('timePerUserDaily', v => v?.toFixed(1) + 'm'),
+    sessions_per_user_daily: mk('sessionsPerUserDaily', decFmt),
+    // UA
+    installs: mk('installs', numFmt),
+    cpi: mk('cpi', v => '$' + v?.toFixed(3)),
+    roas: mk('roas', v => v + '%'),
+    // F8: UA extended
+    roas_todate: mk('roasTodate', v => v + '%'),
+    profit_cal: mk('profitCal', dolFmt),
+    att_optin: mk('attOptin', pctFmt),
+    mmp_installs: mk('mmpInstalls', numFmt),
+    eroas_d60: mk('eroasD60', v => v + '%'),
+    eroas_d365: mk('eroasD365', v => v + '%'),
+    arpu_d7: mk('arpuD7', v => '$' + v?.toFixed(3)),
+    arpu_d14: mk('arpuD14', v => '$' + v?.toFixed(3)),
+    arpu_d30: mk('arpuD30', v => '$' + v?.toFixed(3)),
+    // F6: Network advanced
+    render_rate: mk('renderRate', pctFmt),
+    bid_price: mk('bidPrice', dolFmt),
+    ctr_network: mk('ctrNetwork', pctFmt),
+    bidding_share: mk('biddingShare', pctFmt),
+    // F7: Diagnostic
+    rev_by_sdk: mk('revBySdk', dolFmt),
+    rev_by_platform: mk('revByPlatform', dolFmt),
+    ecpm_by_platform: mk('ecpmByPlatform', dolFmt),
+    anomaly_flag: mk('anomalyFlag', v => v ? 'Yes' : 'No', false),
+    network_gap: mk('networkGap', pctFmt),
+    dau_discrepancy: mk('dauDiscrepancy', pctFmt),
+  };
+
+  const buildReportsRows = () => {
+    const appId = selectedApp === 'all' ? 'puzzle' : selectedApp;
+    const d = dashboardData[appId];
+    if (!d) return [];
+
+    // Merge all table data by month
+    const cohort = d.cohortTable || [];
+    const mon = d.monetisationTable || [];
+    const eng = d.engagementTable || [];
+    const ua = d.uaTable || [];
+
+    const merged = cohort.map((c, i) => {
+      const m = mon[i] || {};
+      const e = eng[i] || {};
+      const u = ua[i] || {};
+      const base = { ...c, ...m, ...e, ...u, _month: c.month || c.period || `Row ${i}` };
+      // F1: IAP (synthetic)
+      base.iapRevenue = (base.adRevenue || base.revenue || 0) * 0.12;
+      base.iapArpdau = base.dau ? base.iapRevenue / base.dau : 0;
+      base.payingUsers = Math.round((base.dau || 0) * (e.pauConversion || 2.2) / 100);
+      base.purchases = Math.round(base.payingUsers * 1.8);
+      base.iapArppu = base.payingUsers ? base.iapRevenue / base.payingUsers : 0;
+      // F2: Session extended
+      base.sessionsPerUser = e.avgSessions || 3.2;
+      base.timePerUser = (e.avgDuration || 8) * (e.avgSessions || 3.2);
+      base.adSessionLength = (e.avgDuration || 8) * 0.65;
+      base.imprPerSession = m.imprPerDau ? m.imprPerDau / (e.avgSessions || 3.2) : 2.5;
+      base.sessionCount = Math.round((base.dau || 0) * (e.avgSessions || 3.2));
+      // F3: Retention extended
+      base.d14Retention = (c.d7Retention || 28) * 0.72;
+      base.d60Retention = (c.d30Retention || 14) * 0.62;
+      base.d90Retention = (c.d30Retention || 14) * 0.45;
+      base.rollingRetD7 = (c.d7Retention || 28) + 5.2;
+      base.rollingRetD30 = (c.d30Retention || 14) + 3.8;
+      base.churnD7 = 100 - (c.d7Retention || 28) - 5.2;
+      base.churnD30 = 100 - (c.d30Retention || 14) - 3.8;
+      base.stickiness = base.dau && base.wau ? (base.dau / (base.wau / 7) * 100) : 28;
+      base.avgLifetime = (c.d30Retention || 14) * 2.8;
+      // F4: Cohort Session
+      base.timePerUserLt = base.avgLifetime * 0.35;
+      base.sessionsPerUserLt = base.avgLifetime * 2.8;
+      base.timePerUserDaily = e.avgDuration || 8.5;
+      base.sessionsPerUserDaily = e.avgSessions || 3.2;
+      // F5: Impressions detail
+      base.imprMrec = (m.imprBanner || 3) * 0.15;
+      base.ctrInter = (c.ctr || 0.52) * 0.6;
+      base.ctrReward = (c.ctr || 0.52) * 1.8;
+      base.ctrBanner = (c.ctr || 0.52) * 0.25;
+      // F8: UA extended
+      base.roasTodate = (u.roasD30 || c.roas || 145) * 1.15;
+      base.profitCal = (base.adRevenue || base.revenue || 0) - (u.uaCost || 0);
+      base.attOptin = 38 + i * 1.2;
+      base.mmpInstalls = Math.round((c.installs || 0) * 0.92);
+      base.eroasD60 = (u.roasD30 || c.roas || 145) * 1.35;
+      base.eroasD365 = (u.roasD30 || c.roas || 145) * 2.8;
+      base.arpuD7 = (c.ltv || 0.4) * 0.35;
+      base.arpuD14 = (c.ltv || 0.4) * 0.55;
+      base.arpuD30 = (c.ltv || 0.4) * 0.78;
+      // F6: Network advanced (aggregated)
+      base.renderRate = (m.fillRate || 95) * 0.98;
+      base.bidPrice = (m.ecpm || 5) * 0.85;
+      base.ctrNetwork = c.ctr || 0.52;
+      base.biddingShare = 62 + i * 1.5;
+      // F7: Diagnostic
+      base.revBySdk = base.adRevenue || base.revenue || 0;
+      base.revByPlatform = (base.adRevenue || base.revenue || 0) * 0.55;
+      base.ecpmByPlatform = (m.ecpm || 5) * 1.08;
+      base.anomalyFlag = false;
+      base.networkGap = 1.2 + i * 0.3;
+      base.dauDiscrepancy = 2.1 + i * 0.4;
+      return base;
+    });
+
+    // Build split column label
+    const splitLabel = reportsSplits.includes('date') ? 'Period' : reportsSplits[0] || 'Period';
+
+    // For now: date split = month, adType split = synthetic sub-rows
+    const hasAdTypeSplit = reportsSplits.includes('adType');
+    const rows = [];
+
+    merged.forEach((row, idx) => {
+      const period = row._month;
+      if (hasAdTypeSplit) {
+        // Group header
+        rows.push({ _type: 'group', _label: period, _idx: idx });
+        // Sub-rows per ad type
+        ['Banner', 'Interstitial', 'Rewarded'].forEach(adType => {
+          const factor = adType === 'Banner' ? 0.35 : adType === 'Interstitial' ? 0.40 : 0.25;
+          const subRow = {};
+          selectedMetrics.forEach(mid => {
+            const mk = metricKeyMap[mid];
+            if (!mk) return;
+            const val = row[mk.key];
+            subRow[mid] = val != null ? (mk.isNum ? val * factor : val) : null;
+          });
+          subRow._type = 'data';
+          subRow._label = adType;
+          subRow._group = period;
+          subRow._idx = idx;
+          rows.push(subRow);
+        });
+      } else {
+        const dataRow = { _type: 'data', _label: period, _idx: idx };
+        selectedMetrics.forEach(mid => {
+          const mk = metricKeyMap[mid];
+          if (!mk) return;
+          dataRow[mid] = row[mk.key] ?? null;
+        });
+        rows.push(dataRow);
+      }
+    });
+    return rows;
+  };
+
+  // Anomaly detection (C3)
+  const getAnomaly = (value, prevValue) => {
+    if (value === null || value === undefined) return 'missing';
+    if (value === 0) return 'zero';
+    if (prevValue && prevValue !== 0) {
+      const change = ((value - prevValue) / prevValue) * 100;
+      if (change <= -50) return 'drop';
+      if (change >= 100) return 'spike';
+    }
+    return null;
+  };
+
+  const anomalyStyle = {
+    zero: 'bg-red-500/15 text-red-400',
+    drop: 'bg-amber-500/15 text-amber-400',
+    missing: 'italic text-slate-600',
+    spike: 'bg-emerald-500/15 text-emerald-400',
+  };
+
+  const anomalyTooltip = {
+    zero: 'Zero value — check data pipeline',
+    drop: 'Sharp drop >50%',
+    missing: 'No data available',
+    spike: 'Sharp growth >100%',
+  };
+
+  // Copy cell (C5)
+  const handleCopyCell = (value, rowIdx, colIdx) => {
+    navigator.clipboard.writeText(String(value));
+    setCopiedCell(`${rowIdx}-${colIdx}`);
+    setTimeout(() => setCopiedCell(null), 1000);
+  };
+
+  // D3: Chart series colors
+  const seriesColors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
+
+  const toggleSeries = (id) => {
+    const next = new Set(hiddenSeries);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setHiddenSeries(next);
+  };
+
+  // E2: Deep URL — sync state to URL
+  const pushStateToUrl = () => {
+    const params = new URLSearchParams();
+    params.set('s', reportsSplits.join(','));
+    params.set('m', selectedMetrics.join(','));
+    params.set('app', selectedApp);
+    if (filterCountry !== 'all') params.set('country', filterCountry);
+    params.set('screen', activeScreen);
+    window.history.replaceState(null, '', '?' + params.toString());
+  };
+
+  const loadStateFromUrl = () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('s')) setReportsSplits(params.get('s').split(',').filter(Boolean));
+    if (params.has('m')) setSelectedMetrics(params.get('m').split(',').filter(Boolean));
+    if (params.has('app')) setSelectedApp(params.get('app'));
+    if (params.has('country')) setFilterCountry(params.get('country'));
+    if (params.has('screen')) setActiveScreen(params.get('screen'));
+  };
+
+  // E3: Saved Views — persist to localStorage
+  const saveCurrentView = (name) => {
+    const view = { name, splits: [...reportsSplits], metrics: [...selectedMetrics], app: selectedApp, country: filterCountry, ts: Date.now() };
+    const updated = [...savedViews, view];
+    setSavedViews(updated);
+    localStorage.setItem('onebi_saved_views', JSON.stringify(updated));
+  };
+
+  const loadSavedView = (view) => {
+    setReportsSplits(view.splits);
+    setSelectedMetrics(view.metrics);
+    setSelectedApp(view.app);
+    if (view.country) setFilterCountry(view.country);
+    setShowSavedViewsDD(false);
+  };
+
+  const deleteSavedView = (idx) => {
+    const updated = savedViews.filter((_, i) => i !== idx);
+    setSavedViews(updated);
+    localStorage.setItem('onebi_saved_views', JSON.stringify(updated));
+  };
+
+  // Toggle group collapse (C1)
+  const toggleGroup = (label) => {
+    const next = new Set(collapsedGroups);
+    next.has(label) ? next.delete(label) : next.add(label);
+    setCollapsedGroups(next);
+  };
 
   // Drag-and-drop handlers for columns
   const handleColumnDragStart = (e, metricId) => {
@@ -85,24 +746,85 @@ export default function MetricTree() {
   const sdkVersionsFilter = ['all', '4.5.4', '4.5.2', '4.4.8', '4.4.5', '4.3.0'];
   const countries = ['all', 'US', 'GB', 'DE', 'FR', 'JP', 'KR', 'BR', 'IN', 'RU'];
   const allMetricsOptions = [
-    { id: 'installs', name: 'Installs', section: 'ua' },
+    // Engagement
     { id: 'dau', name: 'DAU', section: 'engagement' },
     { id: 'wau', name: 'WAU', section: 'engagement' },
     { id: 'mau', name: 'MAU', section: 'engagement' },
     { id: 'sessions', name: 'Sessions', section: 'engagement' },
     { id: 'session_duration', name: 'Duration', section: 'engagement' },
+    // F2: Session extended
+    { id: 'sessions_per_user', name: 'Sessions/User', section: 'engagement' },
+    { id: 'time_per_user', name: 'Time/User', section: 'engagement' },
+    { id: 'ad_session_length', name: 'Ad Session Len', section: 'engagement' },
+    { id: 'impr_per_session', name: 'Impr/Session', section: 'engagement' },
+    { id: 'session_count', name: 'Session Count', section: 'engagement' },
+    // Monetisation
+    { id: 'revenue', name: 'Revenue', section: 'monetisation' },
+    { id: 'arpdau', name: 'ARPDAU', section: 'monetisation' },
+    { id: 'ecpm', name: 'eCPM', section: 'monetisation' },
+    { id: 'fill_rate', name: 'Fill Rate', section: 'monetisation' },
+    { id: 'impressions', name: 'Impr', section: 'monetisation' },
+    { id: 'impr_per_dau', name: 'Impr/DAU', section: 'monetisation' },
+    // F1: IAP
+    { id: 'iap_revenue', name: 'IAP Revenue', section: 'monetisation' },
+    { id: 'iap_arpdau', name: 'IAP ARPDAU', section: 'monetisation' },
+    { id: 'paying_users', name: 'Paying Users', section: 'monetisation' },
+    { id: 'purchases', name: 'Purchases', section: 'monetisation' },
+    { id: 'iap_arppu', name: 'IAP ARPPU', section: 'monetisation' },
+    // F5: Impressions by Ad Type
+    { id: 'impr_inter_daily', name: 'Inter Impr/Day', section: 'impressions' },
+    { id: 'impr_reward_daily', name: 'Reward Impr/Day', section: 'impressions' },
+    { id: 'impr_banner_daily', name: 'Banner Impr/Day', section: 'impressions' },
+    { id: 'impr_mrec_daily', name: 'MREC Impr/Day', section: 'impressions' },
+    { id: 'ctr_inter', name: 'CTR Inter', section: 'impressions' },
+    { id: 'ctr_reward', name: 'CTR Reward', section: 'impressions' },
+    { id: 'ctr_banner', name: 'CTR Banner', section: 'impressions' },
+    // Cohort / Retention
     { id: 'd1_retention', name: 'D1 Ret', section: 'cohort' },
     { id: 'd7_retention', name: 'D7 Ret', section: 'cohort' },
     { id: 'd30_retention', name: 'D30 Ret', section: 'cohort' },
-    { id: 'impressions', name: 'Impr', section: 'monetisation' },
-    { id: 'impr_per_dau', name: 'Impr/DAU', section: 'monetisation' },
-    { id: 'ecpm', name: 'eCPM', section: 'monetisation' },
-    { id: 'fill_rate', name: 'Fill Rate', section: 'monetisation' },
-    { id: 'arpdau', name: 'ARPDAU', section: 'monetisation' },
-    { id: 'revenue', name: 'Revenue', section: 'monetisation' },
+    { id: 'ltv', name: 'LTV', section: 'cohort' },
+    // F3: Retention extended
+    { id: 'd14_retention', name: 'D14 Ret', section: 'cohort' },
+    { id: 'd60_retention', name: 'D60 Ret', section: 'cohort' },
+    { id: 'd90_retention', name: 'D90 Ret', section: 'cohort' },
+    { id: 'rolling_ret_d7', name: 'Roll Ret D7', section: 'cohort' },
+    { id: 'rolling_ret_d30', name: 'Roll Ret D30', section: 'cohort' },
+    { id: 'churn_d7', name: 'Churn D7', section: 'cohort' },
+    { id: 'churn_d30', name: 'Churn D30', section: 'cohort' },
+    { id: 'stickiness', name: 'Stickiness', section: 'cohort' },
+    { id: 'avg_lifetime', name: 'Avg Lifetime', section: 'cohort' },
+    // F4: Cohort Session
+    { id: 'time_per_user_lt', name: 'Time/User LT', section: 'cohort' },
+    { id: 'sessions_per_user_lt', name: 'Sess/User LT', section: 'cohort' },
+    { id: 'time_per_user_daily', name: 'Time/User Daily', section: 'cohort' },
+    { id: 'sessions_per_user_daily', name: 'Sess/User Daily', section: 'cohort' },
+    // UA
+    { id: 'installs', name: 'Installs', section: 'ua' },
     { id: 'cpi', name: 'CPI', section: 'ua' },
     { id: 'roas', name: 'ROAS', section: 'ua' },
-    { id: 'ltv', name: 'LTV', section: 'cohort' },
+    // F8: UA extended
+    { id: 'roas_todate', name: 'ROAS To-Date', section: 'ua' },
+    { id: 'profit_cal', name: 'Profit Calendar', section: 'ua' },
+    { id: 'att_optin', name: 'ATT Opt-In', section: 'ua' },
+    { id: 'mmp_installs', name: 'MMP Installs', section: 'ua' },
+    { id: 'eroas_d60', name: 'eROAS D60', section: 'ua' },
+    { id: 'eroas_d365', name: 'eROAS D365', section: 'ua' },
+    { id: 'arpu_d7', name: 'ARPU D7', section: 'ua' },
+    { id: 'arpu_d14', name: 'ARPU D14', section: 'ua' },
+    { id: 'arpu_d30', name: 'ARPU D30', section: 'ua' },
+    // F6: Network advanced (displayed in network table, also selectable)
+    { id: 'render_rate', name: 'Render Rate', section: 'network' },
+    { id: 'bid_price', name: 'Bid Price', section: 'network' },
+    { id: 'ctr_network', name: 'CTR Network', section: 'network' },
+    { id: 'bidding_share', name: 'Bidding %', section: 'network' },
+    // F7: Diagnostic
+    { id: 'rev_by_sdk', name: 'Rev by SDK', section: 'diagnostic' },
+    { id: 'rev_by_platform', name: 'Rev by Platform', section: 'diagnostic' },
+    { id: 'ecpm_by_platform', name: 'eCPM by Platform', section: 'diagnostic' },
+    { id: 'anomaly_flag', name: 'Anomaly Flag', section: 'diagnostic' },
+    { id: 'network_gap', name: 'Network Gap', section: 'diagnostic' },
+    { id: 'dau_discrepancy', name: 'DAU Discrep.', section: 'diagnostic' },
   ];
 
   // Available metrics that can be added to tables
@@ -205,12 +927,12 @@ export default function MetricTree() {
   };
 
   const apps = [
+    { id: 'all', name: 'All Apps' },
     { id: 'puzzle', name: 'Puzzle Game' },
     { id: 'idle', name: 'Idle Tycoon' },
     { id: 'stack', name: 'Stack Tower' },
-    { id: 'clevel', name: 'C-Level Report' },
-    { id: 'rnd', name: 'RnD отдел' },
   ];
+  const realAppIds = ['puzzle', 'idle', 'stack'];
 
   // Weekly data for all apps
   const weeklyData = {
@@ -485,6 +1207,17 @@ export default function MetricTree() {
         { network: 'AdMob', revenue: 1561, impressions: 380500, ecpm: 4.10, fillRate: 97.8, sov: 28, winRate: 32, latency: 120 },
         { network: 'Unity Ads', revenue: 1167, impressions: 303200, ecpm: 3.85, fillRate: 94.5, sov: 22, winRate: 24, latency: 180 },
         { network: 'ironSource', revenue: 1103, impressions: 239800, ecpm: 4.60, fillRate: 96.1, sov: 18, winRate: 21, latency: 155 },
+        { network: 'Meta AN', revenue: 892, impressions: 198400, ecpm: 4.50, fillRate: 91.2, sov: 12, winRate: 15, latency: 210 },
+        { network: 'Mintegral', revenue: 645, impressions: 172000, ecpm: 3.75, fillRate: 89.6, sov: 9, winRate: 11, latency: 195 },
+        { network: 'Pangle', revenue: 478, impressions: 134500, ecpm: 3.55, fillRate: 88.1, sov: 7, winRate: 8, latency: 220 },
+        { network: 'InMobi', revenue: 312, impressions: 98200, ecpm: 3.18, fillRate: 85.4, sov: 5, winRate: 6, latency: 190 },
+        { network: 'Vungle', revenue: 245, impressions: 72800, ecpm: 3.36, fillRate: 82.7, sov: 4, winRate: 5, latency: 175 },
+        { network: 'Chartboost', revenue: 189, impressions: 61400, ecpm: 3.08, fillRate: 79.3, sov: 3, winRate: 4, latency: 200 },
+        { network: 'DT Exchange', revenue: 134, impressions: 48200, ecpm: 2.78, fillRate: 76.8, sov: 2, winRate: 3, latency: 185 },
+        { network: 'Yandex Ads', revenue: 98, impressions: 35600, ecpm: 2.75, fillRate: 74.2, sov: 2, winRate: 2, latency: 240 },
+        { network: 'MyTarget', revenue: 52, impressions: 18900, ecpm: 2.75, fillRate: 68.5, sov: 1, winRate: 1, latency: 260 },
+        { network: 'Bigo Ads', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
+        { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
         { version: 'CAS 3.9.2', appVersion: '2.4.1', dau: 89200, dauShare: 53, sessions: 3.6, duration: 9.4, revenue: 4125, arpdau: 0.0463, imprPerDau: 8.2, ecpm: 5.65, fillRate: 97.2 },
@@ -538,6 +1271,17 @@ export default function MetricTree() {
         { network: 'AdMob', revenue: 1854, impressions: 308800, ecpm: 6.00, fillRate: 96.2, sov: 27, winRate: 30, latency: 118 },
         { network: 'Unity Ads', revenue: 1408, impressions: 246700, ecpm: 5.70, fillRate: 93.8, sov: 21, winRate: 22, latency: 175 },
         { network: 'ironSource', revenue: 1260, impressions: 185300, ecpm: 6.80, fillRate: 95.4, sov: 17, winRate: 19, latency: 160 },
+        { network: 'Meta AN', revenue: 1020, impressions: 168200, ecpm: 6.07, fillRate: 90.8, sov: 11, winRate: 14, latency: 205 },
+        { network: 'Mintegral', revenue: 780, impressions: 145600, ecpm: 5.36, fillRate: 88.4, sov: 8, winRate: 10, latency: 188 },
+        { network: 'Pangle', revenue: 560, impressions: 112300, ecpm: 4.99, fillRate: 86.2, sov: 6, winRate: 7, latency: 215 },
+        { network: 'InMobi', revenue: 385, impressions: 82400, ecpm: 4.67, fillRate: 83.9, sov: 5, winRate: 5, latency: 192 },
+        { network: 'Vungle', revenue: 298, impressions: 64100, ecpm: 4.65, fillRate: 81.5, sov: 4, winRate: 4, latency: 170 },
+        { network: 'Chartboost', revenue: 210, impressions: 52800, ecpm: 3.98, fillRate: 78.1, sov: 3, winRate: 3, latency: 198 },
+        { network: 'DT Exchange', revenue: 155, impressions: 41200, ecpm: 3.76, fillRate: 75.6, sov: 2, winRate: 3, latency: 182 },
+        { network: 'Yandex Ads', revenue: 112, impressions: 30800, ecpm: 3.64, fillRate: 72.8, sov: 2, winRate: 2, latency: 235 },
+        { network: 'MyTarget', revenue: 64, impressions: 16500, ecpm: 3.88, fillRate: 67.2, sov: 1, winRate: 1, latency: 255 },
+        { network: 'Bigo Ads', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
+        { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
         { version: 'CAS 3.9.2', appVersion: '1.8.0', dau: 62400, dauShare: 55, sessions: 4.6, duration: 14.2, revenue: 4520, arpdau: 0.0724, imprPerDau: 9.4, ecpm: 7.70, fillRate: 95.8 },
@@ -591,6 +1335,17 @@ export default function MetricTree() {
         { network: 'AdMob', revenue: 5232, impressions: 1806200, ecpm: 2.90, fillRate: 98.2, sov: 35, winRate: 38, latency: 112 },
         { network: 'Unity Ads', revenue: 3488, impressions: 1238600, ecpm: 2.82, fillRate: 92.5, sov: 24, winRate: 26, latency: 165 },
         { network: 'ironSource', revenue: 3140, impressions: 980100, ecpm: 3.20, fillRate: 94.8, sov: 19, winRate: 18, latency: 152 },
+        { network: 'Meta AN', revenue: 2410, impressions: 842000, ecpm: 2.86, fillRate: 89.5, sov: 14, winRate: 16, latency: 208 },
+        { network: 'Mintegral', revenue: 1680, impressions: 620000, ecpm: 2.71, fillRate: 87.2, sov: 10, winRate: 12, latency: 192 },
+        { network: 'Pangle', revenue: 1245, impressions: 498000, ecpm: 2.50, fillRate: 84.8, sov: 8, winRate: 9, latency: 218 },
+        { network: 'InMobi', revenue: 820, impressions: 342000, ecpm: 2.40, fillRate: 82.1, sov: 5, winRate: 6, latency: 195 },
+        { network: 'Vungle', revenue: 615, impressions: 256000, ecpm: 2.40, fillRate: 80.4, sov: 4, winRate: 5, latency: 172 },
+        { network: 'Chartboost', revenue: 445, impressions: 192000, ecpm: 2.32, fillRate: 77.6, sov: 3, winRate: 4, latency: 202 },
+        { network: 'DT Exchange', revenue: 310, impressions: 138000, ecpm: 2.25, fillRate: 74.2, sov: 2, winRate: 3, latency: 188 },
+        { network: 'Yandex Ads', revenue: 220, impressions: 95000, ecpm: 2.32, fillRate: 71.8, sov: 2, winRate: 2, latency: 242 },
+        { network: 'MyTarget', revenue: 125, impressions: 52000, ecpm: 2.40, fillRate: 66.5, sov: 1, winRate: 1, latency: 258 },
+        { network: 'Bigo Ads', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
+        { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
         { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1260000, dauShare: 60, sessions: 2.7, duration: 5.0, revenue: 11200, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
@@ -1221,1409 +1976,1301 @@ export default function MetricTree() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-6">
-      <div className="max-w-6xl mx-auto">
-        
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold">📊 Mobile Publishing Metrics</h1>
-          <p className="text-slate-400 text-sm mt-1">CAS Mediation · Рекламная монетизация · UA · <span className="text-slate-500">BI v2.4.1</span></p>
+    <div className="min-h-screen bg-slate-900 text-white">
+      {/* H3: Responsive — "Use desktop" for <1024px */}
+      <div className="lg:hidden flex items-center justify-center min-h-[60vh]">
+        <div className="text-center p-8">
+          <div className="text-4xl mb-4">🖥️</div>
+          <h2 className="text-lg font-semibold text-slate-200 mb-2">Desktop Required</h2>
+          <p className="text-sm text-slate-400 max-w-xs">This BI dashboard is optimized for desktop screens. Please use a device with a screen width of 1024px or more.</p>
+        </div>
+      </div>
+      <div className="hidden lg:flex min-h-screen">
+
+      {/* ===== Left Navigation (Cabinet) ===== */}
+      <div
+        className={`shrink-0 bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-200 ${navExpanded ? 'w-52' : 'w-14'}`}
+        onMouseEnter={() => setNavExpanded(true)}
+        onMouseLeave={() => setNavExpanded(false)}
+      >
+        {/* Logo */}
+        <div className="flex items-center gap-2.5 px-3 py-4 border-b border-slate-800">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-blue-500/20 shrink-0">CAS</div>
+          {navExpanded && <span className="text-sm font-semibold text-slate-100 whitespace-nowrap overflow-hidden">CAS Mediation</span>}
         </div>
 
-        <div className="flex justify-center mb-6">
-          <div className="bg-slate-800 rounded-xl p-1 flex gap-1">
-            <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'dashboard' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              📈 Dashboard
+        {/* Nav Items */}
+        <nav className="flex-1 py-3 flex flex-col gap-0.5 px-2">
+          {[
+            { id: 'analytics', label: 'Analytics', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-9"/></svg> },
+            { id: 'apps', label: 'Applications', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> },
+            { id: 'docs', label: 'Documentation', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h6M8 16h4"/></svg> },
+            { id: 'support', label: 'Support', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 115 2c0 2-3 2-3 4"/><circle cx="12" cy="18" r="0.5" fill="currentColor"/></svg> },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveNavItem(item.id)}
+              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
+                activeNavItem === item.id
+                  ? 'bg-blue-600/20 text-blue-400'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+              }`}
+              title={!navExpanded ? item.label : undefined}
+            >
+              <span className="shrink-0 w-5 h-5 flex items-center justify-center">{item.icon}</span>
+              {navExpanded && <span>{item.label}</span>}
             </button>
-            <button onClick={() => setActiveTab('glossary')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeTab === 'glossary' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              📖 Глоссарий
+          ))}
+        </nav>
+
+        {/* Bottom */}
+        <div className="px-2 py-3 border-t border-slate-800">
+          <div className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg ${navExpanded ? '' : 'justify-center'}`}>
+            <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300 shrink-0">U</div>
+            {navExpanded && (
+              <div className="overflow-hidden">
+                <div className="text-xs text-slate-200 font-medium truncate">User</div>
+                <div className="text-[10px] text-slate-500 truncate">Publisher</div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ===== Main Area ===== */}
+      <div className="flex-1 min-w-0 p-6">
+      <div className="mx-auto max-w-screen-lg">
+
+        {/* ===== Header: Title + Nav ===== */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Analytics</span>
+            <span className="text-[10px] text-slate-500 ml-2">v2.4.1</span>
+          </div>
+          <div className="bg-slate-800 rounded-xl p-1 flex gap-1">
+            <button onClick={() => setActiveScreen('quickview')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeScreen === 'quickview' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              Quick View
+            </button>
+            <button onClick={() => setActiveScreen('reports')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeScreen === 'reports' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              Reports
+            </button>
+            <button onClick={() => setActiveScreen('glossary')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeScreen === 'glossary' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
+              Glossary
             </button>
           </div>
         </div>
 
-        {/* Report Type Selection */}
-        <div className="flex justify-center gap-2 mb-6 flex-wrap">
-          <button
-            onClick={() => setSelectedApp('puzzle')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${!['clevel', 'rnd'].includes(selectedApp) ? 'bg-blue-600' : 'bg-slate-800 hover:bg-slate-700'}`}
-          >
-            📱 App Report
-          </button>
-          <button
-            onClick={() => setSelectedApp('clevel')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${selectedApp === 'clevel' ? 'bg-amber-600' : 'bg-slate-800 hover:bg-slate-700'}`}
-          >
-            👔 C-Level Report
-          </button>
-          <button
-            onClick={() => setSelectedApp('rnd')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${selectedApp === 'rnd' ? 'bg-violet-600' : 'bg-slate-800 hover:bg-slate-700'}`}
-          >
-            🧪 RnD отдел
-          </button>
-        </div>
-
-        {activeTab === 'dashboard' && (
+        {activeScreen === 'quickview' && (
           <>
-            {/* Query Strip - Compact Report Settings */}
-            <div className="bg-slate-800/50 border border-slate-700 rounded-xl mb-6 divide-y divide-slate-700/50">
-
-              {/* Row 1: Filters (Green chips) */}
-              <div className="px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <span className="text-slate-500 text-xs font-medium uppercase tracking-wider pt-1.5 shrink-0 w-20">Фильтры</span>
-                  <div className="flex flex-wrap gap-2 flex-1">
-                    {/* Active filter chips with clickable dropdowns */}
-                    {activeFilters.includes('app') && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setOpenFilterValue(openFilterValue === 'app' ? null : 'app')}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
-                        >
-                          <span className="text-emerald-600">App:</span>
-                          {apps.find(a => a.id === selectedApp)?.name}
-                          <span className="text-emerald-600">▾</span>
-                        </button>
-                        <button
-                          onClick={() => setActiveFilters(activeFilters.filter(f => f !== 'app'))}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
-                        >×</button>
-                        {openFilterValue === 'app' && (
-                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[160px] max-h-48 overflow-y-auto">
-                            {apps.filter(a => !['clevel', 'rnd'].includes(a.id)).map(app => (
-                              <button
-                                key={app.id}
-                                onClick={() => { setSelectedApp(app.id); setOpenFilterValue(null); }}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${selectedApp === app.id ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
-                              >
-                                {app.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {activeFilters.includes('period') && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setOpenFilterValue(openFilterValue === 'period' ? null : 'period')}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
-                        >
-                          <span className="text-emerald-600">Период:</span>
-                          {periodRange === '1m' ? '1 мес' : periodRange === '3m' ? '3 мес' : '6 мес'}
-                          <span className="text-emerald-600">▾</span>
-                        </button>
-                        <button
-                          onClick={() => setActiveFilters(activeFilters.filter(f => f !== 'period'))}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
-                        >×</button>
-                        {openFilterValue === 'period' && (
-                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[120px]">
-                            {[{ id: '1m', label: '1 месяц' }, { id: '3m', label: '3 месяца' }, { id: '6m', label: '6 месяцев' }].map(p => (
-                              <button
-                                key={p.id}
-                                onClick={() => { setPeriodRange(p.id); setOpenFilterValue(null); }}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${periodRange === p.id ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
-                              >
-                                {p.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {activeFilters.includes('appVersion') && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setOpenFilterValue(openFilterValue === 'appVersion' ? null : 'appVersion')}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
-                        >
-                          <span className="text-emerald-600">Версия:</span>
-                          {filterAppVersion === 'all' ? 'Все' : `v${filterAppVersion}`}
-                          <span className="text-emerald-600">▾</span>
-                        </button>
-                        <button
-                          onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'appVersion')); setFilterAppVersion('all'); }}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
-                        >×</button>
-                        {openFilterValue === 'appVersion' && (
-                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[120px] max-h-48 overflow-y-auto">
-                            {appVersions.map(v => (
-                              <button
-                                key={v}
-                                onClick={() => { setFilterAppVersion(v); setOpenFilterValue(null); }}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${filterAppVersion === v ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
-                              >
-                                {v === 'all' ? 'Все версии' : `v${v}`}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {activeFilters.includes('sdkVersion') && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setOpenFilterValue(openFilterValue === 'sdkVersion' ? null : 'sdkVersion')}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
-                        >
-                          <span className="text-emerald-600">SDK:</span>
-                          {filterSdkVersion === 'all' ? 'Все' : filterSdkVersion}
-                          <span className="text-emerald-600">▾</span>
-                        </button>
-                        <button
-                          onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'sdkVersion')); setFilterSdkVersion('all'); }}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
-                        >×</button>
-                        {openFilterValue === 'sdkVersion' && (
-                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[120px] max-h-48 overflow-y-auto">
-                            {sdkVersionsFilter.map(v => (
-                              <button
-                                key={v}
-                                onClick={() => { setFilterSdkVersion(v); setOpenFilterValue(null); }}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${filterSdkVersion === v ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
-                              >
-                                {v === 'all' ? 'Все SDK' : v}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {activeFilters.includes('country') && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setOpenFilterValue(openFilterValue === 'country' ? null : 'country')}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 cursor-pointer"
-                        >
-                          <span className="text-emerald-600">Страна:</span>
-                          {filterCountry === 'all' ? 'Все' : filterCountry}
-                          <span className="text-emerald-600">▾</span>
-                        </button>
-                        <button
-                          onClick={() => { setActiveFilters(activeFilters.filter(f => f !== 'country')); setFilterCountry('all'); }}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
-                        >×</button>
-                        {openFilterValue === 'country' && (
-                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[140px] max-h-48 overflow-y-auto">
-                            {countries.map(c => (
-                              <button
-                                key={c}
-                                onClick={() => { setFilterCountry(c); setOpenFilterValue(null); }}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-slate-800 ${filterCountry === c ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
-                              >
-                                {c === 'all' ? 'Все страны' : c}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Add filter dropdown */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 border border-slate-600/50"
-                      >
-                        <span>+</span> Фильтр
-                      </button>
-                      {showFilterDropdown && (
-                        <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px] max-h-60 overflow-y-auto">
-                          <div className="p-2 border-b border-slate-700">
-                            <input type="text" placeholder="Поиск..." className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500" />
-                          </div>
-                          {availableFilters.filter(f => !activeFilters.includes(f.id)).map(filter => (
-                            <button
-                              key={filter.id}
-                              onClick={() => { setActiveFilters([...activeFilters, filter.id]); setShowFilterDropdown(false); }}
-                              className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800"
-                            >
-                              {filter.label}
-                            </button>
-                          ))}
-                          {availableFilters.filter(f => !activeFilters.includes(f.id)).length === 0 && (
-                            <div className="px-3 py-2 text-sm text-slate-500">Все добавлены</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2: Breakdown (Gray chips) */}
-              <div className="px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <span className="text-slate-500 text-xs font-medium uppercase tracking-wider pt-1.5 shrink-0 w-20">Разбивка</span>
-                  <div className="flex flex-wrap gap-2 flex-1">
-                    {/* Time breakdown toggle - always visible */}
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50">
-                      <span className="text-slate-500">Период:</span>
-                      <div className="flex gap-0.5 bg-slate-900/50 rounded p-0.5">
-                        <button
-                          onClick={() => setPeriodType('week')}
-                          className={`px-2 py-0.5 rounded text-xs font-medium transition ${periodType === 'week' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                        >
-                          Недели
-                        </button>
-                        <button
-                          onClick={() => setPeriodType('month')}
-                          className={`px-2 py-0.5 rounded text-xs font-medium transition ${periodType === 'month' ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                        >
-                          Месяцы
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* App Version breakdown chip */}
-                    {breakdownByAppVersion && (
-                      <div className="relative">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-600/30 text-blue-300 border border-blue-500/50">
-                          <span className="text-blue-400">+</span> По версии приложения
-                        </span>
-                        <button
-                          onClick={toggleAppVersionBreakdown}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
-                        >×</button>
-                      </div>
-                    )}
-
-                    {/* SDK Version breakdown chip */}
-                    {breakdownByCasVersion && (
-                      <div className="relative">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-teal-600/30 text-teal-300 border border-teal-500/50">
-                          <span className="text-teal-400">+</span> По версии SDK
-                        </span>
-                        <button
-                          onClick={toggleSdkVersionBreakdown}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-slate-700 rounded-full text-[10px] text-slate-400 hover:bg-slate-600 hover:text-white flex items-center justify-center"
-                        >×</button>
-                      </div>
-                    )}
-
-                    {/* Add breakdown dropdown */}
-                    {!breakdownByAppVersion && !breakdownByCasVersion && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowBreakdownDropdown(!showBreakdownDropdown)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 border border-slate-600/50"
-                        >
-                          <span>+</span> Разбивка
-                        </button>
-                        {showBreakdownDropdown && (
-                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px]">
-                            {availableBreakdowns.map(breakdown => (
-                              <button
-                                key={breakdown.id}
-                                onClick={() => {
-                                  if (breakdown.id === 'appVersion') toggleAppVersionBreakdown();
-                                  else if (breakdown.id === 'sdkVersion') toggleSdkVersionBreakdown();
-                                  setShowBreakdownDropdown(false);
-                                }}
-                                className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800"
-                              >
-                                {breakdown.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 3: Metrics (Dark gray chips) */}
-              <div className="px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <span className="text-slate-500 text-xs font-medium uppercase tracking-wider pt-1.5 shrink-0 w-20">Метрики</span>
-                  <div className="flex flex-wrap gap-2 flex-1">
-                    {/* Selected metrics */}
-                    {selectedMetrics.map(metricId => {
-                      const metric = allMetricsOptions.find(m => m.id === metricId);
-                      return (
-                        <span
-                          key={metricId}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50"
-                        >
-                          {metric?.name}
-                          <button onClick={() => setSelectedMetrics(selectedMetrics.filter(m => m !== metricId))} className="hover:text-white ml-0.5">×</button>
-                        </span>
-                      );
-                    })}
-
-                    {/* Add metric dropdown */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowMetricAddDropdown(!showMetricAddDropdown)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-slate-300 border border-slate-600/50"
-                      >
-                        <span>+</span> Метрика
-                      </button>
-                      {showMetricAddDropdown && (
-                        <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px] max-h-60 overflow-y-auto">
-                          <div className="p-2 border-b border-slate-700">
-                            <input type="text" placeholder="Поиск метрики..." className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500" />
-                          </div>
-                          {['engagement', 'monetisation', 'cohort', 'ua'].map(section => {
-                            const sectionMetrics = allMetricsOptions.filter(m => m.section === section && !selectedMetrics.includes(m.id));
-                            if (sectionMetrics.length === 0) return null;
-                            return (
-                              <div key={section}>
-                                <div className="px-3 py-1.5 text-[10px] text-slate-500 uppercase bg-slate-800/50 sticky top-0">{section}</div>
-                                {sectionMetrics.map(metric => (
-                                  <button
-                                    key={metric.id}
-                                    onClick={() => { setSelectedMetrics([...selectedMetrics, metric.id]); setShowMetricAddDropdown(false); }}
-                                    className="w-full px-3 py-1.5 text-left text-xs text-slate-300 hover:bg-slate-800"
-                                  >
-                                    {metric.name}
-                                  </button>
-                                ))}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 4: Summary + Apply */}
-              <div className="px-4 py-2.5 bg-slate-900/30 flex items-center gap-3">
-                <span className="text-slate-600 text-xs shrink-0">Сводка:</span>
-                <div className="flex flex-wrap gap-1.5 flex-1 text-[10px]">
-                  <span className="text-slate-500">{apps.find(a => a.id === selectedApp)?.name}</span>
-                  <span className="text-slate-600">•</span>
-                  <span className="text-slate-500">{periodRange === '1m' ? '1 мес' : periodRange === '3m' ? '3 мес' : '6 мес'}</span>
-                  <span className="text-slate-600">•</span>
-                  <span className="text-slate-500">{periodType === 'week' ? 'недели' : 'месяцы'}</span>
-                  {breakdownByAppVersion && <><span className="text-slate-600">•</span><span className="text-slate-500">+app ver</span></>}
-                  {breakdownByCasVersion && <><span className="text-slate-600">•</span><span className="text-slate-500">+sdk ver</span></>}
-                  <span className="text-slate-600">•</span>
-                  <span className="text-slate-500">{selectedMetrics.length} метрик</span>
-                </div>
-                <button className="px-4 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition shrink-0">
-                  Применить
-                </button>
-              </div>
-            </div>
-
-            {/* View Type Switcher */}
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-slate-400 text-sm">Вид:</span>
-              <div className="flex bg-slate-800 rounded-lg p-1">
-                <button
-                  onClick={() => setViewType('table')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-2 ${
-                    viewType === 'table'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <span>📋</span> Таблица
-                </button>
-                <button
-                  onClick={() => setViewType('bar')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-2 ${
-                    viewType === 'bar'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <span>📊</span> Диаграммы
-                </button>
-                <button
-                  onClick={() => setViewType('line')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition flex items-center gap-2 ${
-                    viewType === 'line'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <span>📈</span> Графики
-                </button>
-              </div>
-            </div>
-
-            {/* RnD A/B Tests */}
-            {data.isRnd ? (
-              <>
-                {/* KPI Widgets */}
-                <div className="grid grid-cols-4 gap-3 mb-6">
-                  <div className="bg-gradient-to-br from-violet-900/50 to-purple-900/50 border border-violet-700/50 rounded-lg p-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-violet-400 text-xs uppercase">Active Tests</div>
-                        <div className="text-xl font-bold text-white">{data.current.activeTests}</div>
-                      </div>
-                      <span className="text-xs font-medium text-emerald-400">+{data.current.activeTests - data.previous.activeTests}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-slate-400 text-xs uppercase">Completed (Dec)</div>
-                        <div className="text-xl font-bold text-white">{data.current.completedThisMonth}</div>
-                      </div>
-                      <span className="text-xs font-medium text-emerald-400">+{data.current.completedThisMonth - data.previous.completedThisMonth}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-slate-400 text-xs uppercase">Avg Lift</div>
-                        <div className="text-xl font-bold text-white">+{data.current.avgLift}%</div>
-                      </div>
-                      <span className="text-xs font-medium text-emerald-400">+{(data.current.avgLift - data.previous.avgLift).toFixed(1)}pp</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-slate-400 text-xs uppercase">Success Rate</div>
-                        <div className="text-xl font-bold text-white">{data.current.successRate}%</div>
-                      </div>
-                      <span className="text-xs font-medium text-emerald-400">+{data.current.successRate - data.previous.successRate}pp</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Active Tests Table */}
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <span className="text-violet-400">🔬</span> Active A/B Tests
-                  </h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-600">
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Test ID</th>
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">App</th>
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Test Name</th>
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Type</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Traffic</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Control</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Variant</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Lift</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Confidence</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.activeTests.map((test, i) => {
-                          const typeColors = { Networks: 'text-cyan-400', Settings: 'text-amber-400', SDK: 'text-violet-400' };
-                          const isPositive = test.lift.startsWith('+');
-                          return (
-                            <tr key={test.id} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                              <td className="py-3 px-2 font-mono text-violet-400">{test.id}</td>
-                              <td className="py-3 px-2 text-white">{test.app}</td>
-                              <td className="py-3 px-2 text-white font-medium">{test.name}</td>
-                              <td className={`py-3 px-2 ${typeColors[test.type] || 'text-slate-300'}`}>{test.type}</td>
-                              <td className="py-3 px-2 text-right text-slate-300">{test.traffic}%</td>
-                              <td className="py-3 px-2 text-right text-slate-400">${test.control.arpdau.toFixed(4)}</td>
-                              <td className="py-3 px-2 text-right text-white">${test.variant.arpdau.toFixed(4)}</td>
-                              <td className={`py-3 px-2 text-right font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{test.lift}</td>
-                              <td className="py-3 px-2 text-right">
-                                <span className={`${test.confidence >= 95 ? 'text-emerald-400' : test.confidence >= 80 ? 'text-amber-400' : 'text-slate-400'}`}>{test.confidence}%</span>
-                              </td>
-                              <td className="py-3 px-2 text-right">
-                                {test.status === 'running' ? (
-                                  <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-xs">{test.daysLeft}d left</span>
-                                ) : (
-                                  <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-xs">Paused</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Completed Tests Table */}
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <span className="text-emerald-400">✅</span> Completed Tests (Last 30 days)
-                  </h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-600">
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Test ID</th>
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">App</th>
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Test Name</th>
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">Type</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Lift</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Confidence</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue Impact</th>
-                          <th className="text-right py-3 px-2 text-slate-400 font-medium">Result</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.completedTests.map((test, i) => {
-                          const typeColors = { Networks: 'text-cyan-400', Settings: 'text-amber-400', SDK: 'text-violet-400' };
-                          const statusConfig = {
-                            winner: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: '✓ Winner' },
-                            loser: { bg: 'bg-red-500/20', text: 'text-red-400', label: '✗ Loser' },
-                            inconclusive: { bg: 'bg-slate-500/20', text: 'text-slate-400', label: '~ Inconclusive' },
-                          };
-                          const status = statusConfig[test.status];
-                          const isPositive = test.lift.startsWith('+');
-                          return (
-                            <tr key={test.id} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                              <td className="py-3 px-2 font-mono text-slate-500">{test.id}</td>
-                              <td className="py-3 px-2 text-white">{test.app}</td>
-                              <td className="py-3 px-2 text-white">{test.name}</td>
-                              <td className={`py-3 px-2 ${typeColors[test.type] || 'text-slate-300'}`}>{test.type}</td>
-                              <td className={`py-3 px-2 text-right font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{test.lift}</td>
-                              <td className="py-3 px-2 text-right text-slate-300">{test.confidence}%</td>
-                              <td className={`py-3 px-2 text-right font-medium ${test.revenue.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>{test.revenue}</td>
-                              <td className="py-3 px-2 text-right">
-                                <span className={`${status.bg} ${status.text} px-2 py-0.5 rounded text-xs`}>{status.label}</span>
-                                {test.deployed && <span className="ml-1 text-blue-400 text-xs">🚀</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Network & SDK Performance side by side */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  {/* Network Tests Summary */}
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <span className="text-cyan-400">🌐</span> Network Tests Summary
-                    </h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-600">
-                            <th className="text-left py-2 px-2 text-slate-400 font-medium">Network</th>
-                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Tests</th>
-                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Wins</th>
-                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Avg Lift</th>
-                            <th className="text-left py-2 px-2 text-slate-400 font-medium">Best Result</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.networkTests.map((net, i) => {
-                            const isPositive = net.avgLift.startsWith('+');
-                            return (
-                              <tr key={net.network} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                                <td className="py-2 px-2 text-white font-medium">{net.network}</td>
-                                <td className="py-2 px-2 text-right text-slate-300">{net.testsRun}</td>
-                                <td className="py-2 px-2 text-right text-emerald-400">{net.wins}</td>
-                                <td className={`py-2 px-2 text-right font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{net.avgLift}</td>
-                                <td className="py-2 px-2 text-slate-400 text-xs">{net.bestResult}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* SDK Tests Summary */}
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <span className="text-violet-400">📦</span> SDK Tests Summary
-                    </h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-600">
-                            <th className="text-left py-2 px-2 text-slate-400 font-medium">SDK</th>
-                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Tests</th>
-                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Lift vs Prev</th>
-                            <th className="text-right py-2 px-2 text-slate-400 font-medium">Adopted</th>
-                            <th className="text-left py-2 px-2 text-slate-400 font-medium">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.sdkTests.map((sdk, i) => {
-                            const isPositive = sdk.avgLiftVsPrev.startsWith('+');
-                            return (
-                              <tr key={sdk.sdk} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                                <td className="py-2 px-2 text-white font-medium">{sdk.sdk}</td>
-                                <td className="py-2 px-2 text-right text-slate-300">{sdk.testsRun}</td>
-                                <td className={`py-2 px-2 text-right font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{sdk.avgLiftVsPrev}</td>
-                                <td className="py-2 px-2 text-right text-slate-300">{sdk.adopted}</td>
-                                <td className="py-2 px-2">
-                                  <span className={`text-xs px-2 py-0.5 rounded ${
-                                    sdk.recommendation === 'Rollout to all' ? 'bg-emerald-500/20 text-emerald-400' :
-                                    sdk.recommendation === 'Update available' ? 'bg-amber-500/20 text-amber-400' :
-                                    'bg-red-500/20 text-red-400'
-                                  }`}>{sdk.recommendation}</span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : data.isPortfolio ? (
-              <>
-                {/* Apps Cohort Comparison - Main Table First */}
-                {data.appsCohortComparison && (
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-semibold flex items-center gap-2">
-                        <span>📈</span> Apps Performance Comparison (Dec vs Nov 2025)
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-xs">Сортировка:</span>
-                        <select
-                          value={appsSortBy}
-                          onChange={(e) => setAppsSortBy(e.target.value)}
-                          className="bg-slate-700 text-white text-xs px-2 py-1 rounded border border-slate-600"
-                        >
-                          <option value="profitDelta">Δ Profit</option>
-                          <option value="revenueDelta">Δ Revenue</option>
-                          <option value="dauDelta">Δ DAU</option>
-                          <option value="roasDelta">Δ ROAS</option>
-                          <option value="manager">Manager</option>
-                        </select>
-                        <button
-                          onClick={() => setAppsSortDir(appsSortDir === 'desc' ? 'asc' : 'desc')}
-                          className="px-2 py-1 bg-slate-700 text-white text-xs rounded border border-slate-600"
-                        >
-                          {appsSortDir === 'desc' ? '↓' : '↑'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-600">
-                            <th className="text-left py-3 px-2 text-slate-400 font-medium">App</th>
-                            <th className="text-left py-3 px-2 text-slate-400 font-medium">Manager</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Profit</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ Profit</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ Revenue</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">DAU</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ DAU</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">D7 Ret</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ D7</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">ARPDAU</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">ROAS</th>
-                            <th className="text-right py-3 px-2 text-slate-400 font-medium">Δ ROAS</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {[...data.appsCohortComparison].sort((a, b) => {
-                            const getDelta = (item, field) => {
-                              if (field === 'manager') return item.manager;
-                              const curr = item.current[field.replace('Delta', '')];
-                              const prev = item.previous[field.replace('Delta', '')];
-                              return ((curr - prev) / prev) * 100;
-                            };
-                            const aVal = getDelta(a, appsSortBy);
-                            const bVal = getDelta(b, appsSortBy);
-                            if (appsSortBy === 'manager') {
-                              return appsSortDir === 'desc' ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
-                            }
-                            return appsSortDir === 'desc' ? bVal - aVal : aVal - bVal;
-                          }).map((app, i) => {
-                            const profitDelta = ((app.current.profit - app.previous.profit) / app.previous.profit * 100).toFixed(1);
-                            const revDelta = ((app.current.revenue - app.previous.revenue) / app.previous.revenue * 100).toFixed(1);
-                            const dauDelta = ((app.current.dau - app.previous.dau) / app.previous.dau * 100).toFixed(1);
-                            const d7Delta = (app.current.d7Ret - app.previous.d7Ret).toFixed(1);
-                            const roasDelta = (app.current.roas - app.previous.roas);
-                            const managerColor = {
-                              'Anton Smirnov': 'text-amber-400',
-                              'Serhii Shcherbyna': 'text-blue-400',
-                              'Rashid Sabirov': 'text-purple-400',
-                            };
-                            return (
-                              <tr key={app.name} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                                <td className="py-3 px-2 font-medium text-white">{app.name}</td>
-                                <td className={`py-3 px-2 ${managerColor[app.manager] || 'text-slate-300'}`}>{app.manager.split(' ')[0]}</td>
-                                <td className="py-3 px-2 text-right text-white font-medium">${(app.current.profit/1000).toFixed(0)}K</td>
-                                <td className={`py-3 px-2 text-right font-medium ${parseFloat(profitDelta) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {parseFloat(profitDelta) >= 0 ? '+' : ''}{profitDelta}%
-                                </td>
-                                <td className="py-3 px-2 text-right text-slate-300">${(app.current.revenue/1000).toFixed(0)}K</td>
-                                <td className={`py-3 px-2 text-right ${parseFloat(revDelta) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {parseFloat(revDelta) >= 0 ? '+' : ''}{revDelta}%
-                                </td>
-                                <td className="py-3 px-2 text-right text-slate-300">{formatNum(app.current.dau)}</td>
-                                <td className={`py-3 px-2 text-right ${parseFloat(dauDelta) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {parseFloat(dauDelta) >= 0 ? '+' : ''}{dauDelta}%
-                                </td>
-                                <td className="py-3 px-2 text-right text-slate-300">{app.current.d7Ret}%</td>
-                                <td className={`py-3 px-2 text-right ${parseFloat(d7Delta) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {parseFloat(d7Delta) >= 0 ? '+' : ''}{d7Delta}pp
-                                </td>
-                                <td className="py-3 px-2 text-right text-slate-300">${app.current.arpdau.toFixed(3)}</td>
-                                <td className="py-3 px-2 text-right text-slate-300">{app.current.roas}%</td>
-                                <td className={`py-3 px-2 text-right font-medium ${roasDelta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {roasDelta >= 0 ? '+' : ''}{roasDelta}pp
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Compact KPI Widgets - 4 in one row */}
-                <div className="grid grid-cols-4 gap-3 mb-6">
-                  <div className="bg-gradient-to-br from-amber-900/50 to-orange-900/50 border border-amber-700/50 rounded-lg p-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-amber-400 text-xs uppercase">MRR</div>
-                        <div className="text-xl font-bold text-white">${(data.current.mrr/1000000).toFixed(2)}M</div>
-                      </div>
-                      <span className="text-xs font-medium text-emerald-400">{calcDelta(data.current.mrr, data.previous.mrr)}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-slate-400 text-xs uppercase">Total DAU</div>
-                        <div className="text-xl font-bold text-white">{formatNum(data.current.totalDau)}</div>
-                      </div>
-                      <span className="text-xs font-medium text-emerald-400">{calcDelta(data.current.totalDau, data.previous.totalDau)}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-slate-400 text-xs uppercase">Avg ARPDAU</div>
-                        <div className="text-xl font-bold text-white">${data.current.avgArpdau.toFixed(3)}</div>
-                      </div>
-                      <span className="text-xs font-medium text-emerald-400">{calcDelta(data.current.avgArpdau, data.previous.avgArpdau)}</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-slate-400 text-xs uppercase">Avg ROAS</div>
-                        <div className="text-xl font-bold text-white">{data.current.avgRoas}%</div>
-                      </div>
-                      <span className="text-xs font-medium text-emerald-400">{calcDelta(data.current.avgRoas, data.previous.avgRoas)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Apps Breakdown */}
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                      <span>🎮</span> {groupByManager ? 'Account Managers Performance' : 'Apps Profit Breakdown'}
-                    </h3>
+            {/* Quick View Header: App selector + Client Type + Period Bar */}
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+              {/* Left: App selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 text-xs uppercase tracking-wider">App:</span>
+                <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
+                  {apps.map(app => (
                     <button
-                      onClick={() => setGroupByManager(!groupByManager)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${groupByManager ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                      key={app.id}
+                      onClick={() => setSelectedApp(app.id)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium ${selectedApp === app.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
                     >
-                      👤 {groupByManager ? 'Show Apps' : 'Group by Manager'}
+                      {app.name}
                     </button>
-                  </div>
-                  
-                  {groupByManager ? (
-                    <div className="space-y-4">
-                      {data.managers.map((manager) => (
-                        <div key={manager.name} className="bg-slate-900/50 rounded-xl p-4">
-                          <div className="flex justify-between items-center mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold">
-                                {manager.name.split(' ').map(n => n[0]).join('')}
-                              </div>
-                              <div>
-                                <div className="text-white font-semibold">{manager.name}</div>
-                                <div className="text-slate-500 text-xs">{manager.apps} apps</div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-white">${(manager.profit/1000).toFixed(0)}K</div>
-                              <div className="text-emerald-400 text-sm">{manager.share}% of portfolio</div>
-                            </div>
-                          </div>
-                          <div className="h-2 bg-slate-700 rounded-full overflow-hidden mb-3">
-                            <div className="h-full bg-gradient-to-r from-amber-500 to-emerald-500 rounded-full" style={{ width: manager.share + '%' }} />
-                          </div>
-                          <div className="grid grid-cols-3 gap-4 text-center">
-                            <div>
-                              <div className="text-slate-500 text-xs">Apps</div>
-                              <div className="text-white font-semibold">{manager.apps}</div>
-                            </div>
-                            <div>
-                              <div className="text-slate-500 text-xs">Total DAU</div>
-                              <div className="text-white font-semibold">{formatNum(manager.dau)}</div>
-                            </div>
-                            <div>
-                              <div className="text-slate-500 text-xs">Avg per App</div>
-                              <div className="text-white font-semibold">${(manager.profit/manager.apps/1000).toFixed(0)}K</div>
-                            </div>
-                          </div>
-                          <div className="mt-3 pt-3 border-t border-slate-700">
-                            <div className="text-slate-500 text-xs mb-2">Apps:</div>
-                            <div className="flex flex-wrap gap-2">
-                              {data.appsBreakdown.filter(a => a.manager === manager.name).map(app => (
-                                <span key={app.name} className="bg-slate-800 text-slate-300 px-2 py-1 rounded text-xs">
-                                  {app.name} · ${(app.profit/1000).toFixed(0)}K
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {data.appsBreakdown.map((app) => (
-                        <div key={app.name} className="bg-slate-900/50 rounded-lg p-3">
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="text-white font-medium text-sm">{app.name}</span>
-                            <span className="text-emerald-400 text-xs">{app.share}%</span>
-                          </div>
-                          <div className="text-xl font-bold text-white">${(app.profit/1000).toFixed(0)}K</div>
-                          <div className="text-slate-500 text-xs mt-1">DAU: {formatNum(app.dau)}</div>
-                          <div className="text-amber-400 text-xs mt-1">👤 {app.manager.split(' ')[0]}</div>
-                          <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: app.share + '%' }} />
-                          </div>
-                        </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Center: Client Type */}
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 text-xs uppercase tracking-wider">View:</span>
+                <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
+                  {['PubC', 'L1', 'L2', 'Pub', 'Payments'].map(ct => (
+                    <button
+                      key={ct}
+                      onClick={() => setClientType(ct)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium ${clientType === ct ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      {ct}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right: Period Bar */}
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                  >
+                    {qvPeriodOptions.find(p => p.id === qvPeriod)?.label} ▾
+                  </button>
+                  {showPeriodDropdown && (
+                    <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[150px]">
+                      {qvPeriodOptions.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => { setQvPeriod(p.id); setShowPeriodDropdown(false); }}
+                          className={`w-full px-3 py-2 text-left text-xs hover:bg-slate-800 ${qvPeriod === p.id ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
+                        >
+                          {p.label}
+                        </button>
                       ))}
                     </div>
                   )}
                 </div>
-
-                {/* Manager Tables */}
-                {data.managers.map((manager) => (
-                  <div key={manager.name} className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold">
-                        {manager.name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{manager.name}</h3>
-                        <p className="text-slate-400 text-sm">{manager.apps} apps · ${(manager.profit/1000).toFixed(0)}K profit · {manager.share}% portfolio</p>
-                      </div>
-                    </div>
-
-                    {/* Cohort Table */}
-                    {data.managersCohortTable && data.managersCohortTable[manager.name] && (
-                      <div className="mb-4">
-                        <h4 className="text-sm font-medium text-slate-400 mb-2">📊 Monthly Cohort</h4>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b border-slate-600">
-                                <th className="text-left py-2 px-2 text-slate-500 font-medium">Month</th>
-                                <th className="text-right py-2 px-2 text-slate-500 font-medium">Installs</th>
-                                <th className="text-right py-2 px-2 text-slate-500 font-medium">DAU</th>
-                                <th className="text-right py-2 px-2 text-slate-500 font-medium">D1 Ret</th>
-                                <th className="text-right py-2 px-2 text-slate-500 font-medium">D7 Ret</th>
-                                <th className="text-right py-2 px-2 text-slate-500 font-medium">Impr</th>
-                                <th className="text-right py-2 px-2 text-slate-500 font-medium">eCPM</th>
-                                <th className="text-right py-2 px-2 text-slate-500 font-medium">Revenue</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {data.managersCohortTable[manager.name].map((row, i) => (
-                                <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                                  <td className="py-2 px-2 text-white">{row.month.split(' ')[0]}</td>
-                                  <td className="py-2 px-2 text-right text-slate-300">{row.installs.toLocaleString()}</td>
-                                  <td className="py-2 px-2 text-right text-slate-300">{row.dau.toLocaleString()}</td>
-                                  <td className="py-2 px-2 text-right text-slate-300">{row.d1Retention}%</td>
-                                  <td className="py-2 px-2 text-right text-slate-300">{row.d7Retention}%</td>
-                                  <td className="py-2 px-2 text-right text-slate-300">{(row.impressions/1000000).toFixed(2)}M</td>
-                                  <td className="py-2 px-2 text-right text-slate-300">${row.ecpm.toFixed(2)}</td>
-                                  <td className="py-2 px-2 text-right text-emerald-400 font-medium">${row.revenue.toLocaleString()}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Monetisation & UA side by side */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      {/* Monetisation */}
-                      {data.managersMonetisation && data.managersMonetisation[manager.name] && (
-                        <div>
-                          <h4 className="text-sm font-medium text-emerald-400 mb-2">💰 Monetisation</h4>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b border-slate-600">
-                                  <th className="text-left py-2 px-2 text-slate-500 font-medium">Month</th>
-                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">ARPDAU</th>
-                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">Impr/DAU</th>
-                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">Fill</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {data.managersMonetisation[manager.name].map((row, i) => (
-                                  <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                                    <td className="py-2 px-2 text-white">{row.month.split(' ')[0]}</td>
-                                    <td className="py-2 px-2 text-right text-emerald-400">${row.arpdau.toFixed(4)}</td>
-                                    <td className="py-2 px-2 text-right text-slate-300">{row.imprPerDau}</td>
-                                    <td className="py-2 px-2 text-right text-slate-300">{row.fillRate}%</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* UA */}
-                      {data.managersUA && data.managersUA[manager.name] && (
-                        <div>
-                          <h4 className="text-sm font-medium text-pink-400 mb-2">📢 UA Performance</h4>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b border-slate-600">
-                                  <th className="text-left py-2 px-2 text-slate-500 font-medium">Month</th>
-                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">Cost</th>
-                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">CPI</th>
-                                  <th className="text-right py-2 px-2 text-slate-500 font-medium">ROAS D7</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {data.managersUA[manager.name].map((row, i) => (
-                                  <tr key={row.month} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                                    <td className="py-2 px-2 text-white">{row.month.split(' ')[0]}</td>
-                                    <td className="py-2 px-2 text-right text-pink-400">${row.uaCost.toLocaleString()}</td>
-                                    <td className="py-2 px-2 text-right text-slate-300">${row.cpi.toFixed(3)}</td>
-                                    <td className="py-2 px-2 text-right">
-                                      <span className={row.roasD7 >= 100 ? 'text-emerald-400' : 'text-red-400'}>{row.roasD7}%</span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div className="grid grid-cols-5 gap-3 mb-6">
-                <MetricCard label="DAU" value={data.current.dau} prev={data.previous.dau} format={formatNum} />
-                <MetricCard label="ARPDAU" value={data.current.arpdau} prev={data.previous.arpdau} format={(v) => '$'+v.toFixed(3)} />
-                <MetricCard label="Retention D7" value={data.current.retention_d7} prev={data.previous.retention_d7} suffix="%" />
-                <MetricCard label="LTV" value={data.current.ltv} prev={data.previous.ltv} format={(v) => '$'+v.toFixed(2)} />
-                <MetricCard label="ROAS" value={data.current.roas} prev={data.previous.roas} suffix="%" />
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={qvCompare}
+                    onChange={(e) => setQvCompare(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
+                  />
+                  <span className="text-xs text-slate-400">Compare</span>
+                </label>
               </div>
-            )}
+            </div>
 
-            {/* Table View */}
-            {viewType === 'table' && (
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <span>📊</span> Publisher Dashboard — {periodType === 'week' ? 'Weekly' : 'Monthly'} Cohort Table
-                  </h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-600">
-                        <th className="text-left py-3 px-2 text-slate-400 font-medium">{periodType === 'week' ? 'Week' : 'Period'}</th>
-                        {breakdownByAppVersion && (
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">App Version</th>
-                        )}
-                        {breakdownByCasVersion && (
-                          <th className="text-left py-3 px-2 text-slate-400 font-medium">SDK Version</th>
-                        )}
-                        {selectedMetrics.map(metricId => {
-                          const metric = allMetricsOptions.find(m => m.id === metricId);
-                          return (
-                            <th
-                              key={metricId}
-                              className={`text-right py-3 px-2 text-slate-400 font-medium cursor-grab select-none transition-all ${draggedColumn === metricId ? 'opacity-50 bg-slate-700' : 'hover:bg-slate-700/50'}`}
-                              draggable
-                              onDragStart={(e) => handleColumnDragStart(e, metricId)}
-                              onDragOver={(e) => handleColumnDragOver(e, metricId)}
-                              onDragEnd={handleColumnDragEnd}
-                            >
-                              {metric?.name || metricId}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {getTableData(selectedApp, 'cohortTable').map((row, i) => {
-                        const monRow = getTableData(selectedApp, 'monetisationTable')[i] || {};
-                        const engRow = getTableData(selectedApp, 'engagementTable')[i] || {};
-
-                        const getMetricValue = (metricId) => {
-                          switch(metricId) {
-                            case 'installs': return row.installs?.toLocaleString() || '-';
-                            case 'dau': return row.dau?.toLocaleString() || '-';
-                            case 'sessions': return engRow.avgSessions || '-';
-                            case 'session_duration': return engRow.avgDuration ? `${engRow.avgDuration}m` : '-';
-                            case 'd1_retention': return row.d1Retention ? `${row.d1Retention}%` : '-';
-                            case 'd7_retention': return row.d7Retention ? `${row.d7Retention}%` : '-';
-                            case 'd30_retention': return row.d30Retention ? `${row.d30Retention}%` : '-';
-                            case 'impressions': return row.impressions?.toLocaleString() || '-';
-                            case 'impr_per_dau': return monRow.imprPerDau || '-';
-                            case 'ecpm': return row.ecpm ? `$${row.ecpm.toFixed(2)}` : '-';
-                            case 'fill_rate': return monRow.fillRate ? `${monRow.fillRate}%` : '-';
-                            case 'arpdau': return monRow.arpdau ? `$${monRow.arpdau.toFixed(4)}` : '-';
-                            case 'revenue': return row.revenue ? `$${row.revenue.toFixed(2)}` : '-';
-                            case 'ltv': return row.ltv ? `$${row.ltv.toFixed(2)}` : '-';
-                            case 'cpi': return row.cpi ? `$${row.cpi.toFixed(2)}` : '-';
-                            case 'roas': return row.roas ? `${row.roas}%` : '-';
-                            case 'wau': return row.wau?.toLocaleString() || '-';
-                            case 'mau': return row.mau?.toLocaleString() || '-';
-                            default: return '-';
-                          }
-                        };
-
-                        const getMetricStyle = (metricId) => {
-                          switch(metricId) {
-                            case 'dau': return 'text-purple-400 font-medium';
-                            case 'revenue': return 'text-emerald-400 font-medium';
-                            case 'arpdau': return 'text-emerald-400';
-                            default: return 'text-slate-300';
-                          }
-                        };
-
-                        return (
-                          <tr key={`${row.month || row.period}-${row.appVersion || row.sdkVersion || i}`} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                            <td className="py-3 px-2 font-medium text-white">{row.month || row.period}</td>
-                            {breakdownByAppVersion && (
-                              <td className="py-3 px-2">
-                                <span
-                                  className="px-2 py-0.5 rounded text-xs font-medium"
-                                  style={{ backgroundColor: versionColors[row.appVersion] + '30', color: versionColors[row.appVersion] }}
-                                >
-                                  v{row.appVersion}
-                                </span>
-                              </td>
-                            )}
-                            {breakdownByCasVersion && (
-                              <td className="py-3 px-2">
-                                <span
-                                  className="px-2 py-0.5 rounded text-xs font-medium"
-                                  style={{ backgroundColor: sdkVersionColors[row.sdkVersion] + '30', color: sdkVersionColors[row.sdkVersion] }}
-                                >
-                                  {row.sdkVersion}
-                                </span>
-                              </td>
-                            )}
-                            {selectedMetrics.map(metricId => (
-                              <td key={metricId} className={`py-3 px-2 text-right ${getMetricStyle(metricId)}`}>
-                                {getMetricValue(metricId)}
-                              </td>
-                            ))}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Bar Chart View */}
-            {viewType === 'bar' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(() => {
-                  const tableData = getTableData(selectedApp, 'cohortTable');
-                  const monData = getTableData(selectedApp, 'monetisationTable');
-                  const engData = getTableData(selectedApp, 'engagementTable');
-                  const appVersions = appVersionsList[selectedApp] || [];
-                  const hasBreakdown = breakdownByAppVersion || breakdownByCasVersion;
-                  const breakdownVersions = breakdownByAppVersion ? appVersions : sdkVersionsList;
-                  const breakdownColors = breakdownByAppVersion ? versionColors : sdkVersionColors;
-                  const breakdownKey = breakdownByAppVersion ? 'appVersion' : 'sdkVersion';
-
-                  const metricConfigs = {
-                    installs: { getValue: (row) => row.installs || 0 },
-                    dau: { getValue: (row) => row.dau || 0 },
-                    wau: { getValue: (row) => row.wau || 0 },
-                    mau: { getValue: (row) => row.mau || 0 },
-                    sessions: { getValue: (row, i) => engData[i]?.avgSessions || 0 },
-                    session_duration: { getValue: (row, i) => engData[i]?.avgDuration || 0 },
-                    d1_retention: { getValue: (row) => row.d1Retention || 0 },
-                    d7_retention: { getValue: (row) => row.d7Retention || 0 },
-                    d30_retention: { getValue: (row) => row.d30Retention || 0 },
-                    impressions: { getValue: (row) => row.impressions || 0 },
-                    impr_per_dau: { getValue: (row, i) => monData[i]?.imprPerDau || 0 },
-                    ecpm: { getValue: (row) => row.ecpm || 0 },
-                    fill_rate: { getValue: (row, i) => monData[i]?.fillRate || 0 },
-                    arpdau: { getValue: (row, i) => monData[i]?.arpdau || 0 },
-                    revenue: { getValue: (row) => row.revenue || 0 },
-                    ltv: { getValue: (row) => row.ltv || 0 },
-                    cpi: { getValue: (row) => row.cpi || 0 },
-                    roas: { getValue: (row) => row.roas || 0 },
-                  };
-
-                  // Группировка по периодам для breakdown
-                  const periods = hasBreakdown
-                    ? [...new Set(tableData.map(r => r.month || r.period))]
-                    : tableData.map(r => r.month || r.period);
-
-                  return selectedMetrics.filter(id => metricConfigs[id]).map(metricId => {
-                    const metric = allMetricsOptions.find(m => m.id === metricId);
-                    const config = metricConfigs[metricId];
-                    const values = tableData.map((row, i) => config.getValue(row, i));
-                    const maxValue = Math.max(...values) || 1;
-
+            {/* B1: Metric Cards (hidden for Payments — has its own layout) */}
+            {clientType !== 'Payments' && (() => {
+              const cards = qvCardDefs[clientType] || [];
+              const vals = getQvCardValues(selectedApp);
+              return (
+                <div className={`grid gap-3 mb-6 ${cards.length <= 4 ? 'grid-cols-4' : cards.length === 5 ? 'grid-cols-5' : 'grid-cols-6'}`}>
+                  {cards.map(card => {
+                    const cur = vals.current[card.key];
+                    const prev = vals.previous[card.key];
+                    const hasCur = cur != null && cur !== undefined;
+                    const hasPrev = prev != null && prev !== undefined;
+                    if (card.planned && !hasCur) {
+                      return (
+                        <div key={card.id} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 border-dashed">
+                          <div className="text-slate-500 text-xs uppercase tracking-wider">{card.label}</div>
+                          <div className="text-lg font-bold text-slate-600 mt-1">--</div>
+                          <div className="text-[10px] text-slate-600 mt-0.5">Planned</div>
+                        </div>
+                      );
+                    }
+                    const delta = hasCur && hasPrev && prev !== 0 ? ((cur - prev) / prev * 100) : 0;
+                    const isUp = delta >= 0;
                     return (
-                      <div key={metricId} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                        <h4 className="text-sm font-medium text-slate-300 mb-2">{metric?.name}</h4>
-                        {hasBreakdown && (
-                          <div className="flex gap-2 mb-2 flex-wrap">
-                            {breakdownVersions.map(v => (
-                              <span key={v} className="flex items-center gap-1 text-[9px]">
-                                <span className="w-2 h-2 rounded" style={{ backgroundColor: breakdownColors[v] }} />
-                                <span className="text-slate-400">{breakdownByAppVersion ? `v${v}` : v}</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex items-end justify-between gap-2 h-32">
-                          {hasBreakdown ? (
-                            periods.map(period => {
-                              const periodRows = tableData.filter(r => (r.month || r.period) === period);
-                              return (
-                                <div key={period} className="flex flex-col items-center flex-1 h-full">
-                                  <div className="flex-1 w-full flex items-end justify-center gap-0.5">
-                                    {periodRows.map((row, vi) => {
-                                      const value = config.getValue(row, vi);
-                                      const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                                      const versionLabel = row[breakdownKey];
-                                      return (
-                                        <div
-                                          key={versionLabel}
-                                          className="flex-1 max-w-3 rounded-t transition-all duration-300"
-                                          style={{ height: `${height}%`, backgroundColor: breakdownColors[versionLabel] }}
-                                          title={`${breakdownByAppVersion ? 'v' : ''}${versionLabel}: ${typeof value === 'number' ? (value >= 1000 ? (value/1000).toFixed(1)+'k' : value.toFixed(1)) : value}`}
-                                        />
-                                      );
-                                    })}
-                                  </div>
-                                  <span className="text-[8px] text-slate-400 mt-1 truncate w-full text-center">{period.split(' ')[0]}</span>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            tableData.map((row, i) => {
-                              const value = config.getValue(row, i);
-                              const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                              return (
-                                <div key={row.month || row.period} className="flex flex-col items-center flex-1 h-full">
-                                  <span className="text-[10px] text-slate-300 mb-1">
-                                    {typeof value === 'number' ? (value >= 1000 ? (value/1000).toFixed(1)+'k' : value.toFixed(1)) : value}
-                                  </span>
-                                  <div className="flex-1 w-full flex items-end justify-center">
-                                    <div className="w-full max-w-8 bg-blue-500 rounded-t transition-all duration-300" style={{ height: `${height}%` }} />
-                                  </div>
-                                  <span className="text-[9px] text-slate-400 mt-1 truncate w-full text-center">{row.month || row.period}</span>
-                                </div>
-                              );
-                            })
+                      <div
+                        key={card.id}
+                        className="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-slate-600 cursor-pointer transition"
+                        onClick={() => { setActiveScreen('reports'); addMeasure(card.id); }}
+                        title={`Click to open in Reports`}
+                      >
+                        <div className="text-slate-400 text-xs uppercase tracking-wider" title={metricTooltips[card.id] ? `${metricTooltips[card.id].desc}\n= ${metricTooltips[card.id].formula}` : undefined}>{card.label}</div>
+                        <div className="text-xl font-bold text-white mt-1">{hasCur ? card.format(cur) : '--'}</div>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className={`text-xs font-medium ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {isUp ? '+' : ''}{delta.toFixed(1)}%
+                          </span>
+                          <span className={`text-[10px] ${isUp ? 'text-emerald-500' : 'text-red-500'}`}>{isUp ? '▲' : '▼'}</span>
+                          {qvCompare && hasPrev && (
+                            <span className="text-[10px] text-slate-500 ml-1">vs {card.format(prev)}</span>
                           )}
                         </div>
                       </div>
                     );
-                  });
-                })()}
-              </div>
-            )}
+                  })}
+                </div>
+              );
+            })()}
 
-            {/* Line Chart View */}
-            {viewType === 'line' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(() => {
-                  const tableData = getTableData(selectedApp, 'cohortTable');
-                  const monData = getTableData(selectedApp, 'monetisationTable');
-                  const engData = getTableData(selectedApp, 'engagementTable');
-                  const appVersions = appVersionsList[selectedApp] || [];
-                  const hasBreakdown = breakdownByAppVersion || breakdownByCasVersion;
-                  const breakdownVersions = breakdownByAppVersion ? appVersions : sdkVersionsList;
-                  const breakdownColors = breakdownByAppVersion ? versionColors : sdkVersionColors;
-                  const breakdownKey = breakdownByAppVersion ? 'appVersion' : 'sdkVersion';
-                  const periods = [...new Set(tableData.map(r => r.month || r.period))];
+            {/* B2: Trend Chart + B3: Breakdown Charts (hidden for Payments) */}
+            {clientType !== 'Payments' && (() => {
+              const trend = getQvTrendData(selectedApp);
+              const minTrend = Math.min(...trend.map(t => t.value));
+              const maxTrend = Math.max(...trend.map(t => t.value), 1);
+              // Scale from 80% of min to show variance better
+              const chartFloor = Math.floor(minTrend * 0.8);
+              const chartRange = maxTrend - chartFloor || 1;
+              // Network breakdown for right panel
+              const netAppIds = selectedApp === 'all' ? realAppIds : [selectedApp];
+              const netMap = {};
+              netAppIds.forEach(id => {
+                (dashboardData[id]?.networksTable || []).forEach(n => {
+                  if (!netMap[n.network]) netMap[n.network] = { network: n.network, revenue: 0, ecpm: 0, fillRate: 0, impressions: 0, _count: 0 };
+                  netMap[n.network].revenue += n.revenue;
+                  netMap[n.network].ecpm += n.ecpm;
+                  netMap[n.network].fillRate += n.fillRate;
+                  netMap[n.network].impressions += (n.impressions || Math.round(n.revenue / (n.ecpm || 5) * 1000));
+                  netMap[n.network]._count += 1;
+                });
+              });
+              const panelNets = Object.values(netMap).map(n => ({ ...n, ecpm: n.ecpm / n._count, fillRate: n.fillRate / n._count })).sort((a, b) => b.revenue - a.revenue);
+              const panelActive = panelNets.filter(n => n.revenue > 0);
+              const panelDead = panelNets.filter(n => n.revenue === 0);
+              const panelTotal = panelActive.reduce((s, n) => s + n.revenue, 0);
+              const trendTotalRev = trend.reduce((s, t) => s + t.value, 0);
+              const trendAvgRev = Math.round(trendTotalRev / (trend.length || 1));
+              const bestDay = trend.reduce((best, t) => t.value > best.value ? t : best, trend[0] || { label: '-', value: 0 });
+              const worstDay = trend.reduce((worst, t) => t.value < worst.value ? t : worst, trend[0] || { label: '-', value: 0 });
+              const gridLines = 4;
+              const gridVals = Array.from({ length: gridLines + 1 }, (_, i) => chartFloor + (chartRange * i / gridLines));
+              return (
+                <div className="space-y-4 mb-6">
+                  {/* Revenue Trend (Daily) — 3 apps multi-line */}
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-5">
+                      <h4 className="text-sm font-medium text-slate-300">Revenue Trend (Daily)</h4>
+                      <div className="text-[10px] text-slate-500">14 days · {selectedApp === 'all' ? '3 apps' : apps.find(a => a.id === selectedApp)?.name}</div>
+                    </div>
+                    {(() => {
+                      const allAppLines = [
+                        { id: 'puzzle', name: 'Puzzle Game', color: '#3b82f6', data: getQvTrendDataSingle('puzzle') },
+                        { id: 'idle', name: 'Idle Tycoon', color: '#8b5cf6', data: getQvTrendDataSingle('idle') },
+                        { id: 'stack', name: 'Stack Tower', color: '#10b981', data: getQvTrendDataSingle('stack') },
+                      ];
+                      const appLines = selectedApp === 'all' ? allAppLines : allAppLines.filter(a => a.id === selectedApp);
+                      const allVals = appLines.flatMap(a => a.data.map(d => d.value));
+                      const gMin = Math.min(...allVals);
+                      const gMax = Math.max(...allVals, 1);
+                      const gFloor = Math.floor(gMin * 0.85);
+                      const gRange = gMax - gFloor || 1;
+                      const gLines = 4;
+                      const gVals = Array.from({ length: gLines + 1 }, (_, i) => gFloor + (gRange * i / gLines));
 
-                  const metricConfigs = {
-                    installs: { getValue: (row) => row.installs || 0 },
-                    dau: { getValue: (row) => row.dau || 0 },
-                    wau: { getValue: (row) => row.wau || 0 },
-                    mau: { getValue: (row) => row.mau || 0 },
-                    sessions: { getValue: (row, i) => engData[i]?.avgSessions || 0 },
-                    session_duration: { getValue: (row, i) => engData[i]?.avgDuration || 0 },
-                    d1_retention: { getValue: (row) => row.d1Retention || 0 },
-                    d7_retention: { getValue: (row) => row.d7Retention || 0 },
-                    d30_retention: { getValue: (row) => row.d30Retention || 0 },
-                    impressions: { getValue: (row) => row.impressions || 0 },
-                    impr_per_dau: { getValue: (row, i) => monData[i]?.imprPerDau || 0 },
-                    ecpm: { getValue: (row) => row.ecpm || 0 },
-                    fill_rate: { getValue: (row, i) => monData[i]?.fillRate || 0 },
-                    arpdau: { getValue: (row, i) => monData[i]?.arpdau || 0 },
-                    revenue: { getValue: (row) => row.revenue || 0 },
-                    ltv: { getValue: (row) => row.ltv || 0 },
-                    cpi: { getValue: (row) => row.cpi || 0 },
-                    roas: { getValue: (row) => row.roas || 0 },
-                  };
+                      const W = 900, H = 200, padL = 52, padR = 12, padT = 16, padB = 20;
+                      const cW = W - padL - padR, cH = H - padT - padB;
+                      const labels = appLines[0].data.map(d => d.label);
 
-                  return selectedMetrics.filter(id => metricConfigs[id]).map(metricId => {
-                    const metric = allMetricsOptions.find(m => m.id === metricId);
-                    const config = metricConfigs[metricId];
-                    const values = tableData.map((row, i) => config.getValue(row, i));
-                    const maxValue = Math.max(...values) || 1;
-                    const minValue = Math.min(...values);
-                    const range = maxValue - minValue || 1;
-
-                    return (
-                      <div key={metricId} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                        <h4 className="text-sm font-medium text-slate-300 mb-2">{metric?.name}</h4>
-                        {hasBreakdown && (
-                          <div className="flex gap-2 mb-2 flex-wrap">
-                            {breakdownVersions.map(v => (
-                              <span key={v} className="flex items-center gap-1 text-[9px]">
-                                <span className="w-2 h-2 rounded" style={{ backgroundColor: breakdownColors[v] }} />
-                                <span className="text-slate-400">{breakdownByAppVersion ? `v${v}` : v}</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <svg viewBox="0 0 300 100" className="w-full h-28">
-                          <line x1="10" y1="20" x2="290" y2="20" stroke="#334155" strokeWidth="0.5" />
-                          <line x1="10" y1="50" x2="290" y2="50" stroke="#334155" strokeWidth="0.5" />
-                          <line x1="10" y1="80" x2="290" y2="80" stroke="#334155" strokeWidth="0.5" />
-                          {hasBreakdown ? (
-                            breakdownVersions.map(version => {
-                              const versionRows = tableData.filter(r => r[breakdownKey] === version);
-                              const versionValues = versionRows.map((row, i) => config.getValue(row, i));
-                              const points = versionValues.map((v, i) => {
-                                const x = periods.length > 1 ? (i / (periods.length - 1)) * 280 + 10 : 150;
-                                const y = 80 - ((v - minValue) / range) * 60;
-                                return `${x},${y}`;
-                              }).join(' ');
+                      return (
+                        <>
+                          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: '220px' }}>
+                            {/* Grid */}
+                            {gVals.map((gv, gi) => {
+                              const y = padT + cH - (gi / gLines) * cH;
                               return (
-                                <g key={version}>
-                                  <polyline fill="none" stroke={breakdownColors[version]} strokeWidth="2" points={points} />
-                                  {versionValues.map((v, i) => {
-                                    const x = periods.length > 1 ? (i / (periods.length - 1)) * 280 + 10 : 150;
-                                    const y = 80 - ((v - minValue) / range) * 60;
-                                    return <circle key={i} cx={x} cy={y} r="3" fill={breakdownColors[version]} />;
-                                  })}
+                                <g key={gi}>
+                                  <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#334155" strokeWidth="0.5" />
+                                  <text x={padL - 6} y={y + 3} fill="#475569" fontSize="8" textAnchor="end">${Math.round(gv).toLocaleString()}</text>
                                 </g>
                               );
-                            })
-                          ) : (
-                            <>
-                              <polyline fill="none" stroke="#3b82f6" strokeWidth="2" points={values.map((v, i) => {
-                                const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
-                                const y = 80 - ((v - minValue) / range) * 60;
-                                return `${x},${y}`;
-                              }).join(' ')} />
-                              {values.map((v, i) => {
-                                const x = tableData.length > 1 ? (i / (tableData.length - 1)) * 280 + 10 : 150;
-                                const y = 80 - ((v - minValue) / range) * 60;
-                                return <circle key={i} cx={x} cy={y} r="3" fill="#3b82f6" />;
-                              })}
-                            </>
-                          )}
-                          {periods.map((period, i) => {
-                            const x = periods.length > 1 ? (i / (periods.length - 1)) * 280 + 10 : 150;
-                            return <text key={i} x={x} y="95" fill="#94a3b8" fontSize="8" textAnchor="middle">{period.split(' ')[0]}</text>;
-                          })}
-                        </svg>
-                        <div className="flex justify-between text-xs text-slate-400 mt-1">
-                          <span>{minValue >= 1000 ? minValue.toLocaleString() : minValue.toFixed(2)}</span>
-                          <span>{maxValue >= 1000 ? maxValue.toLocaleString() : maxValue.toFixed(2)}</span>
+                            })}
+                            {/* Lines + points per app */}
+                            {appLines.map(app => {
+                              const pts = app.data.map((d, i) => ({
+                                x: padL + (app.data.length > 1 ? (i / (app.data.length - 1)) * cW : cW / 2),
+                                y: padT + cH - ((d.value - gFloor) / gRange) * cH,
+                                value: d.value,
+                                label: d.label,
+                              }));
+                              const areaPath = `M${pts.map(p => `${p.x},${p.y}`).join(' L')} L${pts[pts.length - 1].x},${padT + cH} L${pts[0].x},${padT + cH} Z`;
+                              return (
+                                <g key={app.id}>
+                                  <path d={areaPath} fill={app.color} fillOpacity="0.06" />
+                                  <polyline fill="none" stroke={app.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={pts.map(p => `${p.x},${p.y}`).join(' ')} />
+                                  {pts.map((p, i) => (
+                                    <g key={i}>
+                                      <circle cx={p.x} cy={p.y} r="3.5" fill="#1e293b" stroke={app.color} strokeWidth="1.5" />
+                                      <title>{`${app.name} · ${p.label}: $${p.value.toLocaleString()}`}</title>
+                                    </g>
+                                  ))}
+                                </g>
+                              );
+                            })}
+                            {/* X-axis */}
+                            {labels.map((label, i) => {
+                              const x = padL + (labels.length > 1 ? (i / (labels.length - 1)) * cW : cW / 2);
+                              return <text key={i} x={x} y={H - 3} fill="#64748b" fontSize="9" textAnchor="middle">{label}</text>;
+                            })}
+                          </svg>
+                          {/* Legend */}
+                          <div className="flex items-center gap-5 mt-3 pt-3 border-t border-slate-700/50">
+                            {appLines.map(app => {
+                              const total = app.data.reduce((s, d) => s + d.value, 0);
+                              return (
+                                <div key={app.id} className="flex items-center gap-2">
+                                  <span className="w-3 h-0.5 rounded" style={{ backgroundColor: app.color }} />
+                                  <span className="text-[11px] text-slate-400">{app.name}</span>
+                                  <span className="text-[11px] text-slate-300 font-medium">${total.toLocaleString()}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Revenue by Network — full width, horizontal */}
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-slate-300">Revenue by Network</h4>
+                      <span className="text-[10px] text-slate-500">{panelActive.length} active · {panelDead.length} inactive</span>
+                    </div>
+                    {/* Stacked bar */}
+                    <div className="flex rounded-lg overflow-hidden h-6 mb-4">
+                      {panelActive.map((n, i) => {
+                        const pct = panelTotal ? (n.revenue / panelTotal * 100) : 0;
+                        const lightness = 85 - (i / panelActive.length) * 45;
+                        return (
+                          <div
+                            key={n.network}
+                            className="h-full relative group transition-opacity hover:opacity-80"
+                            style={{ width: `${pct}%`, backgroundColor: `hsl(215, 15%, ${lightness}%)`, minWidth: pct > 0 ? '2px' : '0' }}
+                          >
+                            <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-600 px-2 py-1 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10">
+                              {n.network}: ${n.revenue.toLocaleString()} ({pct.toFixed(1)}%)
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Network grid — 5 columns */}
+                    <div className="grid grid-cols-5 gap-x-4 gap-y-2.5">
+                      {panelActive.map((n, i) => {
+                        const pct = panelTotal ? (n.revenue / panelTotal * 100) : 0;
+                        const lightness = 85 - (i / panelActive.length) * 45;
+                        return (
+                          <div key={n.network} className="flex items-start gap-2">
+                            <span className="w-2 h-2 rounded mt-0.5 shrink-0" style={{ backgroundColor: `hsl(215, 15%, ${lightness}%)` }} />
+                            <div className="min-w-0">
+                              <div className="text-[11px] font-medium text-slate-200 truncate">{n.network}</div>
+                              <div className="text-xs font-bold text-white">${n.revenue.toLocaleString()}</div>
+                              <div className="text-[10px] text-slate-500">{pct.toFixed(1)}% · ${n.ecpm.toFixed(2)} eCPM</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {panelDead.map(n => (
+                        <div key={n.network} className="flex items-start gap-2 opacity-60">
+                          <span className="w-2 h-2 rounded mt-0.5 shrink-0 bg-red-500/50" />
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-medium text-red-400/70 truncate">{n.network}</div>
+                            <div className="text-[10px] text-red-400/50">No data · 0 impr</div>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  });
-                })()}
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* G3: Admin — gross/net toggle */}
+            {clientType === 'Admin' && (
+              <div className="flex items-center gap-4 mb-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Revenue mode:</span>
+                  <div className="flex bg-slate-800 rounded-lg p-0.5">
+                    <button onClick={() => setAdminGrossNet('gross')} className={`px-3 py-1 rounded-md text-xs font-medium ${adminGrossNet === 'gross' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>Gross</button>
+                    <button onClick={() => setAdminGrossNet('net')} className={`px-3 py-1 rounded-md text-xs font-medium ${adminGrossNet === 'net' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>Net (–15%)</button>
+                  </div>
+                </div>
+                {/* G4: anomaly detection summary */}
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-xs text-red-400">2 apps with Revenue drop &gt;20%</span>
+                </div>
               </div>
             )}
 
-            {/* SDK Version Table */}
-            {data.sdkVersionTable && (
-              <div className="mt-6 bg-slate-800 border border-slate-700 rounded-xl p-6">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span className="text-orange-400">📦</span> Performance by SDK Version
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-600">
-                        <th className="text-left py-3 px-2 text-slate-400 font-medium">CAS SDK</th>
-                        <th className="text-left py-3 px-2 text-slate-400 font-medium">App Version</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">DAU</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Share</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Sessions</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Duration</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Revenue</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">ARPDAU</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Impr/DAU</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">eCPM</th>
-                        <th className="text-right py-3 px-2 text-slate-400 font-medium">Fill Rate</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.sdkVersionTable.map((row, i) => {
-                        const isLatest = i === 0;
-                        const isOld = i >= 2;
-                        return (
-                          <tr key={row.version} className={`border-b border-slate-700/50 ${i % 2 === 0 ? '' : 'bg-slate-900/30'}`}>
-                            <td className={`py-3 px-2 font-medium ${isLatest ? 'text-emerald-400' : isOld ? 'text-amber-400' : 'text-white'}`}>
-                              {row.version}
-                              {isLatest && <span className="ml-2 text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">Latest</span>}
-                              {isOld && <span className="ml-2 text-xs bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">Update</span>}
-                            </td>
-                            <td className="py-3 px-2 text-slate-400">{row.appVersion}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.dau.toLocaleString()}</td>
-                            <td className="py-3 px-2 text-right">
-                              <div className="flex items-center justify-end gap-2">
-                                <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full ${isLatest ? 'bg-emerald-500' : isOld ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${row.dauShare}%` }} />
-                                </div>
-                                <span className="text-slate-300 w-8">{row.dauShare}%</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.sessions}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.duration}m</td>
-                            <td className="py-3 px-2 text-right text-emerald-400 font-medium">${row.revenue.toLocaleString()}</td>
-                            <td className={`py-3 px-2 text-right font-medium ${isLatest ? 'text-emerald-400' : isOld ? 'text-amber-400' : 'text-slate-300'}`}>${row.arpdau.toFixed(4)}</td>
-                            <td className="py-3 px-2 text-right text-slate-300">{row.imprPerDau}</td>
-                            <td className={`py-3 px-2 text-right ${isLatest ? 'text-emerald-400' : isOld ? 'text-amber-400' : 'text-slate-300'}`}>${row.ecpm.toFixed(2)}</td>
-                            <td className={`py-3 px-2 text-right ${row.fillRate >= 95 ? 'text-emerald-400' : row.fillRate >= 90 ? 'text-slate-300' : 'text-amber-400'}`}>{row.fillRate}%</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            {/* G2: Pub — profit & health */}
+            {clientType === 'Pub' && (
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl p-4">
+                  <div className="text-emerald-400 text-xs uppercase tracking-wider">Net Income</div>
+                  <div className="text-xl font-bold text-emerald-300 mt-1">$6,234</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Revenue – CAS commission (15%)</div>
                 </div>
-                <div className="mt-3 flex gap-4 text-xs text-slate-500">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 bg-emerald-500 rounded-full"></span> Latest SDK — best performance</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 bg-amber-500 rounded-full"></span> Outdated — recommend update</span>
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                  <div className="text-slate-400 text-xs uppercase tracking-wider">Health</div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="w-3 h-3 bg-emerald-500 rounded-full" />
+                    <span className="text-sm font-medium text-emerald-400">Good</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-1">All metrics within normal range</div>
+                </div>
+                <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                  <div className="text-slate-400 text-xs uppercase tracking-wider">Top Creative</div>
+                  <div className="text-sm font-bold text-white mt-1">banner_v3_holiday</div>
+                  <div className="text-[10px] text-slate-500 mt-1">CTR 3.2% · 12K impressions</div>
                 </div>
               </div>
             )}
+
+            {/* G5: BD Dashboard */}
+            {clientType === 'BD' && (
+              <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden mb-6">
+                <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-slate-300">Client Portfolio</h4>
+                  <span className="text-[10px] text-slate-500">{bdClients.length} clients</span>
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80">
+                      <th className="text-left py-2 px-3 text-slate-400 font-medium">Client</th>
+                      <th className="text-left py-2 px-3 text-slate-400 font-medium">Manager</th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Revenue</th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">DAU</th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Trend</th>
+                      <th className="text-center py-2 px-3 text-slate-400 font-medium">Churn Risk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bdClients.map(c => (
+                      <tr key={c.name} className="border-b border-slate-700/30 hover:bg-slate-700/20">
+                        <td className="py-2 px-3 text-slate-200 font-medium">{c.name}</td>
+                        <td className="py-2 px-3 text-slate-400">{c.manager}</td>
+                        <td className="py-2 px-3 text-right text-slate-300">${c.revenue.toLocaleString()}</td>
+                        <td className="py-2 px-3 text-right text-slate-300">{formatNum(c.dau)}</td>
+                        <td className={`py-2 px-3 text-right font-medium ${c.trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{c.trend > 0 ? '+' : ''}{c.trend}%</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                            c.risk === 'low' ? 'bg-emerald-500/20 text-emerald-400' :
+                            c.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>{c.risk}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* G6: Payments View */}
+            {clientType === 'Payments' && (
+              <div className="mb-6 space-y-4">
+                <div className="bg-gradient-to-r from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-xl p-6 text-center">
+                  <div className="text-blue-400 text-xs uppercase tracking-wider mb-2">Current Balance</div>
+                  <div className="text-4xl font-bold text-white">$12,847.32</div>
+                  <div className="text-sm text-slate-400 mt-2">Available for withdrawal</div>
+                  <button className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium text-white">Withdraw</button>
+                </div>
+                <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-700">
+                    <h4 className="text-sm font-medium text-slate-300">Payment History</h4>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead><tr className="border-b border-slate-700"><th className="text-left py-2 px-3 text-slate-400">Date</th><th className="text-right py-2 px-3 text-slate-400">Amount</th><th className="text-left py-2 px-3 text-slate-400">Method</th><th className="text-center py-2 px-3 text-slate-400">Status</th></tr></thead>
+                    <tbody>
+                      {[
+                        { date: 'Jan 15, 2026', amount: 8420, method: 'Wire Transfer', status: 'completed' },
+                        { date: 'Dec 15, 2025', amount: 7180, method: 'Wire Transfer', status: 'completed' },
+                        { date: 'Nov 15, 2025', amount: 5920, method: 'PayPal', status: 'completed' },
+                        { date: 'Oct 15, 2025', amount: 4350, method: 'Wire Transfer', status: 'completed' },
+                      ].map(p => (
+                        <tr key={p.date} className="border-b border-slate-700/30">
+                          <td className="py-2 px-3 text-slate-300">{p.date}</td>
+                          <td className="py-2 px-3 text-right text-white font-medium">${p.amount.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-slate-400">{p.method}</td>
+                          <td className="py-2 px-3 text-center"><span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400">{p.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="bg-amber-900/20 border border-amber-700/30 rounded-xl p-3 flex items-center gap-2">
+                  <span className="text-amber-400 text-sm">!</span>
+                  <span className="text-xs text-amber-300">Balance dropped 12% vs last month. Check revenue trends.</span>
+                </div>
+              </div>
+            )}
+
+            {/* G7: RnD — cross-client SDK view */}
+            {clientType === 'RnD' && (
+              <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden mb-6">
+                <div className="px-4 py-3 border-b border-slate-700">
+                  <h4 className="text-sm font-medium text-slate-300">SDK Adoption (Cross-Client)</h4>
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80">
+                      <th className="text-left py-2 px-3 text-slate-400 font-medium">Version</th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Adoption %</th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Clients</th>
+                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Rev Delta</th>
+                      <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
+                      <th className="text-left py-2 px-3 text-slate-400 font-medium w-40">Distribution</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rndSdkData.map(s => (
+                      <tr key={s.version} className="border-b border-slate-700/30 hover:bg-slate-700/20">
+                        <td className="py-2 px-3 text-slate-200 font-medium">{s.version}</td>
+                        <td className="py-2 px-3 text-right text-slate-300">{s.adoption}%</td>
+                        <td className="py-2 px-3 text-right text-slate-300">{s.clients}</td>
+                        <td className={`py-2 px-3 text-right font-medium ${s.revDelta.startsWith('+') ? 'text-emerald-400' : s.revDelta.startsWith('-') ? 'text-red-400' : 'text-slate-400'}`}>{s.revDelta}</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                            s.status === 'latest' ? 'bg-emerald-500/20 text-emerald-400' :
+                            s.status === 'beta' ? 'bg-blue-500/20 text-blue-400' :
+                            s.status === 'stable' ? 'bg-slate-600/50 text-slate-300' :
+                            s.status === 'outdated' ? 'bg-amber-500/20 text-amber-400' :
+                            'bg-red-500/20 text-red-400'
+                          }`}>{s.status}</span>
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${s.status === 'deprecated' ? 'bg-red-500' : s.status === 'outdated' ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${s.adoption}%` }} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* H2: Data Freshness */}
+            <div className="flex items-center justify-between text-[10px] text-slate-600 mt-2">
+              <span>Data updated: 3 min ago</span>
+              <span>Source: CAS Analytics Pipeline v2.4</span>
+            </div>
 
           </>
         )}
 
-        {activeTab === 'glossary' && (
+        {activeScreen === 'reports' && (
+          <div className="flex gap-4">
+            {/* Sidebar — Dimensions & Measures */}
+            <div className={`shrink-0 transition-all duration-200 relative ${sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-56'}`}>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 sticky top-6 w-56">
+                <input
+                  type="text"
+                  placeholder="Search metrics..."
+                  value={sidebarSearch}
+                  onChange={(e) => setSidebarSearch(e.target.value)}
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 mb-3"
+                />
+
+                {/* DIMENSIONS */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider">Split</div>
+                  <button
+                    onClick={() => setSidebarCollapsed(true)}
+                    className="w-5 h-5 flex items-center justify-center rounded bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 hover:border-blue-500/50 transition-colors group"
+                    title="Collapse sidebar"
+                  >
+                    <svg width="8" height="10" viewBox="0 0 8 10" className="text-slate-400 group-hover:text-blue-400 transition-colors">
+                      <path d="M6 1 L1.5 5 L6 9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+                {sidebarDimensions.map(group => {
+                  const filtered = group.items.filter(i => !sidebarSearch || i.label.toLowerCase().includes(sidebarSearch.toLowerCase()));
+                  if (filtered.length === 0) return null;
+                  const key = 'dim_' + group.group;
+                  return (
+                    <div key={key} className="mb-1">
+                      <button
+                        onClick={() => toggleSidebarSection(key)}
+                        className="w-full flex items-center gap-1 px-1 py-1 text-xs text-slate-400 hover:text-slate-200 font-medium"
+                      >
+                        <span className="text-[10px]">{collapsedSections.has(key) ? '▸' : '▾'}</span>
+                        {group.group}
+                      </button>
+                      {!collapsedSections.has(key) && (
+                        <div className="ml-3">
+                          {filtered.map(item => (
+                            <button
+                              key={item.id}
+                              onClick={() => reportsSplits.includes(item.id) ? removeSplit(item.id) : addSplit(item.id)}
+                              className={`w-full text-left px-2 py-1 text-xs rounded hover:bg-slate-700/50 ${
+                                reportsSplits.includes(item.id) ? 'text-blue-400' : 'text-slate-400'
+                              }`}
+                            >
+                              {item.label}
+                              {reportsSplits.includes(item.id) && <span className="ml-1 text-[10px] text-blue-500">✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                <div className="border-t border-slate-700 my-2" />
+
+                {/* MEASURES */}
+                <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-1.5">Measures</div>
+                {sidebarMeasures.map(group => {
+                  const filtered = group.items.filter(i => !sidebarSearch || i.label.toLowerCase().includes(sidebarSearch.toLowerCase()));
+                  if (filtered.length === 0) return null;
+                  const key = 'meas_' + group.group;
+                  return (
+                    <div key={key} className="mb-1">
+                      <button
+                        onClick={() => toggleSidebarSection(key)}
+                        className="w-full flex items-center gap-1 px-1 py-1 text-xs text-slate-400 hover:text-slate-200 font-medium"
+                      >
+                        <span className="text-[10px]">{collapsedSections.has(key) ? '▸' : '▾'}</span>
+                        {group.group}
+                      </button>
+                      {!collapsedSections.has(key) && (
+                        <div className="ml-3">
+                          {filtered.map(item => {
+                            const tip = metricTooltips[item.id];
+                            return (
+                            <button
+                              key={item.id}
+                              onClick={() => addMeasure(item.id)}
+                              className={`w-full text-left px-2 py-1 text-xs rounded hover:bg-slate-700/50 ${
+                                selectedMetrics.includes(item.id) ? 'text-blue-400' : 'text-slate-400'
+                              }`}
+                              title={tip ? `${tip.desc}\n= ${tip.formula}` : undefined}
+                            >
+                              {item.label}
+                              {selectedMetrics.includes(item.id) && <span className="ml-1 text-[10px] text-blue-500">+</span>}
+                            </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sidebar expand button (visible when collapsed) */}
+            {sidebarCollapsed && (
+              <button
+                onClick={() => setSidebarCollapsed(false)}
+                className="shrink-0 w-6 h-6 mt-1 flex items-center justify-center rounded bg-slate-700/60 border border-slate-600/50 hover:bg-slate-600 hover:border-blue-500/50 transition-colors group cursor-pointer"
+                title="Expand sidebar"
+              >
+                <svg width="8" height="10" viewBox="0 0 8 10" className="text-slate-400 group-hover:text-blue-400 transition-colors">
+                  <path d="M2 1 L6.5 5 L2 9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+              {/* Chip Rows: Filters / Splits / Measures */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl mb-4 divide-y divide-slate-700/50">
+
+                {/* Row 1: Filters */}
+                <div className="px-4 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-500 text-xs font-medium uppercase tracking-wider shrink-0 w-16">Filters</span>
+                    <div className="flex flex-wrap gap-2 flex-1">
+                      {/* Period — always visible */}
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                        Period: {filterDateFrom} — {filterDateTo}
+                      </span>
+                      {/* E1: App Selector */}
+                      <div className="relative">
+                        <button
+                          onClick={() => { setShowAppSelector(!showAppSelector); setAppSelectorSearch(''); }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 cursor-pointer"
+                        >
+                          App: {apps.find(a => a.id === selectedApp)?.name || selectedApp}
+                          <span className="text-blue-500">▾</span>
+                        </button>
+                        {showAppSelector && (
+                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px]">
+                            <div className="p-2 border-b border-slate-700">
+                              <input
+                                type="text"
+                                placeholder="Search apps..."
+                                value={appSelectorSearch}
+                                onChange={(e) => setAppSelectorSearch(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                autoFocus
+                              />
+                            </div>
+                            <div className="max-h-48 overflow-y-auto">
+                              {apps.filter(a => !appSelectorSearch || a.name.toLowerCase().includes(appSelectorSearch.toLowerCase())).map(app => (
+                                <button
+                                  key={app.id}
+                                  onClick={() => { setSelectedApp(app.id); setShowAppSelector(false); }}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${selectedApp === app.id ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                >
+                                  <span className="text-[10px]">{app.id === 'puzzle' || app.id === 'stack' ? '🤖' : '🍎'}</span>
+                                  {app.name}
+                                  {selectedApp === app.id && <span className="ml-auto text-blue-500">✓</span>}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="px-3 py-1.5 border-t border-slate-700 text-[10px] text-slate-500">
+                              {apps.length} apps
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {filterCountry !== 'all' && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                          Country: {filterCountry}
+                          <button onClick={() => setFilterCountry('all')} className="hover:text-blue-200 ml-0.5">×</button>
+                        </span>
+                      )}
+                      <button className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 border border-slate-600/50">
+                        + Add
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Splits */}
+                <div className="px-4 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-500 text-xs font-medium uppercase tracking-wider shrink-0 w-16">Split</span>
+                    <div className="flex flex-wrap gap-2 flex-1">
+                      {reportsSplits.map(splitId => {
+                        const allDims = sidebarDimensions.flatMap(g => g.items);
+                        const dim = allDims.find(d => d.id === splitId);
+                        return (
+                          <span key={splitId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/25">
+                            {dim?.label || splitId}
+                            <button onClick={() => removeSplit(splitId)} className="hover:text-cyan-200 ml-0.5">×</button>
+                          </span>
+                        );
+                      })}
+                      <button className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 border border-slate-600/50">
+                        + Add Split
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: Measures */}
+                <div className="px-4 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-500 text-xs font-medium uppercase tracking-wider shrink-0 w-16">Measures</span>
+                    <div className="flex flex-wrap gap-2 flex-1">
+                      {selectedMetrics.map(metricId => {
+                        const metric = allMetricsOptions.find(m => m.id === metricId);
+                        return (
+                          <span key={metricId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-violet-500/15 text-violet-400 border border-violet-500/25">
+                            {metric?.name || metricId}
+                            <button onClick={() => setSelectedMetrics(selectedMetrics.filter(m => m !== metricId))} className="hover:text-violet-200 ml-0.5">×</button>
+                          </span>
+                        );
+                      })}
+                      <button
+                        onClick={() => setShowMetricAddDropdown(!showMetricAddDropdown)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 border border-slate-600/50"
+                      >
+                        + Measure
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Controls Row */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <button className="px-4 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white">
+                    Apply
+                  </button>
+                  <button
+                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); }}
+                    className="px-4 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={() => { pushStateToUrl(); navigator.clipboard.writeText(window.location.href); }}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
+                    title="Copy shareable URL"
+                  >
+                    Share
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* C6: Density toggle */}
+                  <div className="flex bg-slate-800 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setReportsDensity('compact')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${reportsDensity === 'compact' ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-white'}`}
+                    >
+                      Compact
+                    </button>
+                    <button
+                      onClick={() => setReportsDensity('comfortable')}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${reportsDensity === 'comfortable' ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-white'}`}
+                    >
+                      Comfortable
+                    </button>
+                  </div>
+                  {/* View toggle */}
+                  <div className="flex bg-slate-800 rounded-lg p-0.5">
+                    <button
+                      onClick={() => setViewType('table')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium ${viewType === 'table' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Table
+                    </button>
+                    <button
+                      onClick={() => setViewType('bar')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium ${viewType === 'bar' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Chart
+                    </button>
+                    <button
+                      onClick={() => setViewType('line')}
+                      className={`px-3 py-1 rounded-md text-xs font-medium ${viewType === 'line' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    >
+                      Line
+                    </button>
+                  </div>
+                  {/* Export dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => { setShowExportDD(!showExportDD); setShowSavedViewsDD(false); }}
+                      className="px-3 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
+                    >
+                      Export ▾
+                    </button>
+                    {showExportDD && (
+                      <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[140px]">
+                        {['CSV', 'Excel', 'Copy to Clipboard'].map(opt => (
+                          <button
+                            key={opt}
+                            onClick={() => {
+                              const rows = buildReportsRows().filter(r => r._type === 'data');
+                              const metricNames = selectedMetrics.map(mid => allMetricsOptions.find(m => m.id === mid)?.name || mid);
+                              const header = ['Period', ...metricNames];
+                              const body = rows.map(r => [r._label, ...selectedMetrics.map(mid => {
+                                const mk = metricKeyMap[mid];
+                                const v = r[mid];
+                                return v != null && mk ? mk.fmt(v) : '';
+                              })]);
+                              if (opt === 'Copy to Clipboard') {
+                                const text = [header.join('\t'), ...body.map(r => r.join('\t'))].join('\n');
+                                navigator.clipboard.writeText(text);
+                              } else if (opt === 'CSV' || opt === 'Excel') {
+                                const escapeCsv = v => { const s = String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s; };
+                                const bom = opt === 'Excel' ? '\uFEFF' : '';
+                                const csv = bom + [header.map(escapeCsv).join(','), ...body.map(r => r.map(escapeCsv).join(','))].join('\n');
+                                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a'); a.href = url; a.download = `report_${selectedApp}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+                                URL.revokeObjectURL(url);
+                              }
+                              setShowExportDD(false);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800"
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* E3: Saved Views dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => { setShowSavedViewsDD(!showSavedViewsDD); setShowExportDD(false); }}
+                      className="px-3 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
+                    >
+                      Views ▾
+                    </button>
+                    {showSavedViewsDD && (
+                      <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px]">
+                        {savedViews.length === 0 && (
+                          <div className="px-3 py-2 text-xs text-slate-500">No saved views</div>
+                        )}
+                        {savedViews.map((view, i) => (
+                          <div key={i} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-800 group">
+                            <button
+                              onClick={() => loadSavedView(view)}
+                              className="flex-1 text-left text-xs text-slate-300"
+                            >
+                              {view.name}
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); deleteSavedView(i); }}
+                              className="text-[10px] text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <div className="border-t border-slate-700">
+                          <button
+                            onClick={() => {
+                              const name = prompt('View name:');
+                              if (name) { saveCurrentView(name); setShowSavedViewsDD(false); }
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs text-blue-400 hover:bg-slate-800"
+                          >
+                            + Save current view
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* C4: Search in Table */}
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Search in table..."
+                  value={reportsSearch}
+                  onChange={(e) => setReportsSearch(e.target.value)}
+                  className="w-64 bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              {/* Reports Data Table (C1-C5) — only in table mode */}
+              {viewType === 'table' && (() => {
+                const rows = buildReportsRows();
+                const searchLower = reportsSearch.toLowerCase();
+                const hasAdTypeSplit = reportsSplits.includes('adType');
+
+                // Filter by search (C4)
+                const filtered = rows.filter(row => {
+                  if (row._type === 'group') {
+                    // Keep group if any child matches
+                    return !searchLower || rows.some(r => r._group === row._label && (
+                      r._label.toLowerCase().includes(searchLower) ||
+                      selectedMetrics.some(mid => {
+                        const mk = metricKeyMap[mid];
+                        return mk && String(r[mid] ?? '').toLowerCase().includes(searchLower);
+                      })
+                    ));
+                  }
+                  if (!searchLower) return true;
+                  if (row._label.toLowerCase().includes(searchLower)) return true;
+                  return selectedMetrics.some(mid => String(row[mid] ?? '').toLowerCase().includes(searchLower));
+                });
+
+                // Hide children of collapsed groups (C1)
+                const visible = filtered.filter(row => {
+                  if (row._type === 'data' && row._group && collapsedGroups.has(row._group)) return false;
+                  return true;
+                });
+
+                // Totals (C2)
+                const dataRows = visible.filter(r => r._type === 'data');
+                const totals = {};
+                selectedMetrics.forEach(mid => {
+                  const mk = metricKeyMap[mid];
+                  if (!mk || !mk.isNum) { totals[mid] = null; return; }
+                  const vals = dataRows.map(r => r[mid]).filter(v => v != null);
+                  // For rates/percentages, average; for absolutes, sum
+                  const isRate = ['d1_retention', 'd7_retention', 'd30_retention', 'fill_rate', 'ecpm', 'arpdau', 'cpi', 'impr_per_dau', 'roas', 'ltv'].includes(mid);
+                  totals[mid] = vals.length ? (isRate ? vals.reduce((a, b) => a + b, 0) / vals.length : vals.reduce((a, b) => a + b, 0)) : null;
+                });
+
+                const totalDataRows = dataRows.length;
+                const totalAllRows = rows.filter(r => r._type === 'data').length;
+                const cellPy = reportsDensity === 'compact' ? 'py-1' : 'py-2.5';
+                const cellText = reportsDensity === 'compact' ? 'text-[11px]' : 'text-xs';
+
+                // Highlight helper (C4)
+                const highlight = (text) => {
+                  if (!searchLower || !text) return text;
+                  const str = String(text);
+                  const idx = str.toLowerCase().indexOf(searchLower);
+                  if (idx === -1) return str;
+                  return <>{str.slice(0, idx)}<mark className="bg-yellow-500/30 text-yellow-300 rounded px-0.5">{str.slice(idx, idx + searchLower.length)}</mark>{str.slice(idx + searchLower.length)}</>;
+                };
+
+                return (
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className={`w-full ${cellText}`}>
+                        <thead>
+                          <tr className="border-b border-slate-600 bg-slate-800/80">
+                            <th className={`text-left ${cellPy} px-3 text-slate-400 font-medium sticky left-0 bg-slate-800/80 z-10`}>
+                              {hasAdTypeSplit ? 'Period / Ad Type' : 'Period'}
+                            </th>
+                            {selectedMetrics.map(mid => {
+                              const metric = allMetricsOptions.find(m => m.id === mid);
+                              const tip = metricTooltips[mid];
+                              return (
+                                <th
+                                  key={mid}
+                                  draggable
+                                  onDragStart={(e) => handleColumnDragStart(e, mid)}
+                                  onDragOver={(e) => handleColumnDragOver(e, mid)}
+                                  onDragEnd={handleColumnDragEnd}
+                                  className={`text-right ${cellPy} px-3 text-slate-400 font-medium whitespace-nowrap cursor-grab active:cursor-grabbing select-none ${draggedColumn === mid ? 'opacity-40' : ''} ${tip ? 'cursor-help' : ''}`}
+                                  title={tip ? `${tip.desc}\n= ${tip.formula}` : undefined}
+                                >
+                                  {metric?.name || mid}
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visible.map((row, ri) => {
+                            if (row._type === 'group') {
+                              // C1: Group header row
+                              const isCollapsed = collapsedGroups.has(row._label);
+                              return (
+                                <tr
+                                  key={'g-' + row._label}
+                                  className="bg-slate-700/30 cursor-pointer hover:bg-slate-700/50"
+                                  onClick={() => toggleGroup(row._label)}
+                                >
+                                  <td className={`${cellPy} px-3 font-semibold text-slate-200 sticky left-0 bg-slate-700/30 z-10`} colSpan={selectedMetrics.length + 1}>
+                                    <span className="text-[10px] mr-1.5">{isCollapsed ? '▸' : '▾'}</span>
+                                    {highlight(row._label)}
+                                    {isCollapsed && (
+                                      <span className="ml-2 text-[10px] text-slate-500 font-normal">
+                                        ({rows.filter(r => r._group === row._label).length} rows)
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            // C1: Data row (possibly indented)
+                            const prevDataRow = visible.slice(0, ri).reverse().find(r => r._type === 'data');
+                            return (
+                              <tr key={'d-' + ri} className="border-b border-slate-700/30 hover:bg-slate-700/20 group/row">
+                                <td className={`${cellPy} px-3 text-slate-300 sticky left-0 bg-slate-800/50 z-10 group-hover/row:bg-slate-700/20`}>
+                                  {row._group && <span className="ml-4" />}
+                                  {highlight(row._label)}
+                                </td>
+                                {selectedMetrics.map((mid, ci) => {
+                                  const mk = metricKeyMap[mid];
+                                  const val = row[mid];
+                                  const prevVal = prevDataRow?.[mid];
+                                  const anomaly = getAnomaly(val, prevVal);
+                                  const anomalyCls = anomaly ? anomalyStyle[anomaly] : '';
+                                  const formatted = val != null && mk ? mk.fmt(val) : '—';
+                                  const cellKey = `${ri}-${ci}`;
+                                  const isCopied = copiedCell === cellKey;
+
+                                  return (
+                                    <td
+                                      key={mid}
+                                      className={`${cellPy} px-3 text-right text-slate-300 whitespace-nowrap relative group/cell ${anomalyCls}`}
+                                      title={anomaly ? anomalyTooltip[anomaly] : undefined}
+                                    >
+                                      {/* C5: Copy button */}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleCopyCell(val ?? '', ri, ci); }}
+                                        className="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 text-[9px] text-slate-500 hover:text-slate-300 transition-opacity"
+                                        title="Copy"
+                                      >
+                                        {isCopied ? '✓' : '⧉'}
+                                      </button>
+                                      {highlight(formatted)}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        {/* C2: Totals row (sticky) */}
+                        <tfoot className="sticky bottom-0">
+                          <tr className="bg-slate-800 border-t border-slate-600 font-semibold">
+                            <td className={`${cellPy} px-3 text-slate-400 sticky left-0 bg-slate-800 z-10`}>Total</td>
+                            {selectedMetrics.map(mid => {
+                              const mk = metricKeyMap[mid];
+                              const val = totals[mid];
+                              return (
+                                <td key={mid} className={`${cellPy} px-3 text-right text-slate-200 whitespace-nowrap`}>
+                                  {val != null && mk ? mk.fmt(val) : '—'}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    {/* C7: Status Bar */}
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-slate-700 text-[10px] text-slate-500">
+                      <span>Data updated: 3 min ago</span>
+                      <span>Rows: {totalDataRows}{totalDataRows !== totalAllRows ? ` of ${totalAllRows}` : ''}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* D1: Stacked/Grouped Bar Chart */}
+              {viewType === 'bar' && (() => {
+                const rows = buildReportsRows().filter(r => r._type === 'data');
+                const hasAdTypeSplit = reportsSplits.includes('adType');
+                const segments = hasAdTypeSplit ? ['Banner', 'Interstitial', 'Rewarded'] : ['Total'];
+                const periods = [...new Set(rows.map(r => r._group || r._label))];
+
+                return (
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+                    {selectedMetrics.filter(mid => !hiddenSeries.has(mid)).map((mid, mi) => {
+                      const mk = metricKeyMap[mid];
+                      const metric = allMetricsOptions.find(m => m.id === mid);
+                      if (!mk) return null;
+
+                      const periodData = periods.map(period => {
+                        const periodRows = rows.filter(r => (r._group || r._label) === period);
+                        if (hasAdTypeSplit) {
+                          return { period, segments: periodRows.map(r => ({ label: r._label, value: r[mid] || 0 })) };
+                        }
+                        return { period, segments: [{ label: 'Total', value: periodRows[0]?.[mid] || 0 }] };
+                      });
+                      const maxVal = Math.max(...periodData.flatMap(p => {
+                        return hasAdTypeSplit ? [p.segments.reduce((a, s) => a + s.value, 0)] : p.segments.map(s => s.value);
+                      }), 1);
+
+                      return (
+                        <div key={mid} className={mi > 0 ? 'mt-6 pt-6 border-t border-slate-700' : ''}>
+                          <h4 className="text-sm font-medium text-slate-300 mb-3">{metric?.name}</h4>
+                          <div className="flex items-end gap-2" style={{ height: '160px' }}>
+                            {periodData.map((pd, pi) => (
+                              <div key={pi} className="flex-1 flex flex-col items-center gap-1 group relative">
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-600 px-2 py-1 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10">
+                                  {pd.segments.map(s => `${s.label}: ${mk.fmt(s.value)}`).join(' · ')}
+                                </div>
+                                {hasAdTypeSplit ? (
+                                  <div className="w-full flex flex-col-reverse" style={{ height: `${(pd.segments.reduce((a, s) => a + s.value, 0) / maxVal) * 100}%`, minHeight: '4px' }}>
+                                    {pd.segments.map((seg, si) => (
+                                      <div
+                                        key={si}
+                                        className="w-full"
+                                        style={{
+                                          flex: seg.value,
+                                          backgroundColor: seriesColors[si % seriesColors.length],
+                                          borderRadius: si === pd.segments.length - 1 ? '4px 4px 0 0' : '0',
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="w-full bg-blue-500/80 rounded-t hover:bg-blue-400 transition-colors"
+                                    style={{ height: `${(pd.segments[0].value / maxVal) * 100}%`, minHeight: '4px' }}
+                                  />
+                                )}
+                                <span className="text-[9px] text-slate-500 truncate max-w-full">{pd.period.split(' ')[0]?.slice(0, 3)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* D3: Legend */}
+                    <div className="mt-4 pt-3 border-t border-slate-700 flex items-center gap-3 flex-wrap">
+                      {reportsSplits.includes('adType') && ['Banner', 'Interstitial', 'Rewarded'].map((seg, i) => (
+                        <span key={seg} className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                          <span className="w-2.5 h-2.5 rounded" style={{ backgroundColor: seriesColors[i] }} />
+                          {seg}
+                        </span>
+                      ))}
+                      <span className="text-slate-600 text-[10px]">|</span>
+                      {selectedMetrics.map(mid => {
+                        const metric = allMetricsOptions.find(m => m.id === mid);
+                        const isHidden = hiddenSeries.has(mid);
+                        return (
+                          <button
+                            key={mid}
+                            onClick={() => toggleSeries(mid)}
+                            className={`flex items-center gap-1 text-[10px] ${isHidden ? 'text-slate-600 line-through' : 'text-slate-300'}`}
+                          >
+                            <span className={`w-2 h-2 rounded ${isHidden ? 'bg-slate-700' : 'bg-blue-500'}`} />
+                            {metric?.name}
+                          </button>
+                        );
+                      })}
+                      <button onClick={() => setHiddenSeries(new Set())} className="text-[10px] text-slate-500 hover:text-slate-300 ml-2">Show All</button>
+                      <button onClick={() => setHiddenSeries(new Set(selectedMetrics))} className="text-[10px] text-slate-500 hover:text-slate-300">Hide All</button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* D2: Multi-line Chart */}
+              {viewType === 'line' && (() => {
+                const rows = buildReportsRows().filter(r => r._type === 'data' && !r._group);
+                const fallbackRows = rows.length === 0 ? buildReportsRows().filter(r => r._type === 'data') : rows;
+                const periods = fallbackRows.map(r => r._label);
+                const visibleMetrics = selectedMetrics.filter(mid => !hiddenSeries.has(mid) && metricKeyMap[mid]);
+
+                // Normalize each metric to 0-100 range for multi-line
+                const metricRanges = {};
+                visibleMetrics.forEach(mid => {
+                  const vals = fallbackRows.map(r => r[mid] ?? 0);
+                  metricRanges[mid] = { min: Math.min(...vals), max: Math.max(...vals) || 1 };
+                });
+
+                const svgW = 600;
+                const svgH = 180;
+                const padL = 10;
+                const padR = 10;
+                const padT = 10;
+                const padB = 25;
+                const chartW = svgW - padL - padR;
+                const chartH = svgH - padT - padB;
+
+                return (
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+                    <h4 className="text-sm font-medium text-slate-300 mb-3">Metrics Trend</h4>
+                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: '220px' }}>
+                      {/* Grid lines */}
+                      {[0, 0.25, 0.5, 0.75, 1].map(f => (
+                        <line key={f} x1={padL} y1={padT + chartH * (1 - f)} x2={svgW - padR} y2={padT + chartH * (1 - f)} stroke="#334155" strokeWidth="0.5" />
+                      ))}
+                      {/* Lines */}
+                      {visibleMetrics.map((mid, mi) => {
+                        const range = metricRanges[mid];
+                        const points = fallbackRows.map((row, i) => {
+                          const val = row[mid] ?? 0;
+                          const x = periods.length > 1 ? padL + (i / (periods.length - 1)) * chartW : svgW / 2;
+                          const norm = range.max !== range.min ? (val - range.min) / (range.max - range.min) : 0.5;
+                          const y = padT + chartH * (1 - norm);
+                          return { x, y, val };
+                        });
+                        const color = seriesColors[mi % seriesColors.length];
+                        return (
+                          <g key={mid}>
+                            <polyline
+                              fill="none"
+                              stroke={color}
+                              strokeWidth="2"
+                              points={points.map(p => `${p.x},${p.y}`).join(' ')}
+                            />
+                            {points.map((p, i) => (
+                              <g key={i}>
+                                <circle cx={p.x} cy={p.y} r="3.5" fill={color} />
+                                <title>{`${allMetricsOptions.find(m => m.id === mid)?.name}: ${metricKeyMap[mid]?.fmt(p.val)}`}</title>
+                              </g>
+                            ))}
+                          </g>
+                        );
+                      })}
+                      {/* X labels */}
+                      {periods.map((label, i) => {
+                        const x = periods.length > 1 ? padL + (i / (periods.length - 1)) * chartW : svgW / 2;
+                        return <text key={i} x={x} y={svgH - 4} fill="#94a3b8" fontSize="8" textAnchor="middle">{label.split(' ')[0]?.slice(0, 3)}</text>;
+                      })}
+                    </svg>
+
+                    {/* D3: Legend */}
+                    <div className="mt-3 flex items-center gap-3 flex-wrap">
+                      {selectedMetrics.map((mid, mi) => {
+                        const metric = allMetricsOptions.find(m => m.id === mid);
+                        const isHidden = hiddenSeries.has(mid);
+                        return (
+                          <button
+                            key={mid}
+                            onClick={() => toggleSeries(mid)}
+                            className={`flex items-center gap-1.5 text-[10px] ${isHidden ? 'text-slate-600 line-through' : 'text-slate-300'}`}
+                          >
+                            <span className="w-3 h-0.5 rounded" style={{ backgroundColor: isHidden ? '#475569' : seriesColors[mi % seriesColors.length] }} />
+                            {metric?.name}
+                          </button>
+                        );
+                      })}
+                      <button onClick={() => setHiddenSeries(new Set())} className="text-[10px] text-slate-500 hover:text-slate-300 ml-2">Show All</button>
+                      <button onClick={() => setHiddenSeries(new Set(selectedMetrics))} className="text-[10px] text-slate-500 hover:text-slate-300">Hide All</button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {activeScreen === 'glossary' && (
           <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">📖 Глоссарий метрик</h3>
@@ -2751,6 +3398,8 @@ export default function MetricTree() {
           </div>
         )}
 
+      </div>
+      </div>
       </div>
     </div>
   );
