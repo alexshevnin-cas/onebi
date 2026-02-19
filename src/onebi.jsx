@@ -28,7 +28,7 @@ export default function MetricTree() {
   const [filterSdkVersion, setFilterSdkVersion] = useState('all');
   const [filterCountry, setFilterCountry] = useState('all');
   const [breakdownType, setBreakdownType] = useState('month');
-  const [selectedMetrics, setSelectedMetrics] = useState(['dau', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']);
+  const [selectedMetrics, setSelectedMetrics] = useState(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']);
   const [showMetricsDropdown, setShowMetricsDropdown] = useState(false);
   const [activeFilters, setActiveFilters] = useState(['app']); // по умолчанию только приложение
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -3235,7 +3235,7 @@ export default function MetricTree() {
                     Apply
                   </button>
                   <button
-                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); }}
+                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); }}
                     className="px-4 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
                   >
                     Reset
