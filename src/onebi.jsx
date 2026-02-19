@@ -86,6 +86,58 @@ export default function MetricTree() {
   const [showAppSelector, setShowAppSelector] = useState(false);
   const [appSelectorSearch, setAppSelectorSearch] = useState('');
 
+  // Superadmin filter states
+  const [filterCustomer, setFilterCustomer] = useState('all');
+  const [filterManager, setFilterManager] = useState('all');
+  const [filterDateCreatedFrom, setFilterDateCreatedFrom] = useState('');
+  const [filterDateCreatedTo, setFilterDateCreatedTo] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showManagerDropdown, setShowManagerDropdown] = useState(false);
+  const [showDateCreatedDropdown, setShowDateCreatedDropdown] = useState(false);
+  const [activeReportFilters, setActiveReportFilters] = useState([]); // which filter chips are visible: 'app', 'country', 'manager', 'customer', 'dateCreated'
+  const [showFilterPickerDropdown, setShowFilterPickerDropdown] = useState(false);
+  const [customerDropdownSearch, setCustomerDropdownSearch] = useState('');
+  const [managerDropdownSearch, setManagerDropdownSearch] = useState('');
+
+  // Admin panel states
+  const [adminSelectedManager, setAdminSelectedManager] = useState(null);
+  const [adminSearch, setAdminSearch] = useState('');
+  const [adminSortBy, setAdminSortBy] = useState('name');
+  const [adminSortDir, setAdminSortDir] = useState('asc');
+  const [adminExpandedCustomer, setAdminExpandedCustomer] = useState(null);
+  const [adminManagerDropdown, setAdminManagerDropdown] = useState(null); // customer id with open dropdown
+
+  // Admin mock data
+  const adminManagers = [
+    { id: 'm1', name: 'Anton Smirnov', email: 'anton@cas.io', role: 'Senior AM' },
+    { id: 'm2', name: 'Serhii Shcherbyna', email: 'serhii@cas.io', role: 'AM' },
+    { id: 'm3', name: 'Rashid Sabirov', email: 'rashid@cas.io', role: 'AM' },
+    { id: 'm4', name: 'Buha Maksym', email: 'maksym@cas.io', role: 'AM' },
+    { id: 'm5', name: 'Dmytro Dubniak', email: 'dmytro@cas.io', role: 'AM' },
+  ];
+
+  const [adminCustomers, setAdminCustomers] = useState([
+    { id: 1554, name: 'GameStudio Pro', managerId: 'm1', bundles: ['com.jb.car.stunt.game', 'com.gameout.japancarsimulator'], onboardingDate: '2024-03-15' },
+    { id: 7561, name: 'Idle Games Inc', managerId: 'm1', bundles: ['com.hamster.publicationapp'], onboardingDate: '2024-06-22' },
+    { id: 208, name: 'PuzzleCraft', managerId: 'm2', bundles: ['1572616704', 'puzzle.hidden.objects.game'], onboardingDate: '2025-01-10' },
+    { id: 2850, name: 'Stack Studios', managerId: 'm4', bundles: ['com.FrozenCards.Boresh', 'com.SMTeam.StarMiners'], onboardingDate: '2025-04-18' },
+    { id: 12, name: 'Merge World', managerId: 'm5', bundles: ['com.CupTea.MergeMiner'], onboardingDate: '2025-08-03' },
+    { id: 6226, name: 'CasualPlay', managerId: 'm3', bundles: ['com.rundino', 'com.hendhrix.SpoonYummy'], onboardingDate: '2025-11-20' },
+    { id: 1084, name: 'HyperRun', managerId: 'm4', bundles: ['468445799', 'com.gh.talking.rooster.fighting.game'], onboardingDate: '2026-01-05' },
+    { id: 492, name: 'Pixel Dreams', managerId: 'm5', bundles: ['com.pawpatrolcoloring.draw.colouringbook.paintdog'], onboardingDate: '2026-02-01' },
+    { id: 841, name: 'KN Studio', managerId: 'm1', bundles: ['com.knstudio.dev.novikov.minecraft.shadermods', 'com.rpackinc.shadersplustexturesmod'], onboardingDate: '2025-06-14' },
+    { id: 2, name: 'PSV Media', managerId: 'm5', bundles: ['com.psv.vlad_and_niki.travel', '1589204819', 'likeapp.seeds.mcpe'], onboardingDate: '2024-11-02' },
+    { id: 875, name: 'OGG Games', managerId: 'm4', bundles: ['com.ogg.sortslinky.games'], onboardingDate: '2025-09-28' },
+    { id: 2316, name: 'BigApps Store', managerId: 'm3', bundles: ['com.bigappsstore.kundlibananasikhe'], onboardingDate: '2026-01-18' },
+    { id: 166, name: 'LS Games', managerId: 'm1', bundles: ['com.lsgames.myperfecthospitalcat'], onboardingDate: '2025-03-07' },
+    { id: 142, name: 'Hendrix Dev', managerId: 'm5', bundles: ['com.hendhrix.SpoonYummy'], onboardingDate: '2025-07-22' },
+  ]);
+
+  const reassignManager = (customerId, newManagerId) => {
+    setAdminCustomers(prev => prev.map(c => c.id === customerId ? { ...c, managerId: newManagerId } : c));
+    setAdminManagerDropdown(null);
+  };
+
   // E2: Load state from URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -107,6 +159,11 @@ export default function MetricTree() {
         setShowMetricAddDropdown(false);
         setShowFilterDropdown(false);
         setShowBreakdownDropdown(false);
+        setAdminManagerDropdown(null);
+        setShowCustomerDropdown(false);
+        setShowManagerDropdown(false);
+        setShowDateCreatedDropdown(false);
+        setShowFilterPickerDropdown(false);
       }
     };
     document.addEventListener('keydown', handler);
@@ -2006,6 +2063,7 @@ export default function MetricTree() {
             { id: 'apps', label: 'Applications', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> },
             { id: 'docs', label: 'Documentation', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h6M8 16h4"/></svg> },
             { id: 'support', label: 'Support', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 115 2c0 2-3 2-3 4"/><circle cx="12" cy="18" r="0.5" fill="currentColor"/></svg> },
+            { id: 'admin', label: 'Admin', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/><path d="M9 12l2 2 4-4"/></svg> },
           ].map(item => (
             <button
               key={item.id}
@@ -2041,6 +2099,193 @@ export default function MetricTree() {
       <div className="flex-1 min-w-0 p-6">
       <div className="mx-auto max-w-screen-lg">
 
+        {activeNavItem === 'admin' && (() => {
+          const filteredCustomers = adminCustomers
+            .filter(c => !adminSelectedManager || c.managerId === adminSelectedManager)
+            .filter(c => !adminSearch || c.name.toLowerCase().includes(adminSearch.toLowerCase()) || String(c.id).includes(adminSearch) || c.bundles.some(b => b.toLowerCase().includes(adminSearch.toLowerCase())));
+
+          const sorted = [...filteredCustomers].sort((a, b) => {
+            let va, vb;
+            if (adminSortBy === 'id') { va = a.id; vb = b.id; }
+            else if (adminSortBy === 'name') { va = a.name; vb = b.name; }
+            else if (adminSortBy === 'manager') { va = (adminManagers.find(m => m.id === a.managerId) || {}).name || ''; vb = (adminManagers.find(m => m.id === b.managerId) || {}).name || ''; }
+            else if (adminSortBy === 'bundles') { va = a.bundles.length; vb = b.bundles.length; }
+            else if (adminSortBy === 'onboardingDate') { va = a.onboardingDate; vb = b.onboardingDate; }
+            else { va = a.name; vb = b.name; }
+            if (typeof va === 'string') return adminSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+            return adminSortDir === 'asc' ? va - vb : vb - va;
+          });
+
+          const toggleSort = (col) => {
+            if (adminSortBy === col) setAdminSortDir(adminSortDir === 'asc' ? 'desc' : 'asc');
+            else { setAdminSortBy(col); setAdminSortDir('asc'); }
+          };
+
+          const sortIcon = (col) => adminSortBy === col ? (adminSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+
+          const totalBundles = filteredCustomers.reduce((s, c) => s + c.bundles.length, 0);
+
+          return (
+            <>
+              {/* Admin Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Admin</span>
+                  <span className="text-[10px] text-slate-500 ml-2">Customers & Managers</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <span>{filteredCustomers.length} customers</span>
+                  <span className="text-slate-600">|</span>
+                  <span>{totalBundles} bundles</span>
+                  <span className="text-slate-600">|</span>
+                  <span>{adminManagers.length} managers</span>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                {/* Left: Managers list */}
+                <div className="shrink-0 w-56">
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 sticky top-6">
+                    <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-2">Managers</div>
+
+                    {/* All managers */}
+                    <button
+                      onClick={() => setAdminSelectedManager(null)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors mb-0.5 ${
+                        !adminSelectedManager ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
+                      }`}
+                    >
+                      <div className="w-6 h-6 rounded-full bg-slate-600 flex items-center justify-center text-[9px] font-bold text-slate-300 shrink-0">All</div>
+                      <div className="text-left overflow-hidden">
+                        <div className="truncate">All managers</div>
+                        <div className="text-[10px] text-slate-500">{adminCustomers.length} customers</div>
+                      </div>
+                    </button>
+
+                    {adminManagers.map(mgr => {
+                      const mgrCustomers = adminCustomers.filter(c => c.managerId === mgr.id);
+                      return (
+                        <button
+                          key={mgr.id}
+                          onClick={() => setAdminSelectedManager(adminSelectedManager === mgr.id ? null : mgr.id)}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors mb-0.5 ${
+                            adminSelectedManager === mgr.id ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
+                          }`}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                            {mgr.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div className="text-left overflow-hidden flex-1 min-w-0">
+                            <div className="truncate">{mgr.name}</div>
+                            <div className="text-[10px] text-slate-500">{mgr.role} · {mgrCustomers.length} cust · {mgrCustomers.reduce((s, c) => s + c.bundles.length, 0)} bundles</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right: Customers table */}
+                <div className="flex-1 min-w-0">
+                  {/* Search bar */}
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      placeholder="Search by name, ID, or bundle..."
+                      value={adminSearch}
+                      onChange={(e) => setAdminSearch(e.target.value)}
+                      className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  {/* Table */}
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-700 bg-slate-800/80">
+                          <th onClick={() => toggleSort('id')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none w-16">ID{sortIcon('id')}</th>
+                          <th onClick={() => toggleSort('name')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Customer{sortIcon('name')}</th>
+                          <th onClick={() => toggleSort('manager')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Manager{sortIcon('manager')}</th>
+                          <th onClick={() => toggleSort('bundles')} className="text-center py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Bundles{sortIcon('bundles')}</th>
+                          <th onClick={() => toggleSort('onboardingDate')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Date Created{sortIcon('onboardingDate')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sorted.map(cust => {
+                          const mgr = adminManagers.find(m => m.id === cust.managerId);
+                          return (
+                            <React.Fragment key={cust.id}>
+                              <tr className="border-b border-slate-700/30 hover:bg-slate-700/20 group">
+                                <td className="py-2.5 px-3 text-slate-500 font-mono">{cust.id}</td>
+                                <td className="py-2.5 px-3 text-slate-200 font-medium">{cust.name}</td>
+                                <td className="py-2.5 px-3 relative">
+                                  <button
+                                    onClick={() => setAdminManagerDropdown(adminManagerDropdown === cust.id ? null : cust.id)}
+                                    className="flex items-center gap-1.5 text-slate-300 hover:text-blue-400 transition-colors"
+                                  >
+                                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                                      {mgr ? mgr.name.split(' ').map(n => n[0]).join('') : '?'}
+                                    </div>
+                                    {mgr ? mgr.name : '—'}
+                                    <svg width="8" height="8" viewBox="0 0 8 8" className="text-slate-500"><path d="M2 3l2 2 2-2" fill="none" stroke="currentColor" strokeWidth="1.2"/></svg>
+                                  </button>
+                                  {adminManagerDropdown === cust.id && (
+                                    <div className="absolute left-0 top-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-20 py-1 min-w-[180px]">
+                                      {adminManagers.map(m => (
+                                        <button
+                                          key={m.id}
+                                          onClick={() => reassignManager(cust.id, m.id)}
+                                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 flex items-center gap-2 ${m.id === cust.managerId ? 'text-blue-400' : 'text-slate-300'}`}
+                                        >
+                                          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                                            {m.name.split(' ').map(n => n[0]).join('')}
+                                          </div>
+                                          {m.name}
+                                          {m.id === cust.managerId && <span className="ml-auto text-blue-400">✓</span>}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <button
+                                    onClick={() => setAdminExpandedCustomer(adminExpandedCustomer === cust.id ? null : cust.id)}
+                                    className="text-slate-300 hover:text-blue-400 transition-colors"
+                                  >
+                                    {cust.bundles.length}
+                                    <svg width="8" height="8" viewBox="0 0 8 8" className={`inline ml-1 transition-transform ${adminExpandedCustomer === cust.id ? 'rotate-180' : ''}`}><path d="M2 3l2 2 2-2" fill="none" stroke="currentColor" strokeWidth="1.2"/></svg>
+                                  </button>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-400">{cust.onboardingDate}</td>
+                              </tr>
+                              {/* Expanded bundles row */}
+                              {adminExpandedCustomer === cust.id && (
+                                <tr className="bg-slate-800/40">
+                                  <td colSpan={5} className="px-3 py-2">
+                                    <div className="flex flex-wrap gap-1.5 pl-3">
+                                      {cust.bundles.map((bundle, i) => (
+                                        <span key={i} className="px-2 py-0.5 bg-slate-700/60 border border-slate-600/50 rounded text-[10px] text-slate-300 font-mono">{bundle}</span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                        {sorted.length === 0 && (
+                          <tr><td colSpan={5} className="py-8 text-center text-slate-500 text-xs">No customers found</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+
+        {activeNavItem === 'analytics' && <>
         {/* ===== Header: Title + Nav ===== */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -2652,55 +2897,286 @@ export default function MetricTree() {
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25">
                         Period: {filterDateFrom} — {filterDateTo}
                       </span>
-                      {/* E1: App Selector */}
-                      <div className="relative">
-                        <button
-                          onClick={() => { setShowAppSelector(!showAppSelector); setAppSelectorSearch(''); }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 cursor-pointer"
-                        >
-                          App: {apps.find(a => a.id === selectedApp)?.name || selectedApp}
-                          <span className="text-blue-500">▾</span>
-                        </button>
-                        {showAppSelector && (
-                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px]">
-                            <div className="p-2 border-b border-slate-700">
-                              <input
-                                type="text"
-                                placeholder="Search apps..."
-                                value={appSelectorSearch}
-                                onChange={(e) => setAppSelectorSearch(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                                autoFocus
-                              />
+
+                      {/* App filter chip */}
+                      {activeReportFilters.includes('app') && (
+                        <div className="relative">
+                          <button
+                            onClick={() => { setShowAppSelector(!showAppSelector); setAppSelectorSearch(''); }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 cursor-pointer"
+                          >
+                            App: {apps.find(a => a.id === selectedApp)?.name || selectedApp}
+                            <span className="text-blue-500">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'app')); setSelectedApp('all'); }} className="hover:text-blue-200 ml-0.5">×</button>
+                          </button>
+                          {showAppSelector && (
+                            <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px]">
+                              <div className="p-2 border-b border-slate-700">
+                                <input
+                                  type="text"
+                                  placeholder="Search apps..."
+                                  value={appSelectorSearch}
+                                  onChange={(e) => setAppSelectorSearch(e.target.value)}
+                                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="max-h-48 overflow-y-auto">
+                                {apps.filter(a => !appSelectorSearch || a.name.toLowerCase().includes(appSelectorSearch.toLowerCase())).map(app => (
+                                  <button
+                                    key={app.id}
+                                    onClick={() => { setSelectedApp(app.id); setShowAppSelector(false); }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${selectedApp === app.id ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                  >
+                                    {app.name}
+                                    {selectedApp === app.id && <span className="ml-auto text-blue-500">✓</span>}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                            <div className="max-h-48 overflow-y-auto">
-                              {apps.filter(a => !appSelectorSearch || a.name.toLowerCase().includes(appSelectorSearch.toLowerCase())).map(app => (
+                          )}
+                        </div>
+                      )}
+
+                      {/* Country filter chip */}
+                      {activeReportFilters.includes('country') && (
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenFilterValue(openFilterValue === 'country' ? null : 'country')}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 cursor-pointer"
+                          >
+                            Country: {filterCountry === 'all' ? 'All' : filterCountry}
+                            <span className="text-blue-500">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'country')); setFilterCountry('all'); }} className="hover:text-blue-200 ml-0.5">×</button>
+                          </button>
+                          {openFilterValue === 'country' && (
+                            <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[160px] max-h-48 overflow-y-auto">
+                              {countries.map(c => (
                                 <button
-                                  key={app.id}
-                                  onClick={() => { setSelectedApp(app.id); setShowAppSelector(false); }}
-                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${selectedApp === app.id ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                  key={c}
+                                  onClick={() => { setFilterCountry(c); setOpenFilterValue(null); }}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterCountry === c ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
                                 >
-                                  <span className="text-[10px]">{app.id === 'puzzle' || app.id === 'stack' ? '🤖' : '🍎'}</span>
-                                  {app.name}
-                                  {selectedApp === app.id && <span className="ml-auto text-blue-500">✓</span>}
+                                  {c === 'all' ? 'All countries' : c}
+                                  {filterCountry === c && <span className="ml-auto text-blue-500">✓</span>}
                                 </button>
                               ))}
                             </div>
-                            <div className="px-3 py-1.5 border-t border-slate-700 text-[10px] text-slate-500">
-                              {apps.length} apps
+                          )}
+                        </div>
+                      )}
+
+                      {/* Manager filter chip */}
+                      {activeReportFilters.includes('manager') && (
+                        <div className="relative">
+                          <button
+                            onClick={() => { setShowManagerDropdown(!showManagerDropdown); setManagerDropdownSearch(''); setShowCustomerDropdown(false); setShowDateCreatedDropdown(false); }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25 hover:bg-amber-500/25 cursor-pointer"
+                          >
+                            Manager: {filterManager !== 'all' ? adminManagers.find(m => m.id === filterManager)?.name || filterManager : 'All'}
+                            <span className="text-amber-500">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'manager')); setFilterManager('all'); }} className="hover:text-amber-200 ml-0.5">×</button>
+                          </button>
+                          {showManagerDropdown && (
+                            <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px]">
+                              <div className="p-2 border-b border-slate-700">
+                                <input
+                                  type="text"
+                                  placeholder="Search managers..."
+                                  value={managerDropdownSearch}
+                                  onChange={(e) => setManagerDropdownSearch(e.target.value)}
+                                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="max-h-48 overflow-y-auto">
+                                <button
+                                  onClick={() => { setFilterManager('all'); setShowManagerDropdown(false); }}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterManager === 'all' ? 'text-amber-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                >
+                                  All managers
+                                  {filterManager === 'all' && <span className="ml-auto text-amber-500">✓</span>}
+                                </button>
+                                {adminManagers.filter(m => !managerDropdownSearch || m.name.toLowerCase().includes(managerDropdownSearch.toLowerCase())).map(mgr => {
+                                  const mgrCustCount = adminCustomers.filter(c => c.managerId === mgr.id).length;
+                                  const mgrBundleCount = adminCustomers.filter(c => c.managerId === mgr.id).reduce((s, c) => s + c.bundles.length, 0);
+                                  return (
+                                    <button
+                                      key={mgr.id}
+                                      onClick={() => { setFilterManager(mgr.id); setFilterCustomer('all'); setShowManagerDropdown(false); }}
+                                      className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterManager === mgr.id ? 'text-amber-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                    >
+                                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                                        {mgr.name.split(' ').map(n => n[0]).join('')}
+                                      </div>
+                                      <div>
+                                        <div>{mgr.name}</div>
+                                        <div className="text-[10px] text-slate-500">{mgrCustCount} customers · {mgrBundleCount} bundles</div>
+                                      </div>
+                                      {filterManager === mgr.id && <span className="ml-auto text-amber-500">✓</span>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Customer filter chip */}
+                      {activeReportFilters.includes('customer') && (
+                        <div className="relative">
+                          <button
+                            onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setCustomerDropdownSearch(''); setShowManagerDropdown(false); setShowDateCreatedDropdown(false); }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 cursor-pointer"
+                          >
+                            Customer: {filterCustomer !== 'all' ? adminCustomers.find(c => c.id === Number(filterCustomer))?.name || filterCustomer : 'All'}
+                            <span className="text-emerald-500">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'customer')); setFilterCustomer('all'); }} className="hover:text-emerald-200 ml-0.5">×</button>
+                          </button>
+                          {showCustomerDropdown && (() => {
+                            const visibleCustomers = adminCustomers
+                              .filter(c => filterManager === 'all' || c.managerId === filterManager)
+                              .filter(c => !customerDropdownSearch || c.name.toLowerCase().includes(customerDropdownSearch.toLowerCase()) || String(c.id).includes(customerDropdownSearch));
+                            return (
+                              <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[280px]">
+                                <div className="p-2 border-b border-slate-700">
+                                  <input
+                                    type="text"
+                                    placeholder="Search by name or ID..."
+                                    value={customerDropdownSearch}
+                                    onChange={(e) => setCustomerDropdownSearch(e.target.value)}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                    autoFocus
+                                  />
+                                </div>
+                                <div className="max-h-60 overflow-y-auto">
+                                  <button
+                                    onClick={() => { setFilterCustomer('all'); setShowCustomerDropdown(false); }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterCustomer === 'all' ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                  >
+                                    All customers
+                                    {filterCustomer === 'all' && <span className="ml-auto text-emerald-500">✓</span>}
+                                  </button>
+                                  {visibleCustomers.map(cust => {
+                                    const mgr = adminManagers.find(m => m.id === cust.managerId);
+                                    return (
+                                      <button
+                                        key={cust.id}
+                                        onClick={() => { setFilterCustomer(String(cust.id)); setShowCustomerDropdown(false); }}
+                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterCustomer === String(cust.id) ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                      >
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-mono text-slate-500 text-[10px]">#{cust.id}</span>
+                                            <span>{cust.name}</span>
+                                          </div>
+                                          <div className="text-[10px] text-slate-500 truncate">{mgr?.name} · {cust.bundles.length} bundles · {cust.bundles[0]}{cust.bundles.length > 1 ? `, +${cust.bundles.length - 1}` : ''}</div>
+                                        </div>
+                                        {filterCustomer === String(cust.id) && <span className="ml-auto text-emerald-500 shrink-0">✓</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <div className="px-3 py-1.5 border-t border-slate-700 text-[10px] text-slate-500">
+                                  {visibleCustomers.length} customers{filterManager !== 'all' ? ` (filtered by ${adminManagers.find(m => m.id === filterManager)?.name})` : ''}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Date Created filter chip */}
+                      {activeReportFilters.includes('dateCreated') && (
+                        <div className="relative">
+                          <button
+                            onClick={() => { setShowDateCreatedDropdown(!showDateCreatedDropdown); setShowManagerDropdown(false); setShowCustomerDropdown(false); }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/25 hover:bg-purple-500/25 cursor-pointer"
+                          >
+                            Date Created{filterDateCreatedFrom || filterDateCreatedTo ? `: ${filterDateCreatedFrom || '...'} — ${filterDateCreatedTo || '...'}` : ': All'}
+                            <span className="text-purple-500">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'dateCreated')); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); }} className="hover:text-purple-200 ml-0.5">×</button>
+                          </button>
+                          {showDateCreatedDropdown && (
+                            <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 p-3 min-w-[260px]">
+                              <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-2">Date Created Range</div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="flex-1">
+                                  <label className="text-[10px] text-slate-500 mb-0.5 block">From</label>
+                                  <input
+                                    type="date"
+                                    value={filterDateCreatedFrom}
+                                    onChange={(e) => setFilterDateCreatedFrom(e.target.value)}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                  />
+                                </div>
+                                <div className="flex-1">
+                                  <label className="text-[10px] text-slate-500 mb-0.5 block">To</label>
+                                  <input
+                                    type="date"
+                                    value={filterDateCreatedTo}
+                                    onChange={(e) => setFilterDateCreatedTo(e.target.value)}
+                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-1.5 mb-2">
+                                <button onClick={() => { setFilterDateCreatedFrom('2026-01-01'); setFilterDateCreatedTo('2026-12-31'); }} className="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[10px] text-slate-300 hover:bg-slate-700">2026</button>
+                                <button onClick={() => { setFilterDateCreatedFrom('2025-01-01'); setFilterDateCreatedTo('2025-12-31'); }} className="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[10px] text-slate-300 hover:bg-slate-700">2025</button>
+                                <button onClick={() => { setFilterDateCreatedFrom('2024-01-01'); setFilterDateCreatedTo('2024-12-31'); }} className="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[10px] text-slate-300 hover:bg-slate-700">2024</button>
+                                <button onClick={() => { setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); }} className="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[10px] text-slate-400 hover:bg-slate-700">Clear</button>
+                              </div>
+                              <button
+                                onClick={() => setShowDateCreatedDropdown(false)}
+                                className="w-full px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-xs text-white font-medium"
+                              >
+                                Apply
+                              </button>
+                              {(filterDateCreatedFrom || filterDateCreatedTo) && (() => {
+                                const matched = adminCustomers.filter(c => {
+                                  if (filterDateCreatedFrom && c.onboardingDate < filterDateCreatedFrom) return false;
+                                  if (filterDateCreatedTo && c.onboardingDate > filterDateCreatedTo) return false;
+                                  return true;
+                                });
+                                return <div className="mt-2 text-[10px] text-slate-500">{matched.length} customers matched · {matched.reduce((s, c) => s + c.bundles.length, 0)} bundles</div>;
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* + Filter button with dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowFilterPickerDropdown(!showFilterPickerDropdown)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 border border-slate-600/50"
+                        >
+                          + Filter
+                        </button>
+                        {showFilterPickerDropdown && (
+                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px] py-1">
+                            {[
+                              { id: 'app', label: 'App' },
+                              { id: 'country', label: 'Country' },
+                              { id: 'manager', label: 'Manager' },
+                              { id: 'customer', label: 'Customer' },
+                              { id: 'dateCreated', label: 'Date Created' },
+                            ].filter(f => !activeReportFilters.includes(f.id)).map(f => (
+                              <button
+                                key={f.id}
+                                onClick={() => { setActiveReportFilters([...activeReportFilters, f.id]); setShowFilterPickerDropdown(false); }}
+                                className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                            {activeReportFilters.length >= 5 && (
+                              <div className="px-3 py-2 text-[10px] text-slate-500">All filters added</div>
+                            )}
                           </div>
                         )}
                       </div>
-                      {filterCountry !== 'all' && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25">
-                          Country: {filterCountry}
-                          <button onClick={() => setFilterCountry('all')} className="hover:text-blue-200 ml-0.5">×</button>
-                        </span>
-                      )}
-                      <button className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 border border-slate-600/50">
-                        + Add
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -2759,7 +3235,7 @@ export default function MetricTree() {
                     Apply
                   </button>
                   <button
-                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); }}
+                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); }}
                     className="px-4 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
                   >
                     Reset
@@ -3395,6 +3871,8 @@ export default function MetricTree() {
             </div>
           </div>
         )}
+
+        </>}
 
       </div>
       </div>
