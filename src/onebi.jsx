@@ -559,6 +559,35 @@ export default function MetricTree() {
     const d = dashboardData[appId];
     if (!d) return [];
 
+    // Filter-based multipliers for fake data variation
+    const managerMultipliers = { m1: 1.0, m2: 0.78, m3: 1.22, m4: 0.65, m5: 0.91 };
+    const customerSeeds = { 1554: 1.15, 7561: 0.82, 208: 0.95, 2850: 0.70, 12: 1.35, 6226: 0.58, 1084: 0.73, 492: 0.44, 841: 0.88, 2: 1.48, 875: 0.62, 2316: 0.38, 166: 0.52, 142: 0.47 };
+
+    let dauScale = 1.0;
+    let revScale = 1.0;
+    if (filterManager !== 'all') {
+      const mm = managerMultipliers[filterManager] || 1.0;
+      dauScale *= mm;
+      revScale *= mm * 1.08;
+    }
+    if (filterCustomer !== 'all') {
+      const cm = customerSeeds[Number(filterCustomer)] || 0.5;
+      dauScale *= cm;
+      revScale *= cm * 0.95;
+    }
+    if (filterDateCreatedFrom || filterDateCreatedTo) {
+      const matched = adminCustomers.filter(c => {
+        if (filterManager !== 'all' && c.managerId !== filterManager) return false;
+        if (filterCustomer !== 'all' && c.id !== Number(filterCustomer)) return false;
+        if (filterDateCreatedFrom && c.onboardingDate < filterDateCreatedFrom) return false;
+        if (filterDateCreatedTo && c.onboardingDate > filterDateCreatedTo) return false;
+        return true;
+      });
+      const ratio = matched.length / Math.max(adminCustomers.length, 1);
+      dauScale *= Math.max(ratio, 0.1);
+      revScale *= Math.max(ratio * 0.9, 0.08);
+    }
+
     // Merge all table data by month
     const cohort = d.cohortTable || [];
     const mon = d.monetisationTable || [];
@@ -570,6 +599,20 @@ export default function MetricTree() {
       const e = eng[i] || {};
       const u = ua[i] || {};
       const base = { ...c, ...m, ...e, ...u, _month: c.month || c.period || `Row ${i}` };
+      // Apply filter-based scaling to DAU and revenue fields
+      if (dauScale !== 1.0 || revScale !== 1.0) {
+        if (base.dau) base.dau = Math.round(base.dau * dauScale);
+        if (base.wau) base.wau = Math.round(base.wau * dauScale);
+        if (base.mau) base.mau = Math.round(base.mau * dauScale);
+        if (base.installs) base.installs = Math.round(base.installs * dauScale);
+        if (base.sessions) base.sessions = Math.round(base.sessions * dauScale);
+        if (base.impressions) base.impressions = Math.round(base.impressions * dauScale);
+        if (base.clicks) base.clicks = Math.round(base.clicks * dauScale);
+        if (base.revenue) base.revenue = +(base.revenue * revScale).toFixed(2);
+        if (base.adRevenue) base.adRevenue = +(base.adRevenue * revScale).toFixed(2);
+        if (base.ecpm) base.ecpm = +(base.ecpm * (revScale / dauScale || 1)).toFixed(2);
+        if (base.arpdau) base.arpdau = base.dau ? +(base.revenue || base.adRevenue || 0) / base.dau : base.arpdau;
+      }
       // F1: IAP (synthetic)
       base.iapRevenue = (base.adRevenue || base.revenue || 0) * 0.12;
       base.iapArpdau = base.dau ? base.iapRevenue / base.dau : 0;
