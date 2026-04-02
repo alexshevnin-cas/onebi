@@ -1,5 +1,7 @@
 import React from "react";
 import { useState, useEffect } from "react";
+import { adminManagers, adminCustomersInitial, adminApps } from './adminData.js';
+import { storeData } from './storeData.js';
 
 export default function MetricTree() {
   const [activeScreen, setActiveScreen] = useState('quickview'); // quickview, reports, glossary
@@ -70,7 +72,7 @@ export default function MetricTree() {
   const [clientType, setClientType] = useState('L1'); // PubC, L1, L2, Pub, Admin, BD, Payments, RnD
   const [adminGrossNet, setAdminGrossNet] = useState('gross'); // G3: gross/net toggle
   const [hoveredTooltip, setHoveredTooltip] = useState(null); // H4: metric formula tooltips
-  const [qvPeriod, setQvPeriod] = useState('last30'); // today, last7, last30, thisMonth, custom
+  const [qvPeriod, setQvPeriod] = useState('last7'); // today, last7, last30, thisMonth, custom
   const [qvCompare, setQvCompare] = useState(false);
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
 
@@ -99,43 +101,165 @@ export default function MetricTree() {
   const [customerDropdownSearch, setCustomerDropdownSearch] = useState('');
   const [managerDropdownSearch, setManagerDropdownSearch] = useState('');
 
+  // Profile states
+  const [profileTab, setProfileTab] = useState('personal'); // personal, payment, security, apikeys
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileToast, setProfileToast] = useState(null);
+  const [profileData, setProfileData] = useState({
+    firstName: 'Oleg',
+    lastName: 'Shlyamovych',
+    email: 'oleg@psvgames.com',
+    emailVerified: true,
+    company: 'PSV Game Studio',
+    phone: '+380999990010',
+    country: 'Ukraine',
+    messenger: 'Telegram',
+    timezone: 'UTC+2 (Kyiv)',
+    language: 'English',
+    registered: 'Jun 12, 2024',
+    accountId: 'PSV-00412',
+  });
+  const [profileDraft, setProfileDraft] = useState(null);
+
+  const startProfileEdit = () => { setProfileDraft({ ...profileData }); setProfileEditing(true); };
+  const cancelProfileEdit = () => { setProfileDraft(null); setProfileEditing(false); };
+  const saveProfile = () => {
+    setProfileSaving(true);
+    setTimeout(() => {
+      setProfileData({ ...profileDraft });
+      setProfileEditing(false);
+      setProfileDraft(null);
+      setProfileSaving(false);
+      setProfileToast('Changes saved');
+      setTimeout(() => setProfileToast(null), 3000);
+    }, 800);
+  };
+
+  // Payment Details states
+  const [paymentEditing, setPaymentEditing] = useState(false);
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    method: 'bank', // bank, crypto
+    beneficiary: 'PSV Game Studio LLC',
+    iban: 'UA21 3223 1300 0002 6007 2335 6600 1',
+    swift: 'UNJSUAUKXXX',
+    bank: 'Monobank (Universal Bank)',
+    bankAddress: 'Kyiv, Ukraine',
+    cryptoWallet: '',
+    cryptoNetwork: 'TRC-20',
+    threshold: '$500',
+    balance: '$12,450.20',
+    nextPayout: '~Apr 27, 2026',
+    taxId: 'UA123456789',
+    w8ben: 'uploaded', // uploaded, expired, none
+    w8benExpiry: 'Dec 2027',
+  });
+  const [paymentDraft, setPaymentDraft] = useState(null);
+
+  const startPaymentEdit = () => { setPaymentDraft({ ...paymentData }); setPaymentEditing(true); };
+  const cancelPaymentEdit = () => { setPaymentDraft(null); setPaymentEditing(false); };
+  const savePayment = () => {
+    setPaymentSaving(true);
+    setTimeout(() => {
+      setPaymentData({ ...paymentDraft });
+      setPaymentEditing(false);
+      setPaymentDraft(null);
+      setPaymentSaving(false);
+      setProfileToast('Payment details saved');
+      setTimeout(() => setProfileToast(null), 3000);
+    }, 800);
+  };
+
+  // API Keys states
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [sdkKeyVisible, setSdkKeyVisible] = useState(false);
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [apiKey, setApiKey] = useState('c8f2a91d-4e6b-47f3-b12c-9a8d5e3f1b7c');
+  const [sdkKey] = useState('cas_sdk_k7m2p9x4w1n6v3j8');
+  const [apiKeyCreated, setApiKeyCreated] = useState('Jan 15, 2026');
+
+  // Security states
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: '', newPw: '', confirm: '' });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
+  const [showTwoFaSetup, setShowTwoFaSetup] = useState(false);
+  const [twoFaStep, setTwoFaStep] = useState(1); // 1=QR, 2=verify, 3=backup codes
+  const [twoFaCode, setTwoFaCode] = useState('');
+  const [sessions] = useState([
+    { id: 1, browser: 'Chrome', os: 'macOS', location: 'Kyiv, UA', time: 'Current session', current: true },
+    { id: 2, browser: 'Safari', os: 'iOS', location: 'Kyiv, UA', time: '2 days ago', current: false },
+    { id: 3, browser: 'Firefox', os: 'Windows', location: 'Lviv, UA', time: '5 days ago', current: false },
+  ]);
+  const [revokedSessions, setRevokedSessions] = useState(new Set());
+
+  const savePassword = () => {
+    setPasswordSaving(true);
+    setTimeout(() => {
+      setPasswordSaving(false);
+      setShowChangePassword(false);
+      setPasswordForm({ current: '', newPw: '', confirm: '' });
+      setProfileToast('Password changed');
+      setTimeout(() => setProfileToast(null), 3000);
+    }, 800);
+  };
+
+  const completeTwoFa = () => {
+    setTwoFaEnabled(true);
+    setShowTwoFaSetup(false);
+    setTwoFaStep(1);
+    setTwoFaCode('');
+    setProfileToast('2FA enabled');
+    setTimeout(() => setProfileToast(null), 3000);
+  };
+
+  // Header states
+  const [showNotificationsDD, setShowNotificationsDD] = useState(false);
+  const [showProfileDD, setShowProfileDD] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'critical', icon: '!', text: 'app-ads.txt not verified (2 apps)', time: '3 hours ago', read: false },
+    { id: 2, type: 'info', icon: 'i', text: 'SDK 4.6.0 available', time: 'Yesterday', read: false },
+    { id: 3, type: 'finance', icon: '$', text: 'Payment $5,200 processed', time: 'Mar 27', read: false },
+  ]);
+
   // Admin panel states
   const [adminSelectedManager, setAdminSelectedManager] = useState(null);
   const [adminSearch, setAdminSearch] = useState('');
   const [adminSortBy, setAdminSortBy] = useState('name');
   const [adminSortDir, setAdminSortDir] = useState('asc');
   const [adminExpandedCustomer, setAdminExpandedCustomer] = useState(null);
-  const [adminManagerDropdown, setAdminManagerDropdown] = useState(null); // customer id with open dropdown
+  const [adminManagerDropdown, setAdminManagerDropdown] = useState(null);
+  const [adminFilterPlatform, setAdminFilterPlatform] = useState('all');
+  const [adminFilterStatus, setAdminFilterStatus] = useState('all');
+  const [adminPage, setAdminPage] = useState(1);
+  const [adminSelectedApp, setAdminSelectedApp] = useState(null);
+  const [adminSelectedCustomerId, setAdminSelectedCustomerId] = useState(null);
+  const [adminAppTab, setAdminAppTab] = useState('main');
+  const [adminAppOverrides, setAdminAppOverrides] = useState({});
 
-  // Admin mock data
-  const adminManagers = [
-    { id: 'm1', name: 'Anton Smirnov', email: 'anton@cas.io', role: 'Senior AM' },
-    { id: 'm2', name: 'Serhii Shcherbyna', email: 'serhii@cas.io', role: 'AM' },
-    { id: 'm3', name: 'Rashid Sabirov', email: 'rashid@cas.io', role: 'AM' },
-    { id: 'm4', name: 'Buha Maksym', email: 'maksym@cas.io', role: 'AM' },
-    { id: 'm5', name: 'Dmytro Dubniak', email: 'dmytro@cas.io', role: 'AM' },
-  ];
-
-  const [adminCustomers, setAdminCustomers] = useState([
-    { id: 1554, name: 'GameStudio Pro', managerId: 'm1', bundles: ['com.jb.car.stunt.game', 'com.gameout.japancarsimulator'], onboardingDate: '2024-03-15' },
-    { id: 7561, name: 'Idle Games Inc', managerId: 'm1', bundles: ['com.hamster.publicationapp'], onboardingDate: '2024-06-22' },
-    { id: 208, name: 'PuzzleCraft', managerId: 'm2', bundles: ['1572616704', 'puzzle.hidden.objects.game'], onboardingDate: '2025-01-10' },
-    { id: 2850, name: 'Stack Studios', managerId: 'm4', bundles: ['com.FrozenCards.Boresh', 'com.SMTeam.StarMiners'], onboardingDate: '2025-04-18' },
-    { id: 12, name: 'Merge World', managerId: 'm5', bundles: ['com.CupTea.MergeMiner'], onboardingDate: '2025-08-03' },
-    { id: 6226, name: 'CasualPlay', managerId: 'm3', bundles: ['com.rundino', 'com.hendhrix.SpoonYummy'], onboardingDate: '2025-11-20' },
-    { id: 1084, name: 'HyperRun', managerId: 'm4', bundles: ['468445799', 'com.gh.talking.rooster.fighting.game'], onboardingDate: '2026-01-05' },
-    { id: 492, name: 'Pixel Dreams', managerId: 'm5', bundles: ['com.pawpatrolcoloring.draw.colouringbook.paintdog'], onboardingDate: '2026-02-01' },
-    { id: 841, name: 'KN Studio', managerId: 'm1', bundles: ['com.knstudio.dev.novikov.minecraft.shadermods', 'com.rpackinc.shadersplustexturesmod'], onboardingDate: '2025-06-14' },
-    { id: 2, name: 'PSV Media', managerId: 'm5', bundles: ['com.psv.vlad_and_niki.travel', '1589204819', 'likeapp.seeds.mcpe'], onboardingDate: '2024-11-02' },
-    { id: 875, name: 'OGG Games', managerId: 'm4', bundles: ['com.ogg.sortslinky.games'], onboardingDate: '2025-09-28' },
-    { id: 2316, name: 'BigApps Store', managerId: 'm3', bundles: ['com.bigappsstore.kundlibananasikhe'], onboardingDate: '2026-01-18' },
-    { id: 166, name: 'LS Games', managerId: 'm1', bundles: ['com.lsgames.myperfecthospitalcat'], onboardingDate: '2025-03-07' },
-    { id: 142, name: 'Hendrix Dev', managerId: 'm5', bundles: ['com.hendhrix.SpoonYummy'], onboardingDate: '2025-07-22' },
-  ]);
+  // Admin data from adminData.js (adminManagers, adminApps imported at top)
+  const [adminCustomers, setAdminCustomers] = useState(adminCustomersInitial);
 
   const reassignManager = (customerId, newManagerId) => {
     setAdminCustomers(prev => prev.map(c => c.id === customerId ? { ...c, managerId: newManagerId } : c));
     setAdminManagerDropdown(null);
+  };
+
+  const updateAppOverride = (bundleId, updates) => {
+    setAdminAppOverrides(prev => ({ ...prev, [bundleId]: { ...(prev[bundleId] || {}), ...updates } }));
+  };
+
+  const reassignCustomerManager = (customerId, newManagerId) => {
+    // Update customer-level manager
+    setAdminCustomers(prev => prev.map(c => c.id === customerId ? { ...c, managerId: newManagerId } : c));
+    // Update all apps of this customer via overrides
+    const customerApps = adminApps.filter(a => a.userId === customerId);
+    setAdminAppOverrides(prev => {
+      const next = { ...prev };
+      customerApps.forEach(a => { next[a.bundleId] = { ...(next[a.bundleId] || {}), managerId: newManagerId }; });
+      return next;
+    });
   };
 
   // E2: Load state from URL on mount
@@ -164,6 +288,8 @@ export default function MetricTree() {
         setShowManagerDropdown(false);
         setShowDateCreatedDropdown(false);
         setShowFilterPickerDropdown(false);
+        setShowNotificationsDD(false);
+        setShowProfileDD(false);
       }
     };
     document.addEventListener('keydown', handler);
@@ -283,10 +409,10 @@ export default function MetricTree() {
     ],
     L1: [
       { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
+      { id: 'impressions', label: 'Impressions', key: 'impressions', format: v => formatNum(v) },
       { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
       { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
       { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
-      { id: 'fill_rate', label: 'Fill Rate', key: 'fillRate', format: v => v.toFixed(1) + '%' },
     ],
     L2: [
       { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
@@ -368,7 +494,7 @@ export default function MetricTree() {
   ];
 
   const qvPeriodOptions = [
-    { id: 'today', label: 'Today' },
+    { id: 'today', label: 'Last actual day' },
     { id: 'last7', label: 'Last 7 days' },
     { id: 'last30', label: 'Last 30 days' },
     { id: 'thisMonth', label: 'This month' },
@@ -385,8 +511,8 @@ export default function MetricTree() {
     const cur = { ...cohort[0], ...mon[0], ...eng[0] };
     const prev = { ...cohort[1], ...mon[1], ...eng[1] };
     return {
-      current: { dau: cur.dau, revenue: cur.adRevenue || cur.revenue, arpdau: cur.arpdau, ecpm: cur.ecpm, fillRate: cur.fillRate, d1Retention: cur.d1Retention, ltv: cur.ltv, roas: cur.roas || cur.roasD30, iapRevenue: (cur.adRevenue || cur.revenue || 0) * 0.12 },
-      previous: { dau: prev.dau, revenue: prev.adRevenue || prev.revenue, arpdau: prev.arpdau, ecpm: prev.ecpm, fillRate: prev.fillRate, d1Retention: prev.d1Retention, ltv: prev.ltv, roas: prev.roas || prev.roasD30, iapRevenue: (prev.adRevenue || prev.revenue || 0) * 0.12 },
+      current: { dau: cur.dau, impressions: cur.impressions, revenue: cur.adRevenue || cur.revenue, arpdau: cur.arpdau, ecpm: cur.ecpm, fillRate: cur.fillRate, d1Retention: cur.d1Retention, ltv: cur.ltv, roas: cur.roas || cur.roasD30, iapRevenue: (cur.adRevenue || cur.revenue || 0) * 0.12 },
+      previous: { dau: prev.dau, impressions: prev.impressions, revenue: prev.adRevenue || prev.revenue, arpdau: prev.arpdau, ecpm: prev.ecpm, fillRate: prev.fillRate, d1Retention: prev.d1Retention, ltv: prev.ltv, roas: prev.roas || prev.roasD30, iapRevenue: (prev.adRevenue || prev.revenue || 0) * 0.12 },
     };
   };
 
@@ -394,7 +520,7 @@ export default function MetricTree() {
     if (appId !== 'all') return getQvCardValuesSingle(appId);
     // Sum across all real apps
     const allVals = realAppIds.map(id => getQvCardValuesSingle(id));
-    const sumKeys = ['dau', 'revenue', 'iapRevenue'];
+    const sumKeys = ['dau', 'impressions', 'revenue', 'iapRevenue'];
     const avgKeys = ['arpdau', 'ecpm', 'fillRate', 'd1Retention', 'ltv', 'roas'];
     const merge = (period) => {
       const result = {};
@@ -405,28 +531,51 @@ export default function MetricTree() {
     return { current: merge('current'), previous: merge('previous') };
   };
 
-  // Quick View — trend data: 30 daily revenue bars
+  // Quick View — trend data: daily revenue line
+  const qvTrendDays = { today: 1, last7: 7, last30: 30, thisMonth: 30, custom: 14 };
   const getQvTrendDataSingle = (appId) => {
     const d = dashboardData[appId];
     if (!d) return [];
     const mon = d.monetisationTable || [];
-    // Latest month revenue as baseline, generate 30 daily values with variance
     const latestRev = (mon[0]?.adRevenue || 1000);
     const dailyBase = latestRev / 30;
+    const numDays = qvTrendDays[qvPeriod] || 7;
     const days = [];
-    for (let i = 13; i >= 0; i--) {
+    for (let i = numDays - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dayLabel = `${date.getMonth() + 1}/${date.getDate()}`;
       const seed = (date.getDate() * 7 + appId.charCodeAt(0) * 13 + i * 3) % 100;
       const variance = 0.85 + (seed / 100) * 0.3;
       const weekendDip = (date.getDay() === 0 || date.getDay() === 6) ? 0.88 : 1.0;
-      // Last 3 days: drop then partial recovery on last day
       const dropFactor = i === 2 ? 0.82 : i === 1 ? 0.62 : i === 0 ? 0.72 : 1.0;
       const baseVal = i <= 2 ? dailyBase * weekendDip * dropFactor : dailyBase * variance * weekendDip;
       days.push({ label: dayLabel, value: Math.round(baseVal) });
     }
     return days;
+  };
+
+  // Market benchmark: genre-average revenue line for comparison
+  const genreBenchmarks = {
+    puzzle: { label: 'Puzzle Avg (Market)', dailyRev: 410 },
+    idle:   { label: 'Idle Avg (Market)',   dailyRev: 480 },
+    stack:  { label: 'Hyper-casual Avg (Market)', dailyRev: 1050 },
+  };
+  const getMarketBenchmark = (appId) => {
+    const bench = genreBenchmarks[appId];
+    if (!bench) return null;
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dayLabel = `${date.getMonth() + 1}/${date.getDate()}`;
+      // Small stable variance ±5% around market average
+      const seed = (date.getDate() * 11 + i * 7) % 100;
+      const variance = 0.95 + (seed / 100) * 0.10;
+      const weekendDip = (date.getDay() === 0 || date.getDay() === 6) ? 0.93 : 1.0;
+      days.push({ label: dayLabel, value: Math.round(bench.dailyRev * variance * weekendDip) });
+    }
+    return { label: bench.label, data: days };
   };
 
   const getQvTrendData = (appId) => {
@@ -2099,231 +2248,782 @@ export default function MetricTree() {
           {navExpanded && <span className="text-sm font-semibold text-slate-100 whitespace-nowrap overflow-hidden">CAS Mediation</span>}
         </div>
 
-        {/* Nav Items */}
-        <nav className="flex-1 py-3 flex flex-col gap-0.5 px-2">
+        {/* Nav Items — main */}
+        <nav className="py-3 flex flex-col gap-0.5 px-2">
           {[
-            { id: 'analytics', label: 'Analytics', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-9"/></svg> },
+            { id: 'analytics', label: 'Analytics', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-9"/></svg>,
+              sub: [{ id: 'quickview', label: 'Quick View' }, { id: 'reports', label: 'Reports' }] },
             { id: 'apps', label: 'Applications', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> },
-            { id: 'docs', label: 'Documentation', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h6M8 16h4"/></svg> },
-            { id: 'support', label: 'Support', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 115 2c0 2-3 2-3 4"/><circle cx="12" cy="18" r="0.5" fill="currentColor"/></svg> },
-            { id: 'admin', label: 'Admin', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/><path d="M9 12l2 2 4-4"/></svg> },
+            { id: 'payments', label: 'Payments', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> },
+            { id: 'profile', label: 'Profile', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
           ].map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveNavItem(item.id)}
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
-                activeNavItem === item.id
-                  ? 'bg-blue-600/20 text-blue-400'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-              }`}
-              title={!navExpanded ? item.label : undefined}
-            >
-              <span className="shrink-0 w-5 h-5 flex items-center justify-center">{item.icon}</span>
-              {navExpanded && <span>{item.label}</span>}
-            </button>
+            <div key={item.id}>
+              <button
+                onClick={() => { setActiveNavItem(item.id); if (item.id === 'analytics') setActiveScreen('quickview'); }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
+                  activeNavItem === item.id
+                    ? 'bg-blue-600/20 text-blue-400'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                }`}
+                title={!navExpanded ? item.label : undefined}
+              >
+                <span className="shrink-0 w-5 h-5 flex items-center justify-center">{item.icon}</span>
+                {navExpanded && <span>{item.label}</span>}
+              </button>
+              {/* Sub-navigation */}
+              {item.sub && activeNavItem === item.id && navExpanded && (
+                <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
+                  {item.sub.map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => setActiveScreen(s.id)}
+                      className={`text-left px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                        activeScreen === s.id ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
+                      }`}
+                    >{s.label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
+
+          {/* Separator + Admin (superadmin only) */}
+          <div className="border-t border-slate-800 my-2"></div>
+          <button
+            onClick={() => setActiveNavItem('admin')}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
+              activeNavItem === 'admin'
+                ? 'bg-blue-600/20 text-blue-400'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+            title={!navExpanded ? 'Admin' : undefined}
+          >
+            <span className="shrink-0 w-5 h-5 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/><path d="M9 12l2 2 4-4"/></svg>
+            </span>
+            {navExpanded && <span>Admin</span>}
+          </button>
         </nav>
 
-        {/* Bottom */}
-        <div className="px-2 py-3 border-t border-slate-800">
-          <div className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg ${navExpanded ? '' : 'justify-center'}`}>
-            <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-300 shrink-0">U</div>
-            {navExpanded && (
-              <div className="overflow-hidden">
-                <div className="text-xs text-slate-200 font-medium truncate">User</div>
-                <div className="text-[10px] text-slate-500 truncate">Publisher</div>
+        {/* Spacer */}
+        <div className="flex-1"></div>
+
+        {/* Human Touch — Your CAS Team */}
+        <div className="px-2 py-2 border-t border-slate-800">
+          <div className={`px-2.5 py-2 ${navExpanded ? '' : 'flex justify-center'}`}>
+            {navExpanded ? (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-slate-600 font-semibold mb-2">Your CAS Team</div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-xs font-bold text-white shrink-0">SS</div>
+                  <div>
+                    <div className="text-xs text-slate-200 font-medium">Serhii</div>
+                    <div className="text-[10px] text-slate-500">Personal Manager</div>
+                  </div>
+                </div>
+                <div className="flex gap-1.5 mb-1.5">
+                  <a href="#" className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors" title="Telegram">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-blue-400"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0h-.056zm4.962 7.224l-1.84 8.684c-.127.6-.48.746-.972.464l-2.688-1.98-1.296 1.248c-.144.144-.264.264-.54.264l.192-2.724 4.968-4.488c.216-.192-.048-.3-.336-.108L8.632 13.308l-2.616-.816c-.564-.18-.576-.564.12-.84l10.236-3.948c.468-.168.876.108.72.84l.024-.32z"/></svg>
+                    <span className="text-[10px] text-slate-400">Chat</span>
+                  </a>
+                  <a href="#" className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors" title="WhatsApp">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-400"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.136.558 4.143 1.534 5.886L0 24l6.305-1.654A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-1.98 0-3.82-.562-5.39-1.527l-.386-.23-4.006 1.05 1.07-3.91-.252-.4A9.716 9.716 0 012.25 12c0-5.385 4.365-9.75 9.75-9.75S21.75 6.615 21.75 12s-4.365 9.75-9.75 9.75z"/></svg>
+                    <span className="text-[10px] text-slate-400">Chat</span>
+                  </a>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  <span className="text-[10px] text-slate-500">Need help?</span>
+                </div>
+              </div>
+            ) : (
+              <a href="#" className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-xs font-bold text-white" title="Your manager: Serhii">SS</a>
+            )}
+          </div>
+        </div>
+
+        {/* Resources */}
+        <div className="px-2 py-2 border-t border-slate-800">
+          {[
+            { label: 'API Docs', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg> },
+            { label: 'Resources', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/></svg> },
+          ].map(r => (
+            <a key={r.label} href="#" className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors text-xs whitespace-nowrap overflow-hidden ${navExpanded ? '' : 'justify-center'}`} title={!navExpanded ? r.label : undefined}>
+              <span className="shrink-0 w-4 h-4 flex items-center justify-center">{r.icon}</span>
+              {navExpanded && <span>{r.label}</span>}
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* ===== Main Area (Header + Content) ===== */}
+      <div className="flex-1 min-w-0 flex flex-col">
+
+      {/* ===== Header ===== */}
+      <div className="h-12 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm flex items-center justify-between px-5">
+        {/* Left: breadcrumb / page title */}
+        <div className="text-sm text-slate-400">
+          {activeNavItem === 'analytics' && <span className="text-slate-200 font-medium">Analytics</span>}
+          {activeNavItem === 'admin' && <span className="text-slate-200 font-medium">Admin Panel</span>}
+          {activeNavItem === 'apps' && <span className="text-slate-200 font-medium">Applications</span>}
+          {activeNavItem === 'payments' && <span className="text-slate-200 font-medium">Payments</span>}
+          {activeNavItem === 'profile' && <span className="text-slate-200 font-medium">Profile</span>}
+        </div>
+
+        {/* Right: Balance + Notifications + Profile */}
+        <div className="flex items-center gap-3">
+          {/* Balance */}
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors" title="Current balance — click to view Payments">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+            <span className="text-sm font-semibold text-emerald-400">$12,450</span>
+          </button>
+
+          {/* Notifications */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowNotificationsDD(!showNotificationsDD); setShowProfileDD(false); }}
+              className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-800 transition-colors"
+              title="Notifications"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center text-white">{notifications.filter(n => !n.read).length}</span>
+              )}
+            </button>
+
+            {/* Notifications Dropdown */}
+            {showNotificationsDD && (
+              <div className="absolute right-0 top-10 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
+                  <span className="text-sm font-semibold text-slate-100">Notifications</span>
+                  <button
+                    onClick={() => setNotifications(notifications.map(n => ({ ...n, read: true })))}
+                    className="text-[11px] text-blue-400 hover:text-blue-300"
+                  >Dismiss All</button>
+                </div>
+                <div className="max-h-72 overflow-y-auto">
+                  {notifications.map(n => (
+                    <div key={n.id} className={`flex items-start gap-3 px-4 py-3 border-b border-slate-700/50 hover:bg-slate-750 cursor-pointer ${n.read ? 'opacity-50' : ''}`}>
+                      <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5 ${
+                        n.type === 'critical' ? 'bg-red-500/20 text-red-400' :
+                        n.type === 'info' ? 'bg-blue-500/20 text-blue-400' :
+                        'bg-emerald-500/20 text-emerald-400'
+                      }`}>{n.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-slate-200">{n.text}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{n.time}</div>
+                      </div>
+                      {!n.read && (
+                        <button onClick={(e) => { e.stopPropagation(); setNotifications(notifications.map(x => x.id === n.id ? { ...x, read: true } : x)); }} className="text-slate-500 hover:text-slate-300 text-xs shrink-0 mt-0.5">&times;</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Profile */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowProfileDD(!showProfileDD); setShowNotificationsDD(false); }}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[10px] font-bold text-white">O</div>
+              <span className="text-xs text-slate-300 font-medium">Oleg</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+
+            {/* Profile Dropdown */}
+            {showProfileDD && (
+              <div className="absolute right-0 top-10 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-700">
+                  <div className="text-sm font-medium text-slate-100">Oleg Shlyamovych</div>
+                  <div className="text-[11px] text-slate-500">oleg@psvgames.com</div>
+                </div>
+                <div className="py-1">
+                  <div className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-750 cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+                      <span className="text-xs text-slate-300">Dark Mode</span>
+                    </div>
+                    <div className="w-8 h-4.5 bg-blue-600 rounded-full relative">
+                      <div className="absolute right-0.5 top-0.5 w-3.5 h-3.5 bg-white rounded-full"></div>
+                    </div>
+                  </div>
+                  <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-slate-750 text-left">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span className="text-xs text-slate-300">Log out</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ===== Main Area ===== */}
-      <div className="flex-1 min-w-0 p-6">
+      {/* ===== Content Area ===== */}
+      <div className="flex-1 min-w-0 p-6 overflow-y-auto">
       <div className="mx-auto max-w-screen-lg">
 
         {activeNavItem === 'admin' && (() => {
-          const filteredCustomers = adminCustomers
-            .filter(c => !adminSelectedManager || c.managerId === adminSelectedManager)
-            .filter(c => !adminSearch || c.name.toLowerCase().includes(adminSearch.toLowerCase()) || String(c.id).includes(adminSearch) || c.bundles.some(b => b.toLowerCase().includes(adminSearch.toLowerCase())));
+          // Filter apps with overrides applied
+          const appsWithOverrides = adminApps.map(a => ({ ...a, ...(adminAppOverrides[a.bundleId] || {}) }));
 
-          const sorted = [...filteredCustomers].sort((a, b) => {
-            let va, vb;
-            if (adminSortBy === 'id') { va = a.id; vb = b.id; }
-            else if (adminSortBy === 'name') { va = a.name; vb = b.name; }
-            else if (adminSortBy === 'manager') { va = (adminManagers.find(m => m.id === a.managerId) || {}).name || ''; vb = (adminManagers.find(m => m.id === b.managerId) || {}).name || ''; }
-            else if (adminSortBy === 'bundles') { va = a.bundles.length; vb = b.bundles.length; }
-            else if (adminSortBy === 'onboardingDate') { va = a.onboardingDate; vb = b.onboardingDate; }
-            else { va = a.name; vb = b.name; }
-            if (typeof va === 'string') return adminSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-            return adminSortDir === 'asc' ? va - vb : vb - va;
-          });
+          const filteredApps = appsWithOverrides
+            .filter(a => !adminSelectedManager || a.managerId === adminSelectedManager)
+            .filter(a => adminFilterPlatform === 'all' || a.platform === adminFilterPlatform)
+            .filter(a => adminFilterStatus === 'all' || a.status === adminFilterStatus)
+            .filter(a => {
+              if (!adminSearch) return true;
+              const q = adminSearch.toLowerCase();
+              return a.bundleId.toLowerCase().includes(q) || a.customerName.toLowerCase().includes(q) || String(a.userId).includes(q)
+                || (storeData[a.bundleId]?.appName || '').toLowerCase().includes(q)
+                || (storeData[a.bundleId]?.publisher || '').toLowerCase().includes(q);
+            });
 
+          const PAGE_SIZE = 50;
+          const totalPages = Math.ceil(filteredApps.length / PAGE_SIZE);
+          const safePage = Math.min(adminPage, totalPages || 1);
+          const pagedApps = filteredApps.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+          const uniqueCustomerIds = new Set(filteredApps.map(a => a.userId));
+
+          // Sorting
           const toggleSort = (col) => {
             if (adminSortBy === col) setAdminSortDir(adminSortDir === 'asc' ? 'desc' : 'asc');
             else { setAdminSortBy(col); setAdminSortDir('asc'); }
           };
-
           const sortIcon = (col) => adminSortBy === col ? (adminSortDir === 'asc' ? ' ↑' : ' ↓') : '';
 
-          const totalBundles = filteredCustomers.reduce((s, c) => s + c.bundles.length, 0);
+          const sortedApps = [...pagedApps].sort((a, b) => {
+            let va, vb;
+            if (adminSortBy === 'bundleId') { va = (storeData[a.bundleId]?.appName || a.bundleId).toLowerCase(); vb = (storeData[b.bundleId]?.appName || b.bundleId).toLowerCase(); }
+            else if (adminSortBy === 'customer') { va = a.customerName; vb = b.customerName; }
+            else if (adminSortBy === 'manager') { va = (adminManagers.find(m => m.id === a.managerId) || {}).name || ''; vb = (adminManagers.find(m => m.id === b.managerId) || {}).name || ''; }
+            else if (adminSortBy === 'status') { va = a.status; vb = b.status; }
+            else if (adminSortBy === 'platform') { va = a.platform; vb = b.platform; }
+            else if (adminSortBy === 'date') { va = a.dateAdded; vb = b.dateAdded; }
+            else { va = a.bundleId; vb = b.bundleId; }
+            if (typeof va === 'string') return adminSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+            return adminSortDir === 'asc' ? va - vb : vb - va;
+          });
+
+          // Pagination helper
+          const pageNumbers = (() => {
+            if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+            const p = [1];
+            if (safePage > 3) p.push('...');
+            for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) p.push(i);
+            if (safePage < totalPages - 2) p.push('...');
+            if (totalPages > 1) p.push(totalPages);
+            return p;
+          })();
+
+          // Platform icon SVGs
+          const PlatformIcon = ({ platform, size }) => {
+            const s = size || 14;
+            return platform === 'ios' ? (
+              <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" className="text-slate-400 shrink-0"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+            ) : (
+              <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" className="text-emerald-500/70 shrink-0"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.27-.86-.31-.16-.69-.04-.86.27l-1.86 3.22c-1.44-.65-3.02-1.01-4.65-1.01s-3.21.36-4.65 1.01L5.29 5.71c-.16-.31-.54-.43-.86-.27-.31.16-.43.54-.27.86l1.84 3.18C2.86 11.58.83 14.94 0 18h24c-.83-3.06-2.86-6.42-6.4-8.52zM7 15.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm10 0a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z"/></svg>
+            );
+          };
+
+          const statusColors = {
+            active: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
+            paused: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+            pending: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
+            review: 'bg-purple-500/15 text-purple-400 border-purple-500/20',
+          };
+
+          const selectedAppData = adminSelectedApp ? appsWithOverrides.find(a => a.bundleId === adminSelectedApp) : null;
+          const selectedAppCustomer = selectedAppData ? adminCustomers.find(c => c.id === selectedAppData.userId) : null;
 
           return (
             <>
               {/* Admin Header */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Admin</span>
-                  <span className="text-[10px] text-slate-500 ml-2">Customers & Managers</span>
+                  <span className="text-[10px] text-slate-500 ml-2">Apps Management</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-slate-400">
-                  <span>{filteredCustomers.length} customers</span>
+                  <span>{filteredApps.length.toLocaleString()} apps</span>
                   <span className="text-slate-600">|</span>
-                  <span>{totalBundles} bundles</span>
+                  <span>{uniqueCustomerIds.size.toLocaleString()} customers</span>
                   <span className="text-slate-600">|</span>
                   <span>{adminManagers.length} managers</span>
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                {/* Left: Managers list */}
-                <div className="shrink-0 w-56">
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 sticky top-6">
-                    <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-2">Managers</div>
-
-                    {/* All managers */}
-                    <button
-                      onClick={() => setAdminSelectedManager(null)}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors mb-0.5 ${
-                        !adminSelectedManager ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
-                      }`}
-                    >
-                      <div className="w-6 h-6 rounded-full bg-slate-600 flex items-center justify-center text-[9px] font-bold text-slate-300 shrink-0">All</div>
-                      <div className="text-left overflow-hidden">
-                        <div className="truncate">All managers</div>
-                        <div className="text-[10px] text-slate-500">{adminCustomers.length} customers</div>
-                      </div>
-                    </button>
-
-                    {adminManagers.map(mgr => {
-                      const mgrCustomers = adminCustomers.filter(c => c.managerId === mgr.id);
-                      return (
-                        <button
-                          key={mgr.id}
-                          onClick={() => setAdminSelectedManager(adminSelectedManager === mgr.id ? null : mgr.id)}
-                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors mb-0.5 ${
-                            adminSelectedManager === mgr.id ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
-                          }`}
-                        >
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-                            {mgr.name.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div className="text-left overflow-hidden flex-1 min-w-0">
-                            <div className="truncate">{mgr.name}</div>
-                            <div className="text-[10px] text-slate-500">{mgr.role} · {mgrCustomers.length} cust · {mgrCustomers.reduce((s, c) => s + c.bundles.length, 0)} bundles</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Right: Customers table */}
-                <div className="flex-1 min-w-0">
-                  {/* Search bar */}
-                  <div className="mb-3">
+              {/* Filters bar */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 mb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Search */}
+                  <div className="relative flex-1 min-w-[200px]">
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <input
                       type="text"
-                      placeholder="Search by name, ID, or bundle..."
+                      placeholder="Search bundle, app name, customer..."
                       value={adminSearch}
-                      onChange={(e) => setAdminSearch(e.target.value)}
-                      className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      onChange={(e) => { setAdminSearch(e.target.value); setAdminPage(1); }}
+                      className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                     />
+                    {adminSearch && (
+                      <button onClick={() => { setAdminSearch(''); setAdminPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    )}
                   </div>
 
-                  {/* Table */}
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-700 bg-slate-800/80">
-                          <th onClick={() => toggleSort('id')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none w-16">ID{sortIcon('id')}</th>
-                          <th onClick={() => toggleSort('name')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Customer{sortIcon('name')}</th>
-                          <th onClick={() => toggleSort('manager')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Manager{sortIcon('manager')}</th>
-                          <th onClick={() => toggleSort('bundles')} className="text-center py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Bundles{sortIcon('bundles')}</th>
-                          <th onClick={() => toggleSort('onboardingDate')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Date Created{sortIcon('onboardingDate')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sorted.map(cust => {
-                          const mgr = adminManagers.find(m => m.id === cust.managerId);
-                          return (
-                            <React.Fragment key={cust.id}>
-                              <tr className="border-b border-slate-700/30 hover:bg-slate-700/20 group">
-                                <td className="py-2.5 px-3 text-slate-500 font-mono">{cust.id}</td>
-                                <td className="py-2.5 px-3 text-slate-200 font-medium">{cust.name}</td>
-                                <td className="py-2.5 px-3 relative">
-                                  <button
-                                    onClick={() => setAdminManagerDropdown(adminManagerDropdown === cust.id ? null : cust.id)}
-                                    className="flex items-center gap-1.5 text-slate-300 hover:text-blue-400 transition-colors"
-                                  >
-                                    <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
-                                      {mgr ? mgr.name.split(' ').map(n => n[0]).join('') : '?'}
-                                    </div>
-                                    {mgr ? mgr.name : '—'}
-                                    <svg width="8" height="8" viewBox="0 0 8 8" className="text-slate-500"><path d="M2 3l2 2 2-2" fill="none" stroke="currentColor" strokeWidth="1.2"/></svg>
-                                  </button>
-                                  {adminManagerDropdown === cust.id && (
-                                    <div className="absolute left-0 top-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-20 py-1 min-w-[180px]">
-                                      {adminManagers.map(m => (
-                                        <button
-                                          key={m.id}
-                                          onClick={() => reassignManager(cust.id, m.id)}
-                                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-700 flex items-center gap-2 ${m.id === cust.managerId ? 'text-blue-400' : 'text-slate-300'}`}
-                                        >
-                                          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
-                                            {m.name.split(' ').map(n => n[0]).join('')}
-                                          </div>
-                                          {m.name}
-                                          {m.id === cust.managerId && <span className="ml-auto text-blue-400">✓</span>}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  <button
-                                    onClick={() => setAdminExpandedCustomer(adminExpandedCustomer === cust.id ? null : cust.id)}
-                                    className="text-slate-300 hover:text-blue-400 transition-colors"
-                                  >
-                                    {cust.bundles.length}
-                                    <svg width="8" height="8" viewBox="0 0 8 8" className={`inline ml-1 transition-transform ${adminExpandedCustomer === cust.id ? 'rotate-180' : ''}`}><path d="M2 3l2 2 2-2" fill="none" stroke="currentColor" strokeWidth="1.2"/></svg>
-                                  </button>
-                                </td>
-                                <td className="py-2.5 px-3 text-slate-400">{cust.onboardingDate}</td>
-                              </tr>
-                              {/* Expanded bundles row */}
-                              {adminExpandedCustomer === cust.id && (
-                                <tr className="bg-slate-800/40">
-                                  <td colSpan={5} className="px-3 py-2">
-                                    <div className="flex flex-wrap gap-1.5 pl-3">
-                                      {cust.bundles.map((bundle, i) => (
-                                        <span key={i} className="px-2 py-0.5 bg-slate-700/60 border border-slate-600/50 rounded text-[10px] text-slate-300 font-mono">{bundle}</span>
-                                      ))}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                        {sorted.length === 0 && (
-                          <tr><td colSpan={5} className="py-8 text-center text-slate-500 text-xs">No customers found</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  {/* Manager filter */}
+                  <select value={adminSelectedManager || ''} onChange={(e) => { setAdminSelectedManager(e.target.value || null); setAdminPage(1); }}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="">All managers</option>
+                    {adminManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+
+                  {/* Platform filter */}
+                  <select value={adminFilterPlatform} onChange={(e) => { setAdminFilterPlatform(e.target.value); setAdminPage(1); }}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="all">All platforms</option>
+                    <option value="android">Android</option>
+                    <option value="ios">iOS</option>
+                  </select>
+
+                  {/* Active filter chips */}
+                  {(adminSearch || adminSelectedManager || adminFilterPlatform !== 'all') && (
+                    <button onClick={() => { setAdminSearch(''); setAdminSelectedManager(null); setAdminFilterPlatform('all'); setAdminPage(1); }}
+                      className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors px-2 py-1">Reset all</button>
+                  )}
                 </div>
               </div>
+
+              {/* Apps table */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80">
+                      <th onClick={() => toggleSort('bundleId')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">App{sortIcon('bundleId')}</th>
+                      <th onClick={() => toggleSort('platform')} className="text-center py-2.5 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none w-10">OS{sortIcon('platform')}</th>
+                      <th onClick={() => toggleSort('customer')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Customer{sortIcon('customer')}</th>
+                      <th onClick={() => toggleSort('manager')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Manager{sortIcon('manager')}</th>
+                      <th onClick={() => toggleSort('date')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none w-24">Added{sortIcon('date')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedApps.map(app => {
+                      const mgr = adminManagers.find(m => m.id === app.managerId);
+                      const sd = storeData[app.bundleId];
+                      return (
+                        <tr key={app.bundleId}
+                          onClick={() => setAdminSelectedApp(app.bundleId)}
+                          className="border-b border-slate-700/30 hover:bg-slate-700/20 cursor-pointer group transition-colors"
+                        >
+                          {/* App: icon + name/bundle */}
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              {sd?.iconUrl ? (
+                                <img src={sd.iconUrl} alt="" className="w-7 h-7 rounded-lg shrink-0" loading="lazy" />
+                              ) : (
+                                <div className="w-7 h-7 rounded-lg bg-slate-700/40 flex items-center justify-center shrink-0"><PlatformIcon platform={app.platform} size={12} /></div>
+                              )}
+                              <div className="min-w-0">
+                                {sd?.appName ? (
+                                  <>
+                                    <div className="text-slate-200 font-medium truncate max-w-[220px] group-hover:text-white">{sd.appName}</div>
+                                    <div className="text-[10px] font-mono text-slate-500 truncate max-w-[220px]">{app.bundleId}</div>
+                                  </>
+                                ) : (
+                                  <div className="text-[10px] font-mono text-slate-400 truncate max-w-[220px] group-hover:text-slate-300">{app.bundleId}</div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          {/* Platform */}
+                          <td className="py-2 px-2 text-center"><PlatformIcon platform={app.platform} size={12} /></td>
+                          {/* Customer */}
+                          <td className="py-2 px-3">
+                            <button onClick={(e) => { e.stopPropagation(); setAdminSelectedCustomerId(app.userId); }}
+                              className="text-left hover:text-blue-400 transition-colors group/cust">
+                              <div className="text-slate-300 truncate max-w-[140px] group-hover/cust:text-blue-400">{app.customerName}</div>
+                              <div className="text-[10px] text-slate-600">#{app.userId}</div>
+                            </button>
+                          </td>
+                          {/* Manager */}
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                                {mgr ? mgr.name.split(' ').map(n => n[0]).join('') : '?'}
+                              </div>
+                              <span className="text-slate-400 truncate">{mgr ? mgr.name.split(' ')[0] : '—'}</span>
+                            </div>
+                          </td>
+                          {/* Date */}
+                          <td className="py-2 px-3 text-slate-500">{app.dateAdded}</td>
+                        </tr>
+                      );
+                    })}
+                    {sortedApps.length === 0 && (
+                      <tr><td colSpan={5} className="py-12 text-center text-slate-500 text-xs">No apps found matching your filters</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[10px] text-slate-500">
+                    {((safePage - 1) * PAGE_SIZE + 1).toLocaleString()}–{Math.min(safePage * PAGE_SIZE, filteredApps.length).toLocaleString()} of {filteredApps.length.toLocaleString()}
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    <button disabled={safePage <= 1} onClick={() => setAdminPage(p => p - 1)}
+                      className="px-2 py-1 rounded text-xs text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Prev</button>
+                    {pageNumbers.map((p, i) =>
+                      p === '...'
+                        ? <span key={'e' + i} className="px-1.5 text-slate-600 text-xs">...</span>
+                        : <button key={p} onClick={() => setAdminPage(p)}
+                            className={`w-7 h-7 rounded text-xs ${p === safePage ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>{p}</button>
+                    )}
+                    <button disabled={safePage >= totalPages} onClick={() => setAdminPage(p => p + 1)}
+                      className="px-2 py-1 rounded text-xs text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Next</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Detail popup modal — 1C-style form */}
+              {selectedAppData && (() => {
+                const sd = storeData[selectedAppData.bundleId];
+                const storeUrl = sd?.storeUrl || (selectedAppData.platform === 'ios' ? `https://apps.apple.com/app/id${selectedAppData.bundleId}` : `https://play.google.com/store/apps/details?id=${selectedAppData.bundleId}`);
+                const mgr = adminManagers.find(m => m.id === selectedAppData.managerId);
+                // Deterministic fake data from bundleId hash
+                const h = selectedAppData.bundleId.split('').reduce((s, c) => (s * 31 + c.charCodeAt(0)) & 0x7fffffff, 0);
+                const fakeCode = (h % 9000) + 1000;
+                const fakeCasVer = `${3 + (h % 3)}.${h % 10}.${(h * 7) % 100}`;
+                const fakeProtoVer100 = `${1 + (h % 5)}.${(h * 3) % 10}.${(h * 13) % 100}`;
+                const fakeProtoVer99 = `${1 + (h % 5)}.${(h * 3) % 10}.${((h * 13) % 100) - 1}`;
+                const fakeAppId = `ca-app-pub-${(h % 9000000000 + 1000000000)}`;
+                const fakeAdmob = `${(h % 9000000000 + 1000000000)}/${(h * 3) % 9000000000 + 1000000000}`;
+                const fakeBannerRefresh = [30, 45, 60, -1][(h * 11) % 4];
+                const fakeInterDelay = [-1, 0, 15, 30][(h * 7) % 4];
+                const fakeOrientation = ['Portrait', 'Landscape', 'All'][(h * 3) % 3];
+                const fakeGenre = ['Casual', 'Puzzle', 'Arcade', 'Simulation', 'Strategy', 'Action', 'Racing', 'Educational', 'Board', 'Trivia'][(h * 13) % 10];
+                const fakeBrand = selectedAppData.platform === 'ios' ? 'CAS iOS' : 'CAS Android';
+                const fakeRating = ['Everyone', 'Everyone 10+', 'Teen', 'Mature(up to 21)'][(h * 17) % 4];
+                const fakePriority = (h % 5) + 1;
+                const fakeCategory = ['Games', 'Entertainment', 'Tools', 'Education', 'Lifestyle', 'Social', 'Productivity', 'Health'][(h * 11) % 8];
+                const fakePublishDate = selectedAppData.dateAdded;
+                const fakeNetworksDate = (() => { const d = new Date(selectedAppData.dateAdded); d.setDate(d.getDate() + (h % 30) + 5); return d.toISOString().slice(0, 10); })();
+                const fakeServerUpdate = (() => { const d = new Date(); d.setDate(d.getDate() - (h % 7)); return d.toISOString().slice(0, 10); })();
+                const fakeFirebase = (h % 3) !== 0;
+                const fakeMediation = (h % 4) !== 0;
+                const fakeReports = (h % 5) !== 0;
+                const fakeAudit = (h % 6) === 0;
+                const fakeNoAudit = !fakeAudit && (h % 3) === 0;
+                // CAS Events flags
+                const evFlags = { load: (h % 7) > 2, loadFail: (h % 11) > 8, loaded: (h % 5) > 1, impression: (h % 3) !== 0, click: (h % 9) > 5, reward: (h % 4) === 0, startSession: (h % 6) > 3, show: (h % 5) > 2, showFail: (h % 13) > 10, showed: (h % 7) > 4 };
+                const fakeEventBatch = (h % 5) + 1;
+                // Ad networks
+                const networks = ['AppLovin', 'AdMob', 'Unity Ads', 'ironSource', 'Meta AN', 'Pangle', 'Mintegral', 'Vungle', 'InMobi', 'Chartboost'];
+                const activeNets = networks.filter((_, i) => ((h >> i) & 1) || i < 3);
+                // Form field component
+                const F = ({ label, val, w, mono }) => (
+                  <div className={`${w || ''}`}>
+                    <div className="text-[10px] text-slate-500 mb-0.5">{label}</div>
+                    <div className={`bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[11px] ${mono ? 'font-mono' : ''} text-slate-300 truncate min-h-[26px]`}>{val || ''}</div>
+                  </div>
+                );
+                const Chk = ({ label, checked }) => (
+                  <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-default">
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${checked ? 'bg-blue-600 border-blue-500' : 'border-slate-600 bg-slate-800'}`}>
+                      {checked && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
+                    </div>
+                    {label}
+                  </label>
+                );
+
+                return (
+                  <>
+                    <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setAdminSelectedApp(null)} />
+                    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-h-[90vh] bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl z-50 flex flex-col">
+
+                      {/* Title bar */}
+                      <div className="shrink-0 px-5 py-3 border-b border-slate-700 flex items-center justify-between rounded-t-2xl">
+                        <div className="flex items-center gap-3">
+                          {sd?.iconUrl ? (
+                            <img src={sd.iconUrl} alt="" className="w-8 h-8 rounded-lg shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-lg bg-slate-700/50 flex items-center justify-center shrink-0"><PlatformIcon platform={selectedAppData.platform} size={16} /></div>
+                          )}
+                          <div>
+                            <div className="text-sm text-slate-100 font-semibold">{sd?.appName || selectedAppData.bundleId} <span className="text-slate-500 font-normal">(Приложения)</span></div>
+                          </div>
+                        </div>
+                        <button onClick={() => setAdminSelectedApp(null)} className="text-slate-500 hover:text-slate-200 transition-colors p-1">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                      </div>
+
+                      {/* Action buttons row */}
+                      <div className="shrink-0 px-5 py-2 border-b border-slate-700/50 flex items-center gap-1.5 flex-wrap">
+                        <a href={storeUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                          className="px-3 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-[11px] text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-1.5">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+                          Перейти на маркет
+                        </a>
+                        <button onClick={() => { setAdminSelectedApp(null); setAdminSelectedCustomerId(selectedAppData.userId); }}
+                          className="px-3 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-[11px] text-slate-300 hover:bg-slate-700 hover:text-white transition-colors">
+                          Клиент
+                        </button>
+                        <div className="ml-auto flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500">Менеджер:</span>
+                          <div className="relative">
+                            <select value={selectedAppData.managerId}
+                              onChange={(e) => updateAppOverride(selectedAppData.bundleId, { managerId: e.target.value })}
+                              className="bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer appearance-none pr-7">
+                              {adminManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
+                            <svg className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tabs */}
+                      <div className="shrink-0 px-5 border-b border-slate-700/50 flex gap-0">
+                        {[['main', 'Основная'], ['networks', 'Рекламные сети']].map(([id, label]) => (
+                          <button key={id} onClick={() => setAdminAppTab(id)}
+                            className={`px-4 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                              adminAppTab === id ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'
+                            }`}>{label}</button>
+                        ))}
+                      </div>
+
+                      {/* Tab content */}
+                      <div className="overflow-y-auto p-5 flex-1">
+                        {adminAppTab === 'main' && (
+                          <div className="space-y-3">
+                            {/* Row 1: Наименование */}
+                            <F label="Наименование" val={sd?.appName || selectedAppData.bundleId} />
+                            {/* Row 2: Код, даты */}
+                            <div className="flex gap-2">
+                              <F label="Код" val={fakeCode} w="w-20" />
+                              <F label="Дата обновл. на сервере" val={fakeServerUpdate} w="flex-1" />
+                            </div>
+                            {/* Row 3: Bundle ID, platform, store */}
+                            <div className="flex gap-2">
+                              <F label="Bundle ID" val={selectedAppData.bundleId} w="flex-1" mono />
+                              {selectedAppData.platform === 'ios' && <F label="ID пакета iOS" val={selectedAppData.bundleId} w="w-32" mono />}
+                              <F label="Платформа" val={selectedAppData.platform === 'ios' ? 'iOS' : 'Android'} w="w-24" />
+                              <F label="Магазин" val={selectedAppData.platform === 'ios' ? 'App Store' : 'Google Play'} w="w-28" />
+                            </div>
+                            {/* Row 4: Versions */}
+                            <div className="flex gap-2">
+                              <F label="Версия прототипа, 100%" val={fakeProtoVer100} w="flex-1" mono />
+                              <F label="Версия прототипа, 99%" val={fakeProtoVer99} w="flex-1" mono />
+                              <F label="Версия CAS" val={fakeCasVer} w="w-28" mono />
+                              <F label="Ориентация" val={fakeOrientation} w="w-24" />
+                            </div>
+                            {/* Row 5: App IDs, ad settings */}
+                            <div className="flex gap-2">
+                              <F label="App ID" val={fakeAppId} w="flex-1" mono />
+                              <F label="Admob App ID" val={fakeAdmob} w="flex-1" mono />
+                              <F label="Banner refresh, сек" val={fakeBannerRefresh} w="w-28" />
+                              <F label="Inter delay, сек" val={fakeInterDelay} w="w-24" />
+                            </div>
+                            {/* Row 6: Checkboxes */}
+                            <div className="flex gap-4 py-1">
+                              <Chk label="Показывать в отчёте" checked={fakeReports} />
+                              <Chk label="Аналитика Firebase" checked={fakeFirebase} />
+                              <Chk label="Сервер медиации" checked={fakeMediation} />
+                            </div>
+                            {/* Row 7: Brand, genre */}
+                            <div className="flex gap-2">
+                              <F label="Бренд" val={fakeBrand} w="flex-1" />
+                              <F label="Жанр" val={fakeGenre} w="flex-1" />
+                              <F label="Категория" val={fakeCategory} w="flex-1" />
+                            </div>
+                          </div>
+                        )}
+
+                        {adminAppTab === 'networks' && (
+                          <div className="space-y-3">
+                            <div className="text-xs text-slate-400 mb-3">Рекламные сети, подключённые к приложению</div>
+                            <div className="bg-slate-800/40 border border-slate-700 rounded-lg overflow-hidden">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-slate-700 bg-slate-800/60">
+                                    <th className="text-left py-2 px-3 text-slate-500 font-medium">Сеть</th>
+                                    <th className="text-center py-2 px-3 text-slate-500 font-medium w-20">Активна</th>
+                                    <th className="text-left py-2 px-3 text-slate-500 font-medium">App Key</th>
+                                    <th className="text-left py-2 px-3 text-slate-500 font-medium w-28">Формат</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {networks.map((net, i) => {
+                                    const active = activeNets.includes(net);
+                                    return (
+                                      <tr key={net} className="border-b border-slate-700/20">
+                                        <td className="py-1.5 px-3 text-slate-300">{net}</td>
+                                        <td className="py-1.5 px-3 text-center">
+                                          <div className={`w-3 h-3 rounded-full mx-auto ${active ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                                        </td>
+                                        <td className="py-1.5 px-3 text-slate-500 font-mono text-[10px]">{active ? `${(h * (i + 1) * 17) % 9000000 + 1000000}` : '—'}</td>
+                                        <td className="py-1.5 px-3 text-slate-500 text-[10px]">{active ? ['Banner, Inter', 'Inter, Reward', 'Banner', 'Inter', 'Reward, Inter', 'Banner, Inter, Reward'][i % 6] : '—'}</td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+
+              {/* Customer popup modal */}
+              {adminSelectedCustomerId && (() => {
+                const cust = adminCustomers.find(c => c.id === adminSelectedCustomerId);
+                if (!cust) return null;
+                const custApps = appsWithOverrides.filter(a => a.userId === adminSelectedCustomerId);
+                const custMgr = adminManagers.find(m => m.id === cust.managerId);
+                const iosCount = custApps.filter(a => a.platform === 'ios').length;
+                const androidCount = custApps.filter(a => a.platform === 'android').length;
+                const activeCount = custApps.filter(a => a.status === 'active').length;
+                const pausedCount = custApps.filter(a => a.status === 'paused').length;
+                const pendingCount = custApps.filter(a => a.status === 'pending').length;
+                const reviewCount = custApps.filter(a => a.status === 'review').length;
+                return (
+                  <>
+                    <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setAdminSelectedCustomerId(null)} />
+                    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] max-h-[85vh] bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl z-50 flex flex-col">
+                      {/* Header */}
+                      <div className="shrink-0 border-b border-slate-700 px-5 py-4 flex items-center justify-between rounded-t-2xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                            {cust.name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <div className="text-sm text-slate-100 font-semibold">{cust.name}</div>
+                            <div className="text-[10px] text-slate-500">ID #{cust.id} · {custApps.length} apps · since {cust.onboardingDate}</div>
+                          </div>
+                        </div>
+                        <button onClick={() => setAdminSelectedCustomerId(null)} className="text-slate-500 hover:text-slate-200 transition-colors p-1">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                      </div>
+
+                      {/* Body */}
+                      <div className="overflow-y-auto p-5 space-y-4">
+                        {/* Stats row */}
+                        <div className="grid grid-cols-4 gap-2">
+                          <div className="p-2.5 bg-slate-800/60 rounded-lg border border-slate-700 text-center">
+                            <div className="text-lg font-semibold text-slate-100">{custApps.length}</div>
+                            <div className="text-[10px] text-slate-500">Total Apps</div>
+                          </div>
+                          <div className="p-2.5 bg-slate-800/60 rounded-lg border border-slate-700 text-center">
+                            <div className="text-lg font-semibold text-emerald-400">{androidCount}</div>
+                            <div className="text-[10px] text-slate-500">Android</div>
+                          </div>
+                          <div className="p-2.5 bg-slate-800/60 rounded-lg border border-slate-700 text-center">
+                            <div className="text-lg font-semibold text-slate-300">{iosCount}</div>
+                            <div className="text-[10px] text-slate-500">iOS</div>
+                          </div>
+                          <div className="p-2.5 bg-slate-800/60 rounded-lg border border-slate-700 text-center">
+                            <div className="text-lg font-semibold text-emerald-400">{activeCount}</div>
+                            <div className="text-[10px] text-slate-500">Active</div>
+                          </div>
+                        </div>
+
+                        {/* Manager assignment (bulk) */}
+                        <div className="p-3 bg-slate-800/60 rounded-lg border border-slate-700">
+                          <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-2">Account Manager <span className="normal-case text-slate-600">(applies to all apps)</span></div>
+                          <div className="grid grid-cols-2 gap-1">
+                            {adminManagers.map(m => (
+                              <button
+                                key={m.id}
+                                onClick={() => reassignCustomerManager(cust.id, m.id)}
+                                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-colors ${
+                                  m.id === cust.managerId ? 'bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30' : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
+                                }`}
+                              >
+                                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                                  {m.name.split(' ').map(n => n[0]).join('')}
+                                </div>
+                                <span className="truncate">{m.name}</span>
+                                {m.id === cust.managerId && <span className="text-blue-400 ml-auto">&#10003;</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Status summary */}
+                        {(pausedCount > 0 || pendingCount > 0 || reviewCount > 0) && (
+                          <div className="flex gap-2 text-[10px]">
+                            {activeCount > 0 && <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">{activeCount} active</span>}
+                            {pausedCount > 0 && <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20">{pausedCount} paused</span>}
+                            {pendingCount > 0 && <span className="px-2 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">{pendingCount} pending</span>}
+                            {reviewCount > 0 && <span className="px-2 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/20">{reviewCount} review</span>}
+                          </div>
+                        )}
+
+                        {/* Apps list */}
+                        <div>
+                          <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-2">Apps ({custApps.length})</div>
+                          <div className="bg-slate-800/40 border border-slate-700 rounded-lg overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-slate-700 bg-slate-800/60">
+                                  <th className="text-left py-2 px-3 text-slate-500 font-medium">App</th>
+                                  <th className="text-center py-2 px-2 text-slate-500 font-medium w-8">OS</th>
+                                  <th className="text-left py-2 px-3 text-slate-500 font-medium w-16">Status</th>
+                                  <th className="text-left py-2 px-3 text-slate-500 font-medium w-20">Added</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {custApps.map(app => {
+                                  const sd = storeData[app.bundleId];
+                                  return (
+                                    <tr key={app.bundleId}
+                                      onClick={() => { setAdminSelectedCustomerId(null); setAdminSelectedApp(app.bundleId); }}
+                                      className="border-b border-slate-700/20 hover:bg-slate-700/20 cursor-pointer transition-colors">
+                                      <td className="py-1.5 px-3">
+                                        <div className="flex items-center gap-2">
+                                          {sd?.iconUrl ? (
+                                            <img src={sd.iconUrl} alt="" className="w-5 h-5 rounded shrink-0" loading="lazy" />
+                                          ) : (
+                                            <div className="w-5 h-5 rounded bg-slate-700/40 flex items-center justify-center shrink-0"><PlatformIcon platform={app.platform} size={10} /></div>
+                                          )}
+                                          <div className="min-w-0">
+                                            {sd?.appName ? (
+                                              <div className="text-slate-300 truncate max-w-[250px]">{sd.appName}</div>
+                                            ) : null}
+                                            <div className="text-[10px] font-mono text-slate-500 truncate max-w-[250px]">{app.bundleId}</div>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-1.5 px-2 text-center"><PlatformIcon platform={app.platform} size={10} /></td>
+                                      <td className="py-1.5 px-3">
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium border ${statusColors[app.status] || 'text-slate-400'}`}>{app.status}</span>
+                                      </td>
+                                      <td className="py-1.5 px-3 text-slate-500 text-[10px]">{app.dateAdded}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </>
           );
         })()}
@@ -2348,103 +3048,76 @@ export default function MetricTree() {
 
         {activeScreen === 'quickview' && (
           <>
-            {/* Quick View Header: App selector + Client Type + Period Bar */}
+            {/* Quick View Header: App chip selector + Period Bar */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-              {/* Left: App selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 text-xs uppercase tracking-wider">App:</span>
-                <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
-                  {apps.map(app => (
-                    <button
-                      key={app.id}
-                      onClick={() => setSelectedApp(app.id)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium ${selectedApp === app.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      {app.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Center: Client Type */}
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 text-xs uppercase tracking-wider">View:</span>
-                <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
-                  {['PubC', 'L1', 'L2', 'Pub', 'Payments'].map(ct => (
-                    <button
-                      key={ct}
-                      onClick={() => setClientType(ct)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium ${clientType === ct ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      {ct}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right: Period Bar */}
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
-                  >
-                    {qvPeriodOptions.find(p => p.id === qvPeriod)?.label} ▾
-                  </button>
-                  {showPeriodDropdown && (
-                    <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[150px]">
-                      {qvPeriodOptions.map(p => (
+              {/* Left: App chip selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowAppSelector(!showAppSelector)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 cursor-pointer"
+                >
+                  App: {selectedApp === 'all' ? 'All Apps' : apps.find(a => a.id === selectedApp)?.name}
+                  <span className="text-blue-500">▾</span>
+                </button>
+                {showAppSelector && (
+                  <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px]">
+                    <div className="p-2 border-b border-slate-700">
+                      <input
+                        type="text"
+                        placeholder="Search apps..."
+                        value={appSelectorSearch}
+                        onChange={(e) => setAppSelectorSearch(e.target.value)}
+                        className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {apps.filter(a => !appSelectorSearch || a.name.toLowerCase().includes(appSelectorSearch.toLowerCase())).map(app => (
                         <button
-                          key={p.id}
-                          onClick={() => { setQvPeriod(p.id); setShowPeriodDropdown(false); }}
-                          className={`w-full px-3 py-2 text-left text-xs hover:bg-slate-800 ${qvPeriod === p.id ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
+                          key={app.id}
+                          onClick={() => { setSelectedApp(app.id); setShowAppSelector(false); setAppSelectorSearch(''); }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${selectedApp === app.id ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
                         >
-                          {p.label}
+                          {app.name}
+                          {selectedApp === app.id && <span className="ml-auto text-blue-500">✓</span>}
                         </button>
                       ))}
                     </div>
-                  )}
-                </div>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={qvCompare}
-                    onChange={(e) => setQvCompare(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-0"
-                  />
-                  <span className="text-xs text-slate-400">Compare</span>
-                </label>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Period Bar — inline buttons */}
+              <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
+                {qvPeriodOptions.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setQvPeriod(p.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium ${qvPeriod === p.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* B1: Metric Cards (hidden for Payments — has its own layout) */}
-            {clientType !== 'Payments' && (() => {
-              const cards = qvCardDefs[clientType] || [];
+            {/* B1: Metric Cards — L1: 4 cards */}
+            {(() => {
+              const cards = qvCardDefs['L1'] || [];
               const vals = getQvCardValues(selectedApp);
               return (
-                <div className={`grid gap-3 mb-6 ${cards.length <= 4 ? 'grid-cols-4' : cards.length === 5 ? 'grid-cols-5' : 'grid-cols-6'}`}>
+                <div className="grid gap-3 mb-6 grid-cols-5">
                   {cards.map(card => {
                     const cur = vals.current[card.key];
                     const prev = vals.previous[card.key];
                     const hasCur = cur != null && cur !== undefined;
                     const hasPrev = prev != null && prev !== undefined;
-                    if (card.planned && !hasCur) {
-                      return (
-                        <div key={card.id} className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 border-dashed">
-                          <div className="text-slate-500 text-xs uppercase tracking-wider">{card.label}</div>
-                          <div className="text-lg font-bold text-slate-600 mt-1">--</div>
-                          <div className="text-[10px] text-slate-600 mt-0.5">Planned</div>
-                        </div>
-                      );
-                    }
                     const delta = hasCur && hasPrev && prev !== 0 ? ((cur - prev) / prev * 100) : 0;
                     const isUp = delta >= 0;
                     return (
                       <div
                         key={card.id}
-                        className="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-slate-600 cursor-pointer transition"
-                        onClick={() => { setActiveScreen('reports'); addMeasure(card.id); }}
-                        title={`Click to open in Reports`}
+                        className="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-slate-600 transition"
                       >
                         <div className="text-slate-400 text-xs uppercase tracking-wider" title={metricTooltips[card.id] ? `${metricTooltips[card.id].desc}\n= ${metricTooltips[card.id].formula}` : undefined}>{card.label}</div>
                         <div className="text-xl font-bold text-white mt-1">{hasCur ? card.format(cur) : '--'}</div>
@@ -2453,9 +3126,6 @@ export default function MetricTree() {
                             {isUp ? '+' : ''}{delta.toFixed(1)}%
                           </span>
                           <span className={`text-[10px] ${isUp ? 'text-emerald-500' : 'text-red-500'}`}>{isUp ? '▲' : '▼'}</span>
-                          {qvCompare && hasPrev && (
-                            <span className="text-[10px] text-slate-500 ml-1">vs {card.format(prev)}</span>
-                          )}
                         </div>
                       </div>
                     );
@@ -2464,15 +3134,11 @@ export default function MetricTree() {
               );
             })()}
 
-            {/* B2: Trend Chart + B3: Breakdown Charts (hidden for Payments) */}
-            {clientType !== 'Payments' && (() => {
+            {/* B2: Trend Chart + Revenue by Network */}
+            {(() => {
               const trend = getQvTrendData(selectedApp);
-              const minTrend = Math.min(...trend.map(t => t.value));
-              const maxTrend = Math.max(...trend.map(t => t.value), 1);
-              // Scale from 80% of min to show variance better
-              const chartFloor = Math.floor(minTrend * 0.8);
-              const chartRange = maxTrend - chartFloor || 1;
-              // Network breakdown for right panel
+              const numDays = qvTrendDays[qvPeriod] || 7;
+              // Network breakdown
               const netAppIds = selectedApp === 'all' ? realAppIds : [selectedApp];
               const netMap = {};
               netAppIds.forEach(id => {
@@ -2489,28 +3155,18 @@ export default function MetricTree() {
               const panelActive = panelNets.filter(n => n.revenue > 0);
               const panelDead = panelNets.filter(n => n.revenue === 0);
               const panelTotal = panelActive.reduce((s, n) => s + n.revenue, 0);
-              const trendTotalRev = trend.reduce((s, t) => s + t.value, 0);
-              const trendAvgRev = Math.round(trendTotalRev / (trend.length || 1));
-              const bestDay = trend.reduce((best, t) => t.value > best.value ? t : best, trend[0] || { label: '-', value: 0 });
-              const worstDay = trend.reduce((worst, t) => t.value < worst.value ? t : worst, trend[0] || { label: '-', value: 0 });
-              const gridLines = 4;
-              const gridVals = Array.from({ length: gridLines + 1 }, (_, i) => chartFloor + (chartRange * i / gridLines));
               return (
                 <div className="space-y-4 mb-6">
-                  {/* Revenue Trend (Daily) — 3 apps multi-line */}
+                  {/* Revenue Trend (Daily) — single line */}
                   <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
                     <div className="flex items-center justify-between mb-5">
                       <h4 className="text-sm font-medium text-slate-300">Revenue Trend (Daily)</h4>
-                      <div className="text-[10px] text-slate-500">14 days · {selectedApp === 'all' ? '3 apps' : apps.find(a => a.id === selectedApp)?.name}</div>
+                      <div className="text-[10px] text-slate-500">{numDays} days · {selectedApp === 'all' ? 'All Apps' : apps.find(a => a.id === selectedApp)?.name}</div>
                     </div>
                     {(() => {
-                      const allAppLines = [
-                        { id: 'puzzle', name: 'Puzzle Game', color: '#3b82f6', data: getQvTrendDataSingle('puzzle') },
-                        { id: 'idle', name: 'Idle Tycoon', color: '#8b5cf6', data: getQvTrendDataSingle('idle') },
-                        { id: 'stack', name: 'Stack Tower', color: '#10b981', data: getQvTrendDataSingle('stack') },
-                      ];
-                      const appLines = selectedApp === 'all' ? allAppLines : allAppLines.filter(a => a.id === selectedApp);
-                      const allVals = appLines.flatMap(a => a.data.map(d => d.value));
+                      const lineColor = '#3b82f6';
+                      const lineName = selectedApp === 'all' ? 'All Apps' : apps.find(a => a.id === selectedApp)?.name || selectedApp;
+                      const allVals = trend.map(d => d.value);
                       const gMin = Math.min(...allVals);
                       const gMax = Math.max(...allVals, 1);
                       const gFloor = Math.floor(gMin * 0.85);
@@ -2520,7 +3176,14 @@ export default function MetricTree() {
 
                       const W = 900, H = 200, padL = 52, padR = 12, padT = 16, padB = 20;
                       const cW = W - padL - padR, cH = H - padT - padB;
-                      const labels = appLines[0].data.map(d => d.label);
+
+                      const pts = trend.map((d, i) => ({
+                        x: padL + (trend.length > 1 ? (i / (trend.length - 1)) * cW : cW / 2),
+                        y: padT + cH - ((d.value - gFloor) / gRange) * cH,
+                        value: d.value,
+                        label: d.label,
+                      }));
+                      const areaPath = pts.length > 0 ? `M${pts.map(p => `${p.x},${p.y}`).join(' L')} L${pts[pts.length - 1].x},${padT + cH} L${pts[0].x},${padT + cH} Z` : '';
 
                       return (
                         <>
@@ -2535,46 +3198,28 @@ export default function MetricTree() {
                                 </g>
                               );
                             })}
-                            {/* Lines + points per app */}
-                            {appLines.map(app => {
-                              const pts = app.data.map((d, i) => ({
-                                x: padL + (app.data.length > 1 ? (i / (app.data.length - 1)) * cW : cW / 2),
-                                y: padT + cH - ((d.value - gFloor) / gRange) * cH,
-                                value: d.value,
-                                label: d.label,
-                              }));
-                              const areaPath = `M${pts.map(p => `${p.x},${p.y}`).join(' L')} L${pts[pts.length - 1].x},${padT + cH} L${pts[0].x},${padT + cH} Z`;
-                              return (
-                                <g key={app.id}>
-                                  <path d={areaPath} fill={app.color} fillOpacity="0.06" />
-                                  <polyline fill="none" stroke={app.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={pts.map(p => `${p.x},${p.y}`).join(' ')} />
-                                  {pts.map((p, i) => (
-                                    <g key={i}>
-                                      <circle cx={p.x} cy={p.y} r="3.5" fill="#1e293b" stroke={app.color} strokeWidth="1.5" />
-                                      <title>{`${app.name} · ${p.label}: $${p.value.toLocaleString()}`}</title>
-                                    </g>
-                                  ))}
-                                </g>
-                              );
-                            })}
+                            {/* Line + area */}
+                            <path d={areaPath} fill={lineColor} fillOpacity="0.06" />
+                            <polyline fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={pts.map(p => `${p.x},${p.y}`).join(' ')} />
+                            {pts.map((p, i) => (
+                              <g key={i}>
+                                <circle cx={p.x} cy={p.y} r="3.5" fill="#1e293b" stroke={lineColor} strokeWidth="1.5" />
+                                <title>{`${lineName} · ${p.label}: $${p.value.toLocaleString()}`}</title>
+                              </g>
+                            ))}
                             {/* X-axis */}
-                            {labels.map((label, i) => {
-                              const x = padL + (labels.length > 1 ? (i / (labels.length - 1)) * cW : cW / 2);
-                              return <text key={i} x={x} y={H - 3} fill="#64748b" fontSize="9" textAnchor="middle">{label}</text>;
+                            {trend.map((d, i) => {
+                              const x = padL + (trend.length > 1 ? (i / (trend.length - 1)) * cW : cW / 2);
+                              return <text key={i} x={x} y={H - 3} fill="#64748b" fontSize="9" textAnchor="middle">{d.label}</text>;
                             })}
                           </svg>
                           {/* Legend */}
                           <div className="flex items-center gap-5 mt-3 pt-3 border-t border-slate-700/50">
-                            {appLines.map(app => {
-                              const total = app.data.reduce((s, d) => s + d.value, 0);
-                              return (
-                                <div key={app.id} className="flex items-center gap-2">
-                                  <span className="w-3 h-0.5 rounded" style={{ backgroundColor: app.color }} />
-                                  <span className="text-[11px] text-slate-400">{app.name}</span>
-                                  <span className="text-[11px] text-slate-300 font-medium">${total.toLocaleString()}</span>
-                                </div>
-                              );
-                            })}
+                            <div className="flex items-center gap-2">
+                              <span className="w-3 h-0.5 rounded" style={{ backgroundColor: lineColor }} />
+                              <span className="text-[11px] text-slate-400">{lineName}</span>
+                              <span className="text-[11px] text-slate-300 font-medium">${trend.reduce((s, d) => s + d.value, 0).toLocaleString()}</span>
+                            </div>
                           </div>
                         </>
                       );
@@ -2635,172 +3280,6 @@ export default function MetricTree() {
                 </div>
               );
             })()}
-
-            {/* G3: Admin — gross/net toggle */}
-            {clientType === 'Admin' && (
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Revenue mode:</span>
-                  <div className="flex bg-slate-800 rounded-lg p-0.5">
-                    <button onClick={() => setAdminGrossNet('gross')} className={`px-3 py-1 rounded-md text-xs font-medium ${adminGrossNet === 'gross' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>Gross</button>
-                    <button onClick={() => setAdminGrossNet('net')} className={`px-3 py-1 rounded-md text-xs font-medium ${adminGrossNet === 'net' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>Net (–15%)</button>
-                  </div>
-                </div>
-                {/* G4: anomaly detection summary */}
-                <div className="flex items-center gap-2 ml-auto">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  <span className="text-xs text-red-400">2 apps with Revenue drop &gt;20%</span>
-                </div>
-              </div>
-            )}
-
-            {/* G2: Pub — profit & health */}
-            {clientType === 'Pub' && (
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl p-4">
-                  <div className="text-emerald-400 text-xs uppercase tracking-wider">Net Income</div>
-                  <div className="text-xl font-bold text-emerald-300 mt-1">$6,234</div>
-                  <div className="text-[10px] text-slate-500 mt-1">Revenue – CAS commission (15%)</div>
-                </div>
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                  <div className="text-slate-400 text-xs uppercase tracking-wider">Health</div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="w-3 h-3 bg-emerald-500 rounded-full" />
-                    <span className="text-sm font-medium text-emerald-400">Good</span>
-                  </div>
-                  <div className="text-[10px] text-slate-500 mt-1">All metrics within normal range</div>
-                </div>
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                  <div className="text-slate-400 text-xs uppercase tracking-wider">Top Creative</div>
-                  <div className="text-sm font-bold text-white mt-1">banner_v3_holiday</div>
-                  <div className="text-[10px] text-slate-500 mt-1">CTR 3.2% · 12K impressions</div>
-                </div>
-              </div>
-            )}
-
-            {/* G5: BD Dashboard */}
-            {clientType === 'BD' && (
-              <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden mb-6">
-                <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-slate-300">Client Portfolio</h4>
-                  <span className="text-[10px] text-slate-500">{bdClients.length} clients</span>
-                </div>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/80">
-                      <th className="text-left py-2 px-3 text-slate-400 font-medium">Client</th>
-                      <th className="text-left py-2 px-3 text-slate-400 font-medium">Manager</th>
-                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Revenue</th>
-                      <th className="text-right py-2 px-3 text-slate-400 font-medium">DAU</th>
-                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Trend</th>
-                      <th className="text-center py-2 px-3 text-slate-400 font-medium">Churn Risk</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bdClients.map(c => (
-                      <tr key={c.name} className="border-b border-slate-700/30 hover:bg-slate-700/20">
-                        <td className="py-2 px-3 text-slate-200 font-medium">{c.name}</td>
-                        <td className="py-2 px-3 text-slate-400">{c.manager}</td>
-                        <td className="py-2 px-3 text-right text-slate-300">${c.revenue.toLocaleString()}</td>
-                        <td className="py-2 px-3 text-right text-slate-300">{formatNum(c.dau)}</td>
-                        <td className={`py-2 px-3 text-right font-medium ${c.trend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{c.trend > 0 ? '+' : ''}{c.trend}%</td>
-                        <td className="py-2 px-3 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                            c.risk === 'low' ? 'bg-emerald-500/20 text-emerald-400' :
-                            c.risk === 'medium' ? 'bg-amber-500/20 text-amber-400' :
-                            'bg-red-500/20 text-red-400'
-                          }`}>{c.risk}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* G6: Payments View */}
-            {clientType === 'Payments' && (
-              <div className="mb-6 space-y-4">
-                <div className="bg-gradient-to-r from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-xl p-6 text-center">
-                  <div className="text-blue-400 text-xs uppercase tracking-wider mb-2">Current Balance</div>
-                  <div className="text-4xl font-bold text-white">$12,847.32</div>
-                  <div className="text-sm text-slate-400 mt-2">Available for withdrawal</div>
-                  <button className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium text-white">Withdraw</button>
-                </div>
-                <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-700">
-                    <h4 className="text-sm font-medium text-slate-300">Payment History</h4>
-                  </div>
-                  <table className="w-full text-xs">
-                    <thead><tr className="border-b border-slate-700"><th className="text-left py-2 px-3 text-slate-400">Date</th><th className="text-right py-2 px-3 text-slate-400">Amount</th><th className="text-left py-2 px-3 text-slate-400">Method</th><th className="text-center py-2 px-3 text-slate-400">Status</th></tr></thead>
-                    <tbody>
-                      {[
-                        { date: 'Jan 15, 2026', amount: 8420, method: 'Wire Transfer', status: 'completed' },
-                        { date: 'Dec 15, 2025', amount: 7180, method: 'Wire Transfer', status: 'completed' },
-                        { date: 'Nov 15, 2025', amount: 5920, method: 'PayPal', status: 'completed' },
-                        { date: 'Oct 15, 2025', amount: 4350, method: 'Wire Transfer', status: 'completed' },
-                      ].map(p => (
-                        <tr key={p.date} className="border-b border-slate-700/30">
-                          <td className="py-2 px-3 text-slate-300">{p.date}</td>
-                          <td className="py-2 px-3 text-right text-white font-medium">${p.amount.toLocaleString()}</td>
-                          <td className="py-2 px-3 text-slate-400">{p.method}</td>
-                          <td className="py-2 px-3 text-center"><span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400">{p.status}</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="bg-amber-900/20 border border-amber-700/30 rounded-xl p-3 flex items-center gap-2">
-                  <span className="text-amber-400 text-sm">!</span>
-                  <span className="text-xs text-amber-300">Balance dropped 12% vs last month. Check revenue trends.</span>
-                </div>
-              </div>
-            )}
-
-            {/* G7: RnD — cross-client SDK view */}
-            {clientType === 'RnD' && (
-              <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden mb-6">
-                <div className="px-4 py-3 border-b border-slate-700">
-                  <h4 className="text-sm font-medium text-slate-300">SDK Adoption (Cross-Client)</h4>
-                </div>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/80">
-                      <th className="text-left py-2 px-3 text-slate-400 font-medium">Version</th>
-                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Adoption %</th>
-                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Clients</th>
-                      <th className="text-right py-2 px-3 text-slate-400 font-medium">Rev Delta</th>
-                      <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
-                      <th className="text-left py-2 px-3 text-slate-400 font-medium w-40">Distribution</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rndSdkData.map(s => (
-                      <tr key={s.version} className="border-b border-slate-700/30 hover:bg-slate-700/20">
-                        <td className="py-2 px-3 text-slate-200 font-medium">{s.version}</td>
-                        <td className="py-2 px-3 text-right text-slate-300">{s.adoption}%</td>
-                        <td className="py-2 px-3 text-right text-slate-300">{s.clients}</td>
-                        <td className={`py-2 px-3 text-right font-medium ${s.revDelta.startsWith('+') ? 'text-emerald-400' : s.revDelta.startsWith('-') ? 'text-red-400' : 'text-slate-400'}`}>{s.revDelta}</td>
-                        <td className="py-2 px-3 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
-                            s.status === 'latest' ? 'bg-emerald-500/20 text-emerald-400' :
-                            s.status === 'beta' ? 'bg-blue-500/20 text-blue-400' :
-                            s.status === 'stable' ? 'bg-slate-600/50 text-slate-300' :
-                            s.status === 'outdated' ? 'bg-amber-500/20 text-amber-400' :
-                            'bg-red-500/20 text-red-400'
-                          }`}>{s.status}</span>
-                        </td>
-                        <td className="py-2 px-3">
-                          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${s.status === 'deprecated' ? 'bg-red-500' : s.status === 'outdated' ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${s.adoption}%` }} />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
 
             {/* H2: Data Freshness */}
             <div className="flex items-center justify-between text-[10px] text-slate-600 mt-2">
@@ -3081,8 +3560,9 @@ export default function MetricTree() {
                             const visibleCustomers = adminCustomers
                               .filter(c => filterManager === 'all' || c.managerId === filterManager)
                               .filter(c => !customerDropdownSearch || c.name.toLowerCase().includes(customerDropdownSearch.toLowerCase()) || String(c.id).includes(customerDropdownSearch));
+                            const shownCustomers = visibleCustomers.slice(0, 50);
                             return (
-                              <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[280px]">
+                              <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 w-[320px]">
                                 <div className="p-2 border-b border-slate-700">
                                   <input
                                     type="text"
@@ -3093,7 +3573,7 @@ export default function MetricTree() {
                                     autoFocus
                                   />
                                 </div>
-                                <div className="max-h-60 overflow-y-auto">
+                                <div className="max-h-[280px] overflow-y-auto">
                                   <button
                                     onClick={() => { setFilterCustomer('all'); setShowCustomerDropdown(false); }}
                                     className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterCustomer === 'all' ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
@@ -3101,7 +3581,7 @@ export default function MetricTree() {
                                     All customers
                                     {filterCustomer === 'all' && <span className="ml-auto text-emerald-500">✓</span>}
                                   </button>
-                                  {visibleCustomers.map(cust => {
+                                  {shownCustomers.map(cust => {
                                     const mgr = adminManagers.find(m => m.id === cust.managerId);
                                     return (
                                       <button
@@ -3122,7 +3602,7 @@ export default function MetricTree() {
                                   })}
                                 </div>
                                 <div className="px-3 py-1.5 border-t border-slate-700 text-[10px] text-slate-500">
-                                  {visibleCustomers.length} customers{filterManager !== 'all' ? ` (filtered by ${adminManagers.find(m => m.id === filterManager)?.name})` : ''}
+                                  {visibleCustomers.length > 50 ? `Showing 50 of ${visibleCustomers.length} — type to search` : `${visibleCustomers.length} customers`}{filterManager !== 'all' ? ` (filtered by ${adminManagers.find(m => m.id === filterManager)?.name})` : ''}
                                 </div>
                               </div>
                             );
@@ -3917,6 +4397,809 @@ export default function MetricTree() {
 
         </>}
 
+        {/* ===== Profile ===== */}
+        {activeNavItem === 'profile' && (
+          <div>
+            {/* Profile Tabs */}
+            <div className="flex items-center gap-1 mb-6 bg-slate-800 rounded-xl p-1 w-fit">
+              {[
+                { id: 'personal', label: 'Personal Data' },
+                { id: 'payment', label: 'Payment Details' },
+                { id: 'security', label: 'Security' },
+                { id: 'apikeys', label: 'API Keys' },
+              ].map(t => (
+                <button key={t.id} onClick={() => { setProfileTab(t.id); setProfileEditing(false); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${profileTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'}`}>{t.label}</button>
+              ))}
+            </div>
+
+            {/* Tab: Personal Data */}
+            {profileTab === 'personal' && (() => {
+              const d = profileEditing ? profileDraft : profileData;
+              const countries = ['Ukraine', 'United States', 'Germany', 'United Kingdom', 'Poland', 'Turkey', 'India', 'Brazil', 'Japan', 'South Korea'];
+              const timezones = ['UTC-8 (LA)', 'UTC-5 (NY)', 'UTC+0 (London)', 'UTC+1 (Berlin)', 'UTC+2 (Kyiv)', 'UTC+3 (Istanbul)', 'UTC+5:30 (Mumbai)', 'UTC+9 (Tokyo)'];
+              const messengers = ['Telegram', 'WhatsApp', 'Email'];
+
+              const Field = ({ label, value, field, type, options, readOnly }) => (
+                <div className="flex items-start py-3 border-b border-slate-800/50">
+                  <div className="w-40 shrink-0 text-xs text-slate-500 pt-1">{label}</div>
+                  <div className="flex-1">
+                    {profileEditing && !readOnly ? (
+                      type === 'select' ? (
+                        <select value={value} onChange={e => setProfileDraft({ ...profileDraft, [field]: e.target.value })} disabled={profileSaving} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 w-full max-w-xs focus:outline-none focus:border-blue-500">
+                          {options.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      ) : (
+                        <input type={type || 'text'} value={value} onChange={e => setProfileDraft({ ...profileDraft, [field]: e.target.value })} disabled={profileSaving} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 w-full max-w-xs focus:outline-none focus:border-blue-500" />
+                      )
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-200">{value}</span>
+                        {field === 'email' && profileData.emailVerified && <span className="text-emerald-400 text-xs">&#10003;</span>}
+                        {field === 'email' && !profileData.emailVerified && <span className="text-amber-400 text-xs">&#9888;</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+
+              return (
+                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50">
+                    <span className="text-sm font-semibold text-slate-100">Personal Data</span>
+                    {!profileEditing ? (
+                      <button onClick={startProfileEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-400 hover:bg-blue-600/10 transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Edit
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={cancelProfileEdit} disabled={profileSaving} className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
+                        <button onClick={saveProfile} disabled={profileSaving} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50">
+                          {profileSaving ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Saving...</> : 'Save'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="px-6 py-2">
+                    {/* Avatar + Name row */}
+                    <div className="flex items-center gap-4 py-4 border-b border-slate-800/50">
+                      <div className="relative group">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xl font-bold text-white">
+                          {d.firstName[0]}{d.lastName[0]}
+                        </div>
+                        {profileEditing && (
+                          <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-base font-semibold text-slate-100">{d.firstName} {d.lastName}</div>
+                        <div className="text-xs text-slate-500">{d.company}</div>
+                      </div>
+                    </div>
+
+                    <Field label="First Name" value={d.firstName} field="firstName" />
+                    <Field label="Last Name" value={d.lastName} field="lastName" />
+                    <Field label="Email" value={d.email} field="email" type="email" />
+                    <Field label="Company" value={d.company} field="company" />
+                    <Field label="Phone" value={d.phone} field="phone" type="tel" />
+                    <Field label="Country" value={d.country} field="country" type="select" options={countries} />
+                    <Field label="Preferred Messenger" value={d.messenger} field="messenger" type="select" options={messengers} />
+                    <Field label="Timezone" value={d.timezone} field="timezone" type="select" options={timezones} />
+                    <Field label="Language" value={d.language} field="language" type="select" options={['English']} />
+                    <Field label="Registered" value={d.registered} field="registered" readOnly />
+                    <Field label="Account ID" value={d.accountId} field="accountId" readOnly />
+                  </div>
+
+                  {/* Email verification warning */}
+                  {!profileData.emailVerified && (
+                    <div className="mx-6 mb-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
+                      <span className="text-amber-400 text-sm">&#9888;</span>
+                      <span className="text-xs text-amber-300">Email not verified.</span>
+                      <button className="text-xs text-blue-400 hover:text-blue-300 ml-1">Resend verification &rarr;</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Stubs for other profile tabs */}
+            {profileTab === 'payment' && (() => {
+              const d = paymentEditing ? paymentDraft : paymentData;
+              const PField = ({ label, value, field, type, options, readOnly, show = true }) => {
+                if (!show) return null;
+                return (
+                  <div className="flex items-start py-3 border-b border-slate-800/50">
+                    <div className="w-40 shrink-0 text-xs text-slate-500 pt-1">{label}</div>
+                    <div className="flex-1">
+                      {paymentEditing && !readOnly ? (
+                        type === 'select' ? (
+                          <select value={value} onChange={e => setPaymentDraft({ ...paymentDraft, [field]: e.target.value })} disabled={paymentSaving} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 w-full max-w-xs focus:outline-none focus:border-blue-500">
+                            {options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        ) : (
+                          <input type="text" value={value} onChange={e => setPaymentDraft({ ...paymentDraft, [field]: e.target.value })} disabled={paymentSaving} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 w-full max-w-xs focus:outline-none focus:border-blue-500" />
+                        )
+                      ) : (
+                        <span className="text-sm text-slate-200">{value}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              };
+
+              return (
+                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50">
+                    <span className="text-sm font-semibold text-slate-100">Payment Details</span>
+                    {!paymentEditing ? (
+                      <button onClick={startPaymentEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-400 hover:bg-blue-600/10 transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Edit
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={cancelPaymentEdit} disabled={paymentSaving} className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
+                        <button onClick={savePayment} disabled={paymentSaving} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50">
+                          {paymentSaving ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Saving...</> : 'Save'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="px-6 py-2">
+                    {/* Payment Method selector */}
+                    <div className="py-4 border-b border-slate-800/50">
+                      <div className="text-xs text-slate-500 mb-3">Payment Method</div>
+                      <div className="flex gap-3">
+                        {[
+                          { id: 'bank', label: 'Bank Transfer', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg> },
+                          { id: 'crypto', label: 'Crypto (USDT)', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg> },
+                        ].map(m => (
+                          <button
+                            key={m.id}
+                            onClick={() => paymentEditing && setPaymentDraft({ ...paymentDraft, method: m.id })}
+                            className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors ${
+                              d.method === m.id
+                                ? 'border-blue-500/50 bg-blue-500/10'
+                                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                            } ${paymentEditing ? 'cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <span className={d.method === m.id ? 'text-blue-400' : 'text-slate-500'}>{m.icon}</span>
+                            <div>
+                              <div className="text-sm font-medium text-slate-200">{m.label}</div>
+                              <div className="text-[10px] text-slate-500">{d.method === m.id ? 'Active' : 'Available'}</div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Bank Details */}
+                    {d.method === 'bank' && (
+                      <div className="py-2">
+                        <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pt-3 pb-1">Bank Details</div>
+                        <PField label="Beneficiary" value={d.beneficiary} field="beneficiary" />
+                        <PField label="IBAN" value={d.iban} field="iban" />
+                        <PField label="SWIFT / BIC" value={d.swift} field="swift" />
+                        <PField label="Bank" value={d.bank} field="bank" />
+                        <PField label="Bank Address" value={d.bankAddress} field="bankAddress" />
+                      </div>
+                    )}
+
+                    {/* Crypto Details */}
+                    {d.method === 'crypto' && (
+                      <div className="py-2">
+                        <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pt-3 pb-1">Crypto Wallet</div>
+                        <PField label="Network" value={d.cryptoNetwork} field="cryptoNetwork" type="select" options={['TRC-20', 'ERC-20']} />
+                        <PField label="Wallet Address" value={d.cryptoWallet || '—'} field="cryptoWallet" />
+                      </div>
+                    )}
+
+                    {/* Payment Threshold */}
+                    <div className="py-2">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pt-3 pb-1">Payment Threshold</div>
+                      <PField label="Minimum payout" value={d.threshold} field="threshold" type="select" options={['$100', '$500', '$1,000', '$5,000']} />
+                      <PField label="Current balance" value={d.balance} field="balance" readOnly />
+                      <PField label="Next payout" value={d.nextPayout} field="nextPayout" readOnly />
+                    </div>
+
+                    {/* Tax Information */}
+                    <div className="py-2">
+                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pt-3 pb-1">Tax Information</div>
+                      <PField label="Tax ID" value={d.taxId} field="taxId" />
+                      <div className="flex items-start py-3 border-b border-slate-800/50">
+                        <div className="w-40 shrink-0 text-xs text-slate-500 pt-1">W-8BEN</div>
+                        <div className="flex-1 flex items-center gap-2">
+                          {d.w8ben === 'uploaded' && (
+                            <>
+                              <span className="text-emerald-400 text-xs">&#10003;</span>
+                              <span className="text-sm text-slate-200">Uploaded</span>
+                              <span className="text-xs text-slate-500">(expires {d.w8benExpiry})</span>
+                            </>
+                          )}
+                          {d.w8ben === 'expired' && (
+                            <>
+                              <span className="text-red-400 text-xs">&#9888;</span>
+                              <span className="text-sm text-red-300">Expired</span>
+                            </>
+                          )}
+                          {d.w8ben === 'none' && (
+                            <span className="text-sm text-slate-500">Not uploaded</span>
+                          )}
+                          <button className="ml-2 text-xs text-blue-400 hover:text-blue-300">Upload new document</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info footer */}
+                  <div className="mx-6 mb-4 px-4 py-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                    <span className="text-xs text-blue-300">Changes to payment details require verification and take up to 3 business days to process.</span>
+                  </div>
+                </div>
+              );
+            })()}
+            {profileTab === 'security' && (
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-700/50">
+                  <span className="text-sm font-semibold text-slate-100">Security</span>
+                </div>
+
+                <div className="px-6 py-2">
+                  {/* Password */}
+                  <div className="py-4 border-b border-slate-800/50">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">Password</div>
+                    {!showChangePassword ? (
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-slate-400">Last changed: <span className="text-slate-300">14 days ago</span></div>
+                        <button onClick={() => setShowChangePassword(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">Change Password</button>
+                      </div>
+                    ) : (
+                      <div className="max-w-xs space-y-3">
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Current Password</label>
+                          <input type="password" value={passwordForm.current} onChange={e => setPasswordForm({ ...passwordForm, current: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">New Password</label>
+                          <input type="password" value={passwordForm.newPw} onChange={e => setPasswordForm({ ...passwordForm, newPw: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
+                          <div className="text-[10px] text-slate-600 mt-1">Min 8 characters, letters + numbers</div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-500 block mb-1">Confirm Password</label>
+                          <input type="password" value={passwordForm.confirm} onChange={e => setPasswordForm({ ...passwordForm, confirm: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
+                          {passwordForm.confirm && passwordForm.newPw !== passwordForm.confirm && (
+                            <div className="text-[10px] text-red-400 mt-1">Passwords do not match</div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={() => { setShowChangePassword(false); setPasswordForm({ current: '', newPw: '', confirm: '' }); }} className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
+                          <button
+                            onClick={savePassword}
+                            disabled={passwordSaving || !passwordForm.current || !passwordForm.newPw || passwordForm.newPw !== passwordForm.confirm}
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
+                          >
+                            {passwordSaving ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Saving...</> : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Two-Factor Authentication */}
+                  <div className="py-4 border-b border-slate-800/50">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">Two-Factor Authentication</div>
+                    {!showTwoFaSetup ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-slate-400">Status:</span>
+                            {twoFaEnabled ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-medium">
+                                <span>&#10003;</span> Enabled
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
+                                &#9888; Not enabled
+                              </span>
+                            )}
+                          </div>
+                          {!twoFaEnabled ? (
+                            <button onClick={() => setShowTwoFaSetup(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">Enable 2FA</button>
+                          ) : (
+                            <button onClick={() => { setTwoFaEnabled(false); setProfileToast('2FA disabled'); setTimeout(() => setProfileToast(null), 3000); }} className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors">Disable</button>
+                          )}
+                        </div>
+                        {!twoFaEnabled && (
+                          <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center gap-2">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                            <span className="text-[11px] text-blue-300">We recommend enabling 2FA for all accounts with access to payment settings.</span>
+                          </div>
+                        )}
+                        {twoFaEnabled && (
+                          <div className="text-xs text-slate-500">Connected with authenticator app. <button className="text-blue-400 hover:text-blue-300">View backup codes</button></div>
+                        )}
+                      </div>
+                    ) : (
+                      /* 2FA Setup Flow */
+                      <div className="max-w-xs">
+                        {/* Step indicators */}
+                        <div className="flex items-center gap-2 mb-4">
+                          {[1, 2, 3].map(s => (
+                            <div key={s} className="flex items-center gap-2">
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${twoFaStep >= s ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-500'}`}>{s}</div>
+                              {s < 3 && <div className={`w-8 h-0.5 ${twoFaStep > s ? 'bg-blue-600' : 'bg-slate-700'}`}></div>}
+                            </div>
+                          ))}
+                        </div>
+
+                        {twoFaStep === 1 && (
+                          <div>
+                            <div className="text-xs text-slate-400 mb-3">Scan this QR code with your authenticator app:</div>
+                            <div className="w-36 h-36 bg-white rounded-lg p-2 mb-3 mx-auto flex items-center justify-center">
+                              <div className="w-full h-full bg-[repeating-conic-gradient(#000_0%_25%,#fff_0%_50%)] bg-[length:12px_12px] rounded opacity-80"></div>
+                            </div>
+                            <div className="text-[10px] text-slate-600 text-center mb-3">Google Authenticator / Authy</div>
+                            <button onClick={() => setTwoFaStep(2)} className="w-full px-4 py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Next</button>
+                          </div>
+                        )}
+
+                        {twoFaStep === 2 && (
+                          <div>
+                            <div className="text-xs text-slate-400 mb-3">Enter the 6-digit code from your app:</div>
+                            <input
+                              type="text" maxLength={6} value={twoFaCode} onChange={e => setTwoFaCode(e.target.value.replace(/\D/g, ''))}
+                              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-lg text-center text-slate-200 tracking-[0.5em] font-mono focus:outline-none focus:border-blue-500 mb-3"
+                              placeholder="000000"
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={() => setTwoFaStep(1)} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Back</button>
+                              <button onClick={() => setTwoFaStep(3)} disabled={twoFaCode.length !== 6} className="flex-1 px-4 py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50">Verify</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {twoFaStep === 3 && (
+                          <div>
+                            <div className="text-xs text-slate-400 mb-2">Save these backup codes in a safe place:</div>
+                            <div className="bg-slate-700 rounded-lg p-3 mb-3 font-mono text-xs text-slate-300 grid grid-cols-2 gap-1">
+                              {['a4f2-8b1c', 'k9d3-2e7f', 'p5h1-6j4m', 'r8n2-3c9a', 'w7t5-1b6d', 'x3k8-9f2g', 'z6m4-7h1e', 'c2j9-5a8b', 'v1p7-4d3f', 'y5s6-8k2n'].map(code => (
+                                <div key={code} className="py-0.5">{code}</div>
+                              ))}
+                            </div>
+                            <div className="flex gap-2 mb-3">
+                              <button className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">Copy All</button>
+                              <button className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">Download</button>
+                            </div>
+                            <button onClick={completeTwoFa} className="w-full px-4 py-2 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">Done — Enable 2FA</button>
+                          </div>
+                        )}
+
+                        <button onClick={() => { setShowTwoFaSetup(false); setTwoFaStep(1); setTwoFaCode(''); }} className="w-full mt-2 text-xs text-slate-500 hover:text-slate-400 text-center">Cancel setup</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Active Sessions */}
+                  <div className="py-4">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">Active Sessions</div>
+                    <div className="space-y-2">
+                      {sessions.filter(s => !revokedSessions.has(s.id)).map(s => (
+                        <div key={s.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-800/50">
+                          <div className="flex items-center gap-3">
+                            <span className="text-slate-400">
+                              {s.browser === 'Chrome' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
+                              {s.browser === 'Safari' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>}
+                              {s.browser === 'Firefox' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
+                            </span>
+                            <div>
+                              <div className="text-xs text-slate-200">
+                                {s.browser} &middot; {s.location}
+                                {s.current && <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-medium">Current session</span>}
+                              </div>
+                              <div className="text-[10px] text-slate-500">{s.time}</div>
+                            </div>
+                          </div>
+                          {!s.current && (
+                            <button onClick={() => setRevokedSessions(new Set([...revokedSessions, s.id]))} className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">Revoke</button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => { setRevokedSessions(new Set(sessions.filter(s => !s.current).map(s => s.id))); setProfileToast('All other sessions revoked'); setTimeout(() => setProfileToast(null), 3000); }}
+                      className="mt-3 text-xs text-slate-500 hover:text-slate-400 transition-colors"
+                    >Sign out of all other sessions</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {profileTab === 'apikeys' && (
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-700/50">
+                  <span className="text-sm font-semibold text-slate-100">API Keys</span>
+                </div>
+
+                <div className="px-6 py-2">
+                  {/* Reporting API Key */}
+                  <div className="py-4 border-b border-slate-800/50">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">Reporting API Key</div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <code className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-300 select-all">
+                        {apiKeyVisible ? apiKey : apiKey.substring(0, 8) + '-xxxx-xxxx-xxxx-' + apiKey.slice(-4)}
+                      </code>
+                      <button
+                        onClick={() => setApiKeyVisible(!apiKeyVisible)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-200"
+                        title={apiKeyVisible ? 'Hide' : 'Show'}
+                      >
+                        {apiKeyVisible ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(apiKey); setProfileToast('Copied!'); setTimeout(() => setProfileToast(null), 2000); }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-200"
+                        title="Copy"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-[11px] text-slate-500">Created: {apiKeyCreated}</div>
+                      <button onClick={() => setShowRegenerateConfirm(true)} className="text-xs text-amber-400 hover:text-amber-300 transition-colors">Regenerate</button>
+                    </div>
+                  </div>
+
+                  {/* SDK Key */}
+                  <div className="py-4 border-b border-slate-800/50">
+                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">SDK Key</div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <code className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-300 select-all">
+                        {sdkKeyVisible ? sdkKey : sdkKey.substring(0, 12) + '····' + sdkKey.slice(-4)}
+                      </code>
+                      <button
+                        onClick={() => setSdkKeyVisible(!sdkKeyVisible)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-200"
+                        title={sdkKeyVisible ? 'Hide' : 'Show'}
+                      >
+                        {sdkKeyVisible ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(sdkKey); setProfileToast('Copied!'); setTimeout(() => setProfileToast(null), 2000); }}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-200"
+                        title="Copy"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                      </button>
+                    </div>
+                    <div className="text-[11px] text-slate-500">Created: Jun 12, 2024</div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="py-4">
+                    <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-start gap-2 mb-4">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                      <span className="text-[11px] text-blue-300">SDK Key is read-only and tied to your account. Reporting API Key can be regenerated — old key will stop working immediately.</span>
+                    </div>
+                    <a href="#" className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+                      API Documentation &rarr;
+                    </a>
+                  </div>
+                </div>
+
+                {/* Regenerate Confirmation Modal */}
+                {showRegenerateConfirm && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowRegenerateConfirm(false)}>
+                    <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-96 p-6" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-400"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-slate-100">Regenerate API Key?</div>
+                          <div className="text-xs text-slate-400">This action cannot be undone</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-400 mb-4">The old key will stop working <strong className="text-slate-300">immediately</strong>. Any integrations using the current key will break until updated.</div>
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setShowRegenerateConfirm(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
+                        <button
+                          onClick={() => {
+                            const newKey = 'r' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 6) + '-' + Math.random().toString(36).substring(2, 6) + '-' + Math.random().toString(36).substring(2, 6) + '-' + Math.random().toString(36).substring(2, 14);
+                            setApiKey(newKey);
+                            setApiKeyCreated('Apr 2, 2026');
+                            setShowRegenerateConfirm(false);
+                            setApiKeyVisible(true);
+                            setProfileToast('New key generated');
+                            setTimeout(() => setProfileToast(null), 3000);
+                          }}
+                          className="px-4 py-2 rounded-lg text-xs font-medium bg-amber-600 hover:bg-amber-500 text-white transition-colors"
+                        >Regenerate</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== Applications (client view) ===== */}
+        {activeNavItem === 'apps' && !(['admin'].includes(activeNavItem)) && (() => {
+          const clientApps = [
+            { bundleId: '1174039276', platform: 'ios', sdkVersion: '4.6.0', sdkStatus: 'active', dateAdded: '2024-06-12', revenue7d: 1420, dau7d: 28500 },
+            { bundleId: 'com.multicraft.block', platform: 'android', sdkVersion: '4.6.0', sdkStatus: 'active', dateAdded: '2024-06-15', revenue7d: 2180, dau7d: 45200 },
+            { bundleId: '973082633', platform: 'ios', sdkVersion: '4.5.2', sdkStatus: 'update', dateAdded: '2024-08-03', revenue7d: 680, dau7d: 12300 },
+            { bundleId: '1436151665', platform: 'ios', sdkVersion: '4.6.0', sdkStatus: 'active', dateAdded: '2025-01-10', revenue7d: 890, dau7d: 15800 },
+            { bundleId: '1464689959', platform: 'ios', sdkVersion: '4.4.0', sdkStatus: 'outdated', dateAdded: '2024-11-20', revenue7d: 340, dau7d: 5600 },
+            { bundleId: '1419918066', platform: 'ios', sdkVersion: '—', sdkStatus: 'pending', dateAdded: '2026-03-28', revenue7d: 0, dau7d: 0 },
+          ];
+
+          return (
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <div className="text-xs text-slate-500">{clientApps.length} applications</div>
+                </div>
+                <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Add Application
+                </button>
+              </div>
+
+              {/* App cards */}
+              <div className="space-y-3">
+                {clientApps.map((app, i) => {
+                  const store = storeData[app.bundleId];
+                  const appName = store?.appName || app.bundleId;
+                  const iconUrl = store?.iconUrl;
+
+                  return (
+                    <div key={i} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-slate-600 transition-colors">
+                      <div className="flex items-center gap-4">
+                        {/* Icon */}
+                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-700 shrink-0 flex items-center justify-center">
+                          {iconUrl ? (
+                            <img src={iconUrl} alt={appName} className="w-full h-full object-cover" />
+                          ) : (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-500"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 8h8M8 12h6M8 16h4"/></svg>
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-slate-200 truncate">{appName}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${app.platform === 'ios' ? 'bg-slate-700 text-slate-300' : 'bg-emerald-900/50 text-emerald-400'}`}>
+                              {app.platform === 'ios' ? 'iOS' : 'Android'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500 font-mono">{app.bundleId}</div>
+                        </div>
+
+                        {/* SDK Status */}
+                        <div className="text-center px-4">
+                          <div className="text-[10px] text-slate-500 mb-1">SDK</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-slate-300 font-mono">{app.sdkVersion}</span>
+                            <span className={`w-2 h-2 rounded-full ${
+                              app.sdkStatus === 'active' ? 'bg-emerald-400' :
+                              app.sdkStatus === 'update' ? 'bg-amber-400' :
+                              app.sdkStatus === 'outdated' ? 'bg-red-400' :
+                              'bg-slate-500'
+                            }`} title={app.sdkStatus}></span>
+                          </div>
+                        </div>
+
+                        {/* Metrics */}
+                        <div className="text-center px-4">
+                          <div className="text-[10px] text-slate-500 mb-1">Revenue 7d</div>
+                          <div className="text-sm font-medium text-slate-200">{app.revenue7d ? '$' + app.revenue7d.toLocaleString() : '—'}</div>
+                        </div>
+
+                        <div className="text-center px-4">
+                          <div className="text-[10px] text-slate-500 mb-1">DAU 7d</div>
+                          <div className="text-sm font-medium text-slate-200">{app.dau7d ? app.dau7d.toLocaleString() : '—'}</div>
+                        </div>
+
+                        {/* Status badge */}
+                        <div>
+                          {app.sdkStatus === 'active' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Live
+                            </span>
+                          )}
+                          {app.sdkStatus === 'update' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 text-[11px] font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Update SDK
+                            </span>
+                          )}
+                          {app.sdkStatus === 'outdated' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 text-[11px] font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span> Outdated
+                            </span>
+                          )}
+                          {app.sdkStatus === 'pending' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-500/15 text-slate-400 text-[11px] font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Pending
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Arrow */}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-600 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
+                      </div>
+
+                      {/* Integration warning for pending */}
+                      {app.sdkStatus === 'pending' && (
+                        <div className="mt-3 px-4 py-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center gap-2">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                          <span className="text-[11px] text-blue-300">SDK not integrated yet.</span>
+                          <a href="#" className="text-[11px] text-blue-400 hover:text-blue-300 font-medium ml-1">Integration guide &rarr;</a>
+                        </div>
+                      )}
+
+                      {/* SDK update notice */}
+                      {(app.sdkStatus === 'update' || app.sdkStatus === 'outdated') && (
+                        <div className="mt-3 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400 shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                          <span className="text-[11px] text-amber-300">SDK {app.sdkVersion} is {app.sdkStatus === 'outdated' ? 'outdated' : 'not the latest'}. Latest: 4.6.0</span>
+                          <a href="#" className="text-[11px] text-amber-400 hover:text-amber-300 font-medium ml-1">Changelog &rarr;</a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ===== Payments ===== */}
+        {activeNavItem === 'payments' && (
+          <div>
+            {/* Balance cards */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {[
+                { label: 'Available Balance', value: '$12,450.20', color: 'emerald', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> },
+                { label: 'Pending', value: '$3,200.00', color: 'amber', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> },
+                { label: 'Total Earned', value: '$87,640.50', color: 'blue', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> },
+              ].map(c => (
+                <div key={c.label} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-slate-500">{c.label}</span>
+                    <span className={`text-${c.color}-400`}>{c.icon}</span>
+                  </div>
+                  <div className={`text-2xl font-bold text-${c.color}-400`}>{c.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Payout info */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Next Payout</div>
+                  <div className="text-sm font-semibold text-slate-200">~Apr 27, 2026</div>
+                </div>
+                <div className="w-px h-8 bg-slate-700"></div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Payment Method</div>
+                  <div className="text-sm text-slate-200">Bank Transfer (Monobank)</div>
+                </div>
+                <div className="w-px h-8 bg-slate-700"></div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Threshold</div>
+                  <div className="text-sm text-slate-200">$500</div>
+                </div>
+              </div>
+              <button onClick={() => { setActiveNavItem('profile'); setProfileTab('payment'); }} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Edit payment details &rarr;</button>
+            </div>
+
+            {/* Payment History */}
+            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-100">Payment History</span>
+                <div className="flex items-center gap-2">
+                  <select className="bg-slate-700 border border-slate-600 rounded-lg px-2.5 py-1 text-xs text-slate-300 focus:outline-none">
+                    <option>All time</option>
+                    <option>Last 12 months</option>
+                    <option>Last 6 months</option>
+                    <option>Last 3 months</option>
+                  </select>
+                  <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-slate-400 hover:bg-slate-700 transition-colors">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export
+                  </button>
+                </div>
+              </div>
+
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-700/50 text-xs text-slate-500">
+                    <th className="px-6 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Period</th>
+                    <th className="px-4 py-3 font-medium">Method</th>
+                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-6 py-3 font-medium">Reference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { date: 'Mar 27, 2026', period: 'Feb 2026', method: 'Bank Transfer', amount: '$5,200.00', status: 'processed', ref: 'PAY-2026-0312' },
+                    { date: 'Feb 25, 2026', period: 'Jan 2026', amount: '$4,850.30', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2026-0225' },
+                    { date: 'Jan 28, 2026', period: 'Dec 2025', amount: '$6,120.00', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2026-0128' },
+                    { date: 'Dec 26, 2025', period: 'Nov 2025', amount: '$5,480.50', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2025-1226' },
+                    { date: 'Nov 27, 2025', period: 'Oct 2025', amount: '$4,930.20', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2025-1127' },
+                    { date: 'Oct 28, 2025', period: 'Sep 2025', amount: '$5,710.00', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2025-1028' },
+                    { date: 'Sep 26, 2025', period: 'Aug 2025', amount: '$4,200.00', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2025-0926' },
+                    { date: 'Aug 27, 2025', period: 'Jul 2025', amount: '$3,890.50', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2025-0827' },
+                  ].map((p, i) => (
+                    <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-3 text-xs text-slate-300">{p.date}</td>
+                      <td className="px-4 py-3 text-xs text-slate-400">{p.period}</td>
+                      <td className="px-4 py-3 text-xs text-slate-400">{p.method}</td>
+                      <td className="px-4 py-3 text-xs text-slate-200 font-medium text-right">{p.amount}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          p.status === 'processed' ? 'bg-emerald-500/20 text-emerald-400' :
+                          p.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            p.status === 'processed' ? 'bg-emerald-400' :
+                            p.status === 'pending' ? 'bg-amber-400' :
+                            'bg-blue-400'
+                          }`}></span>
+                          {p.status === 'processed' ? 'Processed' : p.status === 'pending' ? 'Pending' : 'Scheduled'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-xs text-slate-500 font-mono">{p.ref}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Toast notification */}
+        {profileToast && (
+          <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-2.5 rounded-lg shadow-lg shadow-emerald-900/30 text-sm font-medium flex items-center gap-2 z-50 animate-pulse">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+            {profileToast}
+          </div>
+        )}
+
+      </div>
+      {/* ===== Footer ===== */}
+      <div className="border-t border-slate-800 px-6 py-4 flex items-center justify-between text-[11px] text-slate-600">
+        <span>&copy; 2026 CAS.AI</span>
+        <div className="flex items-center gap-4">
+          <a href="#" className="hover:text-slate-400 transition-colors">Terms</a>
+          <a href="#" className="hover:text-slate-400 transition-colors">Privacy</a>
+          <a href="#" className="hover:text-slate-400 transition-colors">Support</a>
+          <a href="#" className="hover:text-slate-400 transition-colors">API Docs</a>
+          <span className="text-slate-700">v2.4.1</span>
+        </div>
+      </div>
       </div>
       </div>
       </div>
