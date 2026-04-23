@@ -236,7 +236,30 @@ export default function MetricTree() {
   const [adminSelectedApp, setAdminSelectedApp] = useState(null);
   const [adminSelectedCustomerId, setAdminSelectedCustomerId] = useState(null);
   const [adminAppTab, setAdminAppTab] = useState('main');
+  const [historyEventFilter, setHistoryEventFilter] = useState('all');
+  const [historyAuthorFilter, setHistoryAuthorFilter] = useState('all');
+  const [historyPeriodFilter, setHistoryPeriodFilter] = useState('all');
   const [adminAppOverrides, setAdminAppOverrides] = useState({});
+  const [adminSection, setAdminSection] = useState(null); // null = hub, 'apps' | 'mediation' | 'aso' | 'creatives' | 'networks' | 'users' | 'organizations' | ...
+  // Users & Roles filters
+  const [usersSearch, setUsersSearch] = useState('');
+  const [usersFilterGroup, setUsersFilterGroup] = useState('all');
+  const [usersFilterStatus, setUsersFilterStatus] = useState('all');
+  const [usersShowPermissions, setUsersShowPermissions] = useState(null); // userId — open permissions modal
+  // Organizations filters
+  const [orgsSearch, setOrgsSearch] = useState('');
+  const [orgsFilterType, setOrgsFilterType] = useState('all');
+  const [orgsFilterTier, setOrgsFilterTier] = useState('all');
+  const [orgsFilterMgr, setOrgsFilterMgr] = useState('all');
+  const [orgsPage, setOrgsPage] = useState(1);
+  // Impersonation
+  const [impSearch, setImpSearch] = useState('');
+  // Audit log
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditFilterType, setAuditFilterType] = useState('all');
+  const [auditFilterActor, setAuditFilterActor] = useState('all');
+  // Role templates
+  const [selectedTemplate, setSelectedTemplate] = useState('pub_standard');
 
   // Admin data from adminData.js (adminManagers, adminApps imported at top)
   const [adminCustomers, setAdminCustomers] = useState(adminCustomersInitial);
@@ -2290,7 +2313,7 @@ export default function MetricTree() {
           {/* Separator + Admin (superadmin only) */}
           <div className="border-t border-slate-800 my-2"></div>
           <button
-            onClick={() => setActiveNavItem('admin')}
+            onClick={() => { setActiveNavItem('admin'); setAdminSection(null); }}
             className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
               activeNavItem === 'admin'
                 ? 'bg-blue-600/20 text-blue-400'
@@ -2303,6 +2326,31 @@ export default function MetricTree() {
             </span>
             {navExpanded && <span>Admin</span>}
           </button>
+          {/* Admin sub-navigation */}
+          {activeNavItem === 'admin' && navExpanded && (
+            <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
+              {[
+                { id: 'apps', label: 'Apps Management' },
+                { id: 'mediation', label: 'Default Mediation' },
+                { id: 'aso', label: 'ASO' },
+                { id: 'creatives', label: 'Creatives' },
+                { id: 'networks', label: 'Networks' },
+                { id: 'users', label: 'Users & Roles' },
+                { id: 'organizations', label: 'Organizations' },
+                { id: 'impersonation', label: 'Impersonation' },
+                { id: 'audit', label: 'Audit Log' },
+                { id: 'templates', label: 'Role Templates' },
+              ].map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setAdminSection(s.id)}
+                  className={`text-left px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                    adminSection === s.id ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >{s.label}</button>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* Spacer */}
@@ -2364,7 +2412,19 @@ export default function MetricTree() {
         {/* Left: breadcrumb / page title */}
         <div className="text-sm text-slate-400">
           {activeNavItem === 'analytics' && <span className="text-slate-200 font-medium">Analytics</span>}
-          {activeNavItem === 'admin' && <span className="text-slate-200 font-medium">Admin Panel</span>}
+          {activeNavItem === 'admin' && (
+            adminSection ? (
+              <span className="flex items-center gap-2">
+                <button onClick={() => setAdminSection(null)} className="text-slate-400 hover:text-slate-200 transition-colors">Admin</button>
+                <span className="text-slate-600">/</span>
+                <span className="text-slate-200 font-medium">{
+                  { apps: 'Apps Management', mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management', users: 'Users & Roles', organizations: 'Organizations & Assignments', impersonation: 'Impersonation', audit: 'Audit Log', templates: 'Role Templates' }[adminSection]
+                }</span>
+              </span>
+            ) : (
+              <span className="text-slate-200 font-medium">Admin</span>
+            )
+          )}
           {activeNavItem === 'apps' && <span className="text-slate-200 font-medium">Applications</span>}
           {activeNavItem === 'payments' && <span className="text-slate-200 font-medium">Payments</span>}
           {activeNavItem === 'profile' && <span className="text-slate-200 font-medium">Profile</span>}
@@ -2466,7 +2526,990 @@ export default function MetricTree() {
       <div className="flex-1 min-w-0 p-6 overflow-y-auto">
       <div className="mx-auto max-w-screen-lg">
 
-        {activeNavItem === 'admin' && (() => {
+        {/* ===== Admin Hub (tile grid) ===== */}
+        {activeNavItem === 'admin' && adminSection === null && (() => {
+          const uniqueCustomers = new Set(adminApps.map(a => a.userId)).size;
+          const operational = [
+            {
+              id: 'apps',
+              title: 'Apps Management',
+              desc: 'Manage apps, customers, managers',
+              stat: `${adminApps.length.toLocaleString()} apps · ${uniqueCustomers} customers`,
+              ready: true,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>,
+            },
+            {
+              id: 'mediation',
+              title: 'Default Mediation Setup',
+              desc: 'Default waterfalls & bidding configs',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>,
+            },
+            {
+              id: 'aso',
+              title: 'ASO',
+              desc: 'Keywords, rankings, store assets',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>,
+            },
+            {
+              id: 'creatives',
+              title: 'Creatives',
+              desc: 'Banners, videos, playables library',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>,
+            },
+            {
+              id: 'networks',
+              title: 'Networks Management',
+              desc: 'Ad networks, keys, integration status',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M9.5 9.5L6.5 6.5M14.5 9.5l3-3M9.5 14.5l-3 3M14.5 14.5l3 3"/></svg>,
+            },
+          ];
+          const governance = [
+            {
+              id: 'users',
+              title: 'Users & Roles',
+              desc: 'Internal staff, invites, role assignment, deactivation',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>,
+            },
+            {
+              id: 'organizations',
+              title: 'Organizations & Assignments',
+              desc: 'All tenants (studios + publishers) with managers and assignment history',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h0M9 12h0M9 15h0M9 18h0"/></svg>,
+            },
+            {
+              id: 'impersonation',
+              title: 'Impersonation',
+              desc: 'Sign in as a client, active and past sessions',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>,
+            },
+            {
+              id: 'audit',
+              title: 'Audit Log',
+              desc: 'Chronological feed of critical events with filters',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="9" x2="10" y2="9"/></svg>,
+            },
+            {
+              id: 'templates',
+              title: 'Role Templates',
+              desc: 'Tier templates (standard / analytics / full) layered on top of base roles',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
+            },
+          ];
+          const renderTile = (t) => (
+            <button
+              key={t.id}
+              onClick={() => setAdminSection(t.id)}
+              className={`text-left p-4 rounded-xl border transition-colors flex flex-col gap-3 min-h-[150px] ${
+                t.ready
+                  ? 'bg-slate-800/50 border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 cursor-pointer'
+                  : 'bg-slate-800/30 border-slate-800 hover:bg-slate-800/50 hover:border-slate-700 cursor-pointer'
+              }`}
+            >
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${t.ready ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-700/30 text-slate-500'}`}>
+                {t.icon}
+              </div>
+              <div className="flex-1">
+                <div className={`text-sm font-medium mb-1 ${t.ready ? 'text-slate-100' : 'text-slate-300'}`}>{t.title}</div>
+                <div className="text-[11px] text-slate-500 leading-snug">{t.desc}</div>
+              </div>
+              <div className={`text-[10px] pt-2 border-t ${t.ready ? 'text-slate-400 border-slate-700/60' : 'text-slate-600 border-slate-800 italic'}`}>
+                {t.ready ? t.stat : `— ${t.stat}`}
+              </div>
+            </button>
+          );
+          return (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Internal Services и Configuration</span>
+                </div>
+              </div>
+
+              {/* Group: Operational */}
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Operational</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+                {operational.map(renderTile)}
+              </div>
+
+              {/* Group: Access & Governance */}
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Access & Governance</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {governance.map(renderTile)}
+              </div>
+            </>
+          );
+        })()}
+
+        {/* ===== Users & Roles (PSVPortal-style) ===== */}
+        {activeNavItem === 'admin' && adminSection === 'users' && (() => {
+          // Real users from PSVPortal
+          const ALL_GROUPS = ['Super User', 'User', 'Admin CAS', 'ASO User', 'Translates Users', 'Sound Manager Users', 'Report Users', 'Admob Users', 'Shops', 'Conversion Group', 'CAS Users', 'Downloader Users', 'BigQuery', 'SuperSet Group'];
+          const SUPER_GROUPS = ['Super User', 'User', 'ASO User', 'Translates Users', 'Sound Manager Users', 'Report Users', 'Admob Users', 'Shops', 'Conversion Group', 'CAS Users', 'Admin CAS', 'Downloader Users', 'BigQuery', 'SuperSet Group'];
+          const internalUsers = [
+            { id: 'u01', name: 'Alexei Shevnin', email: 'alexei.shevnin@cas.ai', groups: SUPER_GROUPS, lastLogin: '', active: true },
+            { id: 'u02', name: 'Valeriia', email: 'Valeriia.Zhuk@cas.ai', groups: ['Shops'], lastLogin: '2026-02-18 15:34:15', active: true },
+            { id: 'u03', name: 'Ruslan Novikov', email: 'ruslan.novikov@cas.ai', groups: ['Super User', 'User', 'ASO User', 'Translates Users', 'Sound Manager Users', 'Report Users', 'Admob Users', 'Shops', 'Conversion Group', 'CAS Users', 'Admin CAS', 'Downloader Users', 'BigQuery'], lastLogin: '2026-04-23 08:52:26', active: true },
+            { id: 'u04', name: 'Aleksandr Osyka', email: 'aleksandr.osyka@cas.ai', groups: ['User', 'CAS Users'], lastLogin: '2026-01-21 09:02:31', active: true },
+            { id: 'u05', name: 'Evgeniy Chuyko', email: 'evgeniy.chuyko@cas.ai', groups: ['Shops', 'Super User', 'User', 'ASO User', 'Translates Users', 'Sound Manager Users', 'Report Users', 'Admob Users', 'Conversion Group', 'CAS Users', 'Admin CAS', 'Downloader Users', 'BigQuery', 'SuperSet Group'], lastLogin: '2026-01-23 13:03:00', active: true },
+            { id: 'u06', name: 'Denys Drahanov', email: 'denys.drahanov@cas.ai', groups: ['Shops'], lastLogin: '2026-01-21 15:05:24', active: true },
+            { id: 'u07', name: 'V_Kapatsyn', email: 'vladimir.kapatsyn@cas.ai', groups: ['Shops'], lastLogin: '2026-04-14 12:52:21', active: true },
+            { id: 'u08', name: 'Андрей ГД', email: 'andrew.sokolov@cas.ai', groups: ['Shops'], lastLogin: '2026-01-21 11:42:08', active: true },
+            { id: 'u09', name: 'Dmytro Vielikanov', email: 'dmytro.vielikanov@cas.ai', groups: ['Shops'], lastLogin: '2026-01-22 13:14:22', active: true },
+            { id: 'u10', name: 'Anastasiia Moroz', email: 'anastasiia.moroz@cas.ai', groups: ['Admob Users', 'CAS Users'], lastLogin: '2025-10-29 07:46:50', active: true },
+            { id: 'u11', name: 'Anton Smirnov', email: 'anton.smirnov@cas.ai', groups: ['User', 'Admob Users', 'Report Users', 'CAS Users'], lastLogin: '2026-04-22 17:21:55', active: true },
+            { id: 'u12', name: 'Serhii Shcherbyna', email: 'serhii.shcherbyna@cas.ai', groups: ['User', 'Admob Users', 'CAS Users', 'BigQuery'], lastLogin: '2026-04-23 09:11:08', active: true },
+            { id: 'u13', name: 'Igor Belov', email: 'igor.belov@cas.ai', groups: ['User', 'Conversion Group', 'CAS Users'], lastLogin: '2026-04-22 16:08:42', active: true },
+            { id: 'u14', name: 'Mikhail Orlov', email: 'mikhail.orlov@cas.ai', groups: ['User'], lastLogin: '2025-12-15 10:18:00', active: false },
+          ];
+          // Group color palette — pastel/distinct
+          const groupColor = (g) => {
+            const map = {
+              'Super User': 'bg-purple-900/40 border-purple-700/50 text-purple-200',
+              'Admin CAS': 'bg-rose-900/40 border-rose-700/50 text-rose-200',
+              'User': 'bg-slate-700/50 border-slate-600 text-slate-200',
+              'ASO User': 'bg-cyan-900/40 border-cyan-700/50 text-cyan-200',
+              'Translates Users': 'bg-blue-900/40 border-blue-700/50 text-blue-200',
+              'Sound Manager Users': 'bg-indigo-900/40 border-indigo-700/50 text-indigo-200',
+              'Report Users': 'bg-emerald-900/40 border-emerald-700/50 text-emerald-200',
+              'Admob Users': 'bg-amber-900/40 border-amber-700/50 text-amber-200',
+              'Shops': 'bg-pink-900/40 border-pink-700/50 text-pink-200',
+              'Conversion Group': 'bg-teal-900/40 border-teal-700/50 text-teal-200',
+              'CAS Users': 'bg-sky-900/40 border-sky-700/50 text-sky-200',
+              'Downloader Users': 'bg-orange-900/40 border-orange-700/50 text-orange-200',
+              'BigQuery': 'bg-violet-900/40 border-violet-700/50 text-violet-200',
+              'SuperSet Group': 'bg-fuchsia-900/40 border-fuchsia-700/50 text-fuchsia-200',
+            };
+            return map[g] || 'bg-slate-700/50 border-slate-600 text-slate-200';
+          };
+          const filtered = internalUsers
+            .filter(u => usersFilterGroup === 'all' || u.groups.includes(usersFilterGroup))
+            .filter(u => usersFilterStatus === 'all' || (usersFilterStatus === 'active' ? u.active : !u.active))
+            .filter(u => !usersSearch || u.name.toLowerCase().includes(usersSearch.toLowerCase()) || u.email.toLowerCase().includes(usersSearch.toLowerCase()));
+          const groupCounts = ALL_GROUPS.map(g => ({ g, count: internalUsers.filter(u => u.groups.includes(g)).length })).sort((a, b) => b.count - a.count).slice(0, 7);
+          const selectedUserPerms = usersShowPermissions ? internalUsers.find(u => u.id === usersShowPermissions) : null;
+          return (
+            <>
+              {/* Header — title + Manage buttons */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Users</span>
+                  <span className="text-[10px] text-slate-500 ml-2">{internalUsers.length} users · {ALL_GROUPS.length} groups</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium text-white transition-colors uppercase tracking-wide">
+                    Manage Permissions
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                  </button>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium text-white transition-colors uppercase tracking-wide">
+                    Manage Groups
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Stat strip — top groups by membership */}
+              <div className="grid grid-cols-7 gap-2 mb-3">
+                {groupCounts.map(({ g, count }) => (
+                  <button key={g} onClick={() => setUsersFilterGroup(g === usersFilterGroup ? 'all' : g)} className={`text-left p-2 border rounded-lg transition-colors ${usersFilterGroup === g ? groupColor(g) : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800'}`}>
+                    <div className="text-base font-semibold text-slate-100">{count}</div>
+                    <div className="text-[9px] uppercase tracking-wide truncate">{g}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Filters */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 mb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <input type="text" placeholder="Search by name or email..." value={usersSearch} onChange={(e) => setUsersSearch(e.target.value)}
+                      className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"/>
+                  </div>
+                  <select value={usersFilterGroup} onChange={(e) => setUsersFilterGroup(e.target.value)}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="all">All groups</option>
+                    {ALL_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                  <select value={usersFilterStatus} onChange={(e) => setUsersFilterStatus(e.target.value)}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="all">All status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                    Add user
+                  </button>
+                </div>
+              </div>
+
+              {/* Table — PSVPortal layout */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80">
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-20 uppercase tracking-wide text-[10px]">Action</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-44 uppercase tracking-wide text-[10px]">Name</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-56 uppercase tracking-wide text-[10px]">Email</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-24 uppercase tracking-wide text-[10px]">Permissions</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium uppercase tracking-wide text-[10px]">Groups</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-40 uppercase tracking-wide text-[10px]">Last Login</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-16 uppercase tracking-wide text-[10px]">Active</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(u => (
+                      <tr key={u.id} className="border-b border-slate-700/30 hover:bg-slate-700/15 transition-colors">
+                        {/* Action */}
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-1.5">
+                            <button className="w-7 h-7 rounded-full bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 flex items-center justify-center transition-colors" title="Edit">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                            <button className="w-7 h-7 rounded-full bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 flex items-center justify-center transition-colors" title="Delete">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                            </button>
+                          </div>
+                        </td>
+                        {/* Name */}
+                        <td className="py-2.5 px-3 text-slate-200">{u.name}</td>
+                        {/* Email */}
+                        <td className="py-2.5 px-3 text-slate-400">{u.email}</td>
+                        {/* Permissions — SHOW button */}
+                        <td className="py-2.5 px-3">
+                          <button onClick={() => setUsersShowPermissions(u.id)} className="px-3 py-1 bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-[10px] font-medium text-slate-300 uppercase tracking-wide transition-colors">
+                            Show
+                          </button>
+                        </td>
+                        {/* Groups — multi-badge */}
+                        <td className="py-2.5 px-3">
+                          <div className="flex flex-wrap gap-1">
+                            {u.groups.map(g => (
+                              <span key={g} className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${groupColor(g)}`}>{g}</span>
+                            ))}
+                          </div>
+                        </td>
+                        {/* Last Login */}
+                        <td className="py-2.5 px-3 text-slate-500 text-[11px] font-mono">{u.lastLogin}</td>
+                        {/* Active — green check */}
+                        <td className="py-2.5 px-3 text-center">
+                          {u.active ? (
+                            <div className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-700">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {filtered.length === 0 && (
+                      <tr><td colSpan={7} className="py-12 text-center text-slate-500 text-xs">No users matching filters</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Permissions modal */}
+              {selectedUserPerms && (
+                <>
+                  <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setUsersShowPermissions(null)} />
+                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] max-h-[80vh] bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl z-50 flex flex-col">
+                    <div className="shrink-0 px-5 py-3 border-b border-slate-700 flex items-center justify-between rounded-t-2xl">
+                      <div>
+                        <div className="text-sm text-slate-100 font-semibold">{selectedUserPerms.name}</div>
+                        <div className="text-[10px] text-slate-500">{selectedUserPerms.email} · permissions</div>
+                      </div>
+                      <button onClick={() => setUsersShowPermissions(null)} className="text-slate-500 hover:text-slate-200 p-1">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                    <div className="overflow-y-auto p-5">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Effective permissions (from groups)</div>
+                      <div className="space-y-1">
+                        {(() => {
+                          const allPerms = {
+                            'Super User': ['*.read', '*.write', '*.delete', 'system.*'],
+                            'Admin CAS': ['users.manage', 'roles.manage', 'orgs.manage', 'audit.view'],
+                            'User': ['profile.read', 'profile.write'],
+                            'ASO User': ['aso.read', 'aso.write', 'keywords.manage'],
+                            'Translates Users': ['translates.read', 'translates.write'],
+                            'Sound Manager Users': ['sounds.read', 'sounds.write'],
+                            'Report Users': ['reports.read', 'reports.export'],
+                            'Admob Users': ['admob.read', 'admob.write', 'admob.accounts'],
+                            'Shops': ['shops.read', 'shops.write', 'shops.publish'],
+                            'Conversion Group': ['conversion.read', 'conversion.write'],
+                            'CAS Users': ['apps.read', 'mediation.read'],
+                            'Downloader Users': ['downloader.read', 'downloader.execute'],
+                            'BigQuery': ['bigquery.read', 'bigquery.query'],
+                            'SuperSet Group': ['superset.read', 'superset.dashboards'],
+                          };
+                          const perms = new Set();
+                          selectedUserPerms.groups.forEach(g => (allPerms[g] || []).forEach(p => perms.add(p)));
+                          return Array.from(perms).sort().map(p => (
+                            <div key={p} className="flex items-center justify-between px-3 py-1.5 bg-slate-800/50 border border-slate-700/50 rounded">
+                              <span className="text-[11px] font-mono text-slate-300">{p}</span>
+                              <span className="text-emerald-400 text-[10px]">✓</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                    <div className="shrink-0 px-5 py-3 border-t border-slate-700 flex justify-end">
+                      <button onClick={() => setUsersShowPermissions(null)} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Close</button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          );
+        })()}
+
+        {/* ===== Organizations & Assignments ===== */}
+        {activeNavItem === 'admin' && adminSection === 'organizations' && (() => {
+          // Studios — fake additions on top of publishers
+          const fakeStudios = [
+            { id: 's1', name: 'Voodoo Lite', managerId: 'm1', onboardingDate: '2025-08-12', isStudio: true },
+            { id: 's2', name: 'Plarium Indie', managerId: 'm2', onboardingDate: '2025-11-03', isStudio: true },
+            { id: 's3', name: 'Habby Garage', managerId: 'm3', onboardingDate: '2026-01-22', isStudio: true },
+            { id: 's4', name: 'Lion Studios EU', managerId: 'm1', onboardingDate: '2025-05-18', isStudio: true },
+            { id: 's5', name: 'AppQuantum Labs', managerId: 'm4', onboardingDate: '2025-10-09', isStudio: true },
+            { id: 's6', name: 'Belka Games', managerId: 'm2', onboardingDate: '2026-02-14', isStudio: true },
+            { id: 's7', name: 'Azur Interactive', managerId: 'm5', onboardingDate: '2025-06-30', isStudio: true },
+            { id: 's8', name: 'Boombit Mini', managerId: 'm3', onboardingDate: '2026-03-01', isStudio: true },
+          ];
+          // Build organizations list
+          const tiers = ['standard', 'analytics', 'full'];
+          const studioTiers = ['standard', 'full'];
+          const allOrgs = [
+            ...fakeStudios.map(s => {
+              const h = (s.id.charCodeAt(1) * 31) >>> 0;
+              return {
+                id: s.id, name: s.name, type: 'studio',
+                managerId: s.managerId, onboardingDate: s.onboardingDate,
+                tier: studioTiers[h % studioTiers.length],
+                users: (h % 8) + 2,
+                items: (h % 12) + 3, // games count
+              };
+            }),
+            ...adminCustomers.map(c => {
+              const h = (c.id * 17) >>> 0;
+              return {
+                id: 'p' + c.id, name: c.name, type: 'publisher',
+                managerId: c.managerId, onboardingDate: c.onboardingDate,
+                tier: tiers[h % tiers.length],
+                users: (h % 6) + 1,
+                items: c.bundles.length, // apps count
+              };
+            }),
+          ];
+          const filtered = allOrgs
+            .filter(o => orgsFilterType === 'all' || o.type === orgsFilterType)
+            .filter(o => orgsFilterTier === 'all' || o.tier === orgsFilterTier)
+            .filter(o => orgsFilterMgr === 'all' || o.managerId === orgsFilterMgr)
+            .filter(o => !orgsSearch || o.name.toLowerCase().includes(orgsSearch.toLowerCase()));
+          const PAGE = 50;
+          const totalPages = Math.ceil(filtered.length / PAGE);
+          const safePage = Math.min(orgsPage, totalPages || 1);
+          const paged = filtered.slice((safePage - 1) * PAGE, safePage * PAGE);
+          const tierColors = {
+            standard: 'bg-slate-500/15 text-slate-300 border-slate-500/25',
+            analytics: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
+            full: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+          };
+          const studioCount = allOrgs.filter(o => o.type === 'studio').length;
+          const publisherCount = allOrgs.filter(o => o.type === 'publisher').length;
+          return (
+            <>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Organizations & Assignments</span>
+                  <span className="text-[10px] text-slate-500 ml-2">{filtered.length.toLocaleString()} of {allOrgs.length.toLocaleString()} tenants</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>{studioCount} studios</span>
+                  <span className="text-slate-600">|</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>{publisherCount.toLocaleString()} publishers</span>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 mb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <input type="text" placeholder="Search organizations..." value={orgsSearch} onChange={(e) => { setOrgsSearch(e.target.value); setOrgsPage(1); }}
+                      className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"/>
+                  </div>
+                  <select value={orgsFilterType} onChange={(e) => { setOrgsFilterType(e.target.value); setOrgsPage(1); }}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="all">All types</option>
+                    <option value="studio">Studios</option>
+                    <option value="publisher">Publishers</option>
+                  </select>
+                  <select value={orgsFilterTier} onChange={(e) => { setOrgsFilterTier(e.target.value); setOrgsPage(1); }}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="all">All tiers</option>
+                    <option value="standard">standard</option>
+                    <option value="analytics">analytics</option>
+                    <option value="full">full</option>
+                  </select>
+                  <select value={orgsFilterMgr} onChange={(e) => { setOrgsFilterMgr(e.target.value); setOrgsPage(1); }}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="all">All managers</option>
+                    {adminManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80">
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Organization</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-24">Type</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-28">Tier</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Account Manager</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-16">Users</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-16">Items</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-24">Onboarded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paged.map(o => {
+                      const mgr = adminManagers.find(m => m.id === o.managerId);
+                      return (
+                        <tr key={o.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 cursor-pointer transition-colors">
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold shrink-0 ${o.type === 'studio' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                                {o.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                              </div>
+                              <div className="text-slate-200 font-medium truncate">{o.name}</div>
+                            </div>
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${o.type === 'studio' ? 'text-cyan-400' : 'text-emerald-400'}`}>{o.type}</span>
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${tierColors[o.tier]}`}>{o.tier}</span>
+                          </td>
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                                {mgr ? mgr.name.split(' ').map(n => n[0]).join('') : '?'}
+                              </div>
+                              <span className="text-slate-400">{mgr ? mgr.name : '—'}</span>
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-center text-slate-300">{o.users}</td>
+                          <td className="py-2 px-3 text-center text-slate-300">{o.items}</td>
+                          <td className="py-2 px-3 text-slate-500">{o.onboardingDate}</td>
+                        </tr>
+                      );
+                    })}
+                    {paged.length === 0 && (
+                      <tr><td colSpan={7} className="py-12 text-center text-slate-500 text-xs">No organizations matching filters</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[10px] text-slate-500">
+                    {((safePage - 1) * PAGE + 1).toLocaleString()}–{Math.min(safePage * PAGE, filtered.length).toLocaleString()} of {filtered.length.toLocaleString()}
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    <button disabled={safePage <= 1} onClick={() => setOrgsPage(p => p - 1)}
+                      className="px-2 py-1 rounded text-xs text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Prev</button>
+                    <span className="px-3 text-xs text-slate-400">{safePage} / {totalPages}</span>
+                    <button disabled={safePage >= totalPages} onClick={() => setOrgsPage(p => p + 1)}
+                      className="px-2 py-1 rounded text-xs text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Next</button>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
+
+        {/* ===== Impersonation ===== */}
+        {activeNavItem === 'admin' && adminSection === 'impersonation' && (() => {
+          const activeSessions = [
+            { id: 'is1', op: 'Anton Smirnov', opRole: 'account_manager', org: 'Pixel Labs', orgType: 'publisher', startedAt: '2026-04-23 09:42', idleMin: 3, expiresMin: 27, actions: 5 },
+            { id: 'is2', op: 'Serhii Shcherbyna', opRole: 'account_manager', org: 'Hyper Games', orgType: 'publisher', startedAt: '2026-04-23 10:15', idleMin: 0, expiresMin: 30, actions: 1 },
+          ];
+          const recent = [
+            { id: 'rs1', op: 'Anton Smirnov', org: 'Star Studio', orgType: 'studio', startedAt: '2026-04-22 14:20', endedAt: '2026-04-22 14:48', duration: '28m', actions: 7, endReason: 'manual' },
+            { id: 'rs2', op: 'Rashid Sabirov', org: 'Mega Apps', orgType: 'publisher', startedAt: '2026-04-22 11:05', endedAt: '2026-04-22 11:38', duration: '33m', actions: 12, endReason: 'manual' },
+            { id: 'rs3', op: 'Buha Maksym', org: 'Cube Tech', orgType: 'publisher', startedAt: '2026-04-22 09:14', endedAt: '2026-04-22 09:46', duration: '32m', actions: 4, endReason: 'timeout' },
+            { id: 'rs4', op: 'Dmytro Dubniak', org: 'Idle World', orgType: 'publisher', startedAt: '2026-04-21 16:50', endedAt: '2026-04-21 17:14', duration: '24m', actions: 9, endReason: 'manual' },
+            { id: 'rs5', op: 'Anton Smirnov', org: 'Voodoo Lite', orgType: 'studio', startedAt: '2026-04-21 13:22', endedAt: '2026-04-21 13:55', duration: '33m', actions: 18, endReason: 'manual' },
+            { id: 'rs6', op: 'Serhii Shcherbyna', org: 'Plarium Indie', orgType: 'studio', startedAt: '2026-04-21 10:08', endedAt: '2026-04-21 10:38', duration: '30m', actions: 6, endReason: 'timeout' },
+            { id: 'rs7', op: 'Rashid Sabirov', org: 'Bolt Forge', orgType: 'publisher', startedAt: '2026-04-20 15:40', endedAt: '2026-04-20 16:02', duration: '22m', actions: 3, endReason: 'manual' },
+            { id: 'rs8', op: 'Buha Maksym', org: 'Neon Verse', orgType: 'publisher', startedAt: '2026-04-20 12:11', endedAt: '2026-04-20 12:44', duration: '33m', actions: 11, endReason: 'manual' },
+          ];
+          // Filter "Start new" — search through customers
+          const matchedOrgs = impSearch
+            ? adminCustomers.filter(c => c.name.toLowerCase().includes(impSearch.toLowerCase())).slice(0, 8)
+            : [];
+          return (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Impersonation</span>
+                  <span className="text-[10px] text-slate-500 ml-2">Sign in as a client · 30 min idle timeout</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    {activeSessions.length} active
+                  </span>
+                  <span className="text-slate-600">|</span>
+                  <span>{recent.length} past (today)</span>
+                </div>
+              </div>
+
+              {/* Start new impersonation */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-4">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Start new session</div>
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                  <input type="text" placeholder="Search organization to sign in as..." value={impSearch} onChange={(e) => setImpSearch(e.target.value)}
+                    className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"/>
+                </div>
+                {matchedOrgs.length > 0 && (
+                  <div className="mt-2 border border-slate-700 rounded-lg overflow-hidden">
+                    {matchedOrgs.map(org => (
+                      <div key={org.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-700/30 border-b border-slate-700/50 last:border-b-0">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[9px] font-bold">{org.name.split(' ').map(n => n[0]).slice(0, 2).join('')}</div>
+                          <div>
+                            <div className="text-xs text-slate-200">{org.name}</div>
+                            <div className="text-[9px] text-slate-500">publisher · {org.bundles.length} apps</div>
+                          </div>
+                        </div>
+                        <button className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-medium rounded transition-colors">
+                          Sign in as
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Active sessions */}
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Active sessions</div>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden mb-4">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80">
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Operator</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Acting as</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-32">Started</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">Idle</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-24">Expires in</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">Actions</th>
+                      <th className="text-right py-2.5 px-3 text-slate-400 font-medium w-28">Control</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeSessions.map(s => (
+                      <tr key={s.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[8px] font-bold text-white">{s.op.split(' ').map(n => n[0]).join('')}</div>
+                            <div>
+                              <div className="text-slate-200 text-xs">{s.op}</div>
+                              <div className="text-[9px] text-slate-500">{s.opRole}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 rounded flex items-center justify-center text-[8px] font-bold ${s.orgType === 'studio' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'}`}>{s.org.split(' ').map(n => n[0]).slice(0, 2).join('')}</div>
+                            <div>
+                              <div className="text-slate-200 text-xs">{s.org}</div>
+                              <div className="text-[9px] text-slate-500">{s.orgType}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 text-slate-400 text-[11px] font-mono">{s.startedAt}</td>
+                        <td className="py-2 px-3 text-center text-slate-400 text-[11px]">{s.idleMin}m</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className={`text-[11px] font-medium ${s.expiresMin < 5 ? 'text-amber-400' : 'text-slate-400'}`}>{s.expiresMin}m</span>
+                        </td>
+                        <td className="py-2 px-3 text-center text-slate-300 text-[11px]">{s.actions}</td>
+                        <td className="py-2 px-3 text-right">
+                          <button className="px-2.5 py-1 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 text-[10px] font-medium rounded transition-colors">
+                            Force end
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Recent sessions */}
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Recent sessions (last 48h)</div>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80">
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Operator</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Acted as</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-32">Started</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-32">Ended</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">Duration</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">Actions</th>
+                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">End</th>
+                      <th className="w-16"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recent.map(s => (
+                      <tr key={s.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
+                        <td className="py-2 px-3 text-slate-200 text-[11px]">{s.op}</td>
+                        <td className="py-2 px-3">
+                          <span className={`text-[11px] ${s.orgType === 'studio' ? 'text-cyan-400' : 'text-emerald-400'}`}>{s.org}</span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-500 text-[10px] font-mono">{s.startedAt}</td>
+                        <td className="py-2 px-3 text-slate-500 text-[10px] font-mono">{s.endedAt}</td>
+                        <td className="py-2 px-3 text-center text-slate-300 text-[11px]">{s.duration}</td>
+                        <td className="py-2 px-3 text-center text-slate-300 text-[11px]">{s.actions}</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className={`text-[10px] ${s.endReason === 'timeout' ? 'text-amber-400' : 'text-slate-500'}`}>{s.endReason}</span>
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          <button className="text-[10px] text-blue-400 hover:text-blue-300">View log →</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* ===== Audit Log ===== */}
+        {activeNavItem === 'admin' && adminSection === 'audit' && (() => {
+          const events = [
+            { id: 'e1', ts: '2026-04-23 10:15:32', actor: 'Serhii Shcherbyna', actorRole: 'account_manager', type: 'impersonation_start', target: 'Hyper Games', details: 'Started impersonation session, expires 10:45' },
+            { id: 'e2', ts: '2026-04-23 09:48:11', actor: 'Igor Belov', actorRole: 'finance', type: 'payout_approve', target: 'Pixel Labs · $4,820', details: 'Payout for March 2026 approved' },
+            { id: 'e3', ts: '2026-04-23 09:42:08', actor: 'Anton Smirnov', actorRole: 'account_manager', type: 'impersonation_start', target: 'Pixel Labs', details: 'Started impersonation session, expires 10:12' },
+            { id: 'e4', ts: '2026-04-23 09:30:00', actor: 'Roman Petrov', actorRole: 'platform_admin', type: 'role_change', target: 'mikhail@cas.io', details: 'support · status: active → inactive' },
+            { id: 'e5', ts: '2026-04-23 08:55:14', actor: 'Igor Belov', actorRole: 'finance', type: 'payout_execute', target: 'Star Studio · $2,140', details: 'Wire transfer issued · ref TX-8821' },
+            { id: 'e6', ts: '2026-04-22 17:14:02', actor: 'Dmytro Dubniak', actorRole: 'account_manager', type: 'impersonation_end', target: 'Idle World', details: 'Session ended manually · 9 actions' },
+            { id: 'e7', ts: '2026-04-22 16:48:33', actor: 'Anton Smirnov', actorRole: 'account_manager', type: 'sdk_key_regen', target: 'Pixel Labs · com.pixel.puzzle', details: 'SDK key regenerated · old key revoked' },
+            { id: 'e8', ts: '2026-04-22 15:22:18', actor: 'Alex Shevnin', actorRole: 'super_admin', type: 'user_invite', target: 'pavel@cas.io', details: 'Invite sent · role: ua_manager' },
+            { id: 'e9', ts: '2026-04-22 14:48:55', actor: 'Anton Smirnov', actorRole: 'account_manager', type: 'impersonation_end', target: 'Star Studio', details: 'Session ended manually · 7 actions' },
+            { id: 'e10', ts: '2026-04-22 14:20:11', actor: 'Anton Smirnov', actorRole: 'account_manager', type: 'impersonation_start', target: 'Star Studio', details: 'Started impersonation session' },
+            { id: 'e11', ts: '2026-04-22 13:05:42', actor: 'Roman Petrov', actorRole: 'platform_admin', type: 'org_create', target: 'Boombit Mini', details: 'Studio organization created, owner: contact@boombit.com' },
+            { id: 'e12', ts: '2026-04-22 11:38:09', actor: 'Rashid Sabirov', actorRole: 'account_manager', type: 'impersonation_end', target: 'Mega Apps', details: 'Session ended manually · 12 actions' },
+            { id: 'e13', ts: '2026-04-22 10:14:00', actor: 'Igor Belov', actorRole: 'finance', type: 'invoice_generate', target: 'Hyper Games · INV-4421', details: 'Invoice generated for Q1 2026' },
+            { id: 'e14', ts: '2026-04-22 09:46:33', actor: 'Buha Maksym', actorRole: 'account_manager', type: 'impersonation_end', target: 'Cube Tech', details: 'Session timed out · 4 actions' },
+            { id: 'e15', ts: '2026-04-21 17:14:21', actor: 'Roman Petrov', actorRole: 'platform_admin', type: 'role_change', target: 'rashid@cas.io', details: 'Senior AM → AM' },
+            { id: 'e16', ts: '2026-04-21 15:30:00', actor: 'Alex Shevnin', actorRole: 'super_admin', type: 'template_update', target: 'client.full', details: 'Added analytics.shops to template' },
+            { id: 'e17', ts: '2026-04-21 12:18:44', actor: 'Iryna Volkova', actorRole: 'platform_admin', type: 'org_create', target: 'Voodoo Lite', details: 'Studio organization created' },
+            { id: 'e18', ts: '2026-04-21 10:38:12', actor: 'Serhii Shcherbyna', actorRole: 'account_manager', type: 'impersonation_end', target: 'Plarium Indie', details: 'Session timed out · 6 actions' },
+          ];
+          const typeColors = {
+            impersonation_start: 'bg-purple-500/15 text-purple-300 border-purple-500/25',
+            impersonation_end: 'bg-purple-500/10 text-purple-400/70 border-purple-500/20',
+            payout_approve: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+            payout_execute: 'bg-emerald-600/20 text-emerald-200 border-emerald-500/30',
+            role_change: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
+            sdk_key_regen: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+            user_invite: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/25',
+            org_create: 'bg-pink-500/15 text-pink-300 border-pink-500/25',
+            invoice_generate: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+            template_update: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25',
+          };
+          const allTypes = Array.from(new Set(events.map(e => e.type)));
+          const allActors = Array.from(new Set(events.map(e => e.actor))).sort();
+          const filtered = events
+            .filter(e => auditFilterType === 'all' || e.type === auditFilterType)
+            .filter(e => auditFilterActor === 'all' || e.actor === auditFilterActor)
+            .filter(e => !auditSearch || e.target.toLowerCase().includes(auditSearch.toLowerCase()) || e.details.toLowerCase().includes(auditSearch.toLowerCase()));
+          return (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Audit Log</span>
+                  <span className="text-[10px] text-slate-500 ml-2">{filtered.length} of {events.length} events · last 48h</span>
+                </div>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs text-slate-300 transition-colors">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                  Export CSV
+                </button>
+              </div>
+
+              {/* Filters */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 mb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <input type="text" placeholder="Search target or details..." value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)}
+                      className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"/>
+                  </div>
+                  <select value={auditFilterType} onChange={(e) => setAuditFilterType(e.target.value)}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="all">All event types</option>
+                    {allTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <select value={auditFilterActor} onChange={(e) => setAuditFilterActor(e.target.value)}
+                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    <option value="all">All actors</option>
+                    {allActors.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                  <select className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer" defaultValue="48h">
+                    <option value="1h">Last hour</option>
+                    <option value="24h">Last 24h</option>
+                    <option value="48h">Last 48h</option>
+                    <option value="7d">Last 7 days</option>
+                    <option value="30d">Last 30 days</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Event feed */}
+              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/80">
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-40">Timestamp</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-44">Actor</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-44">Event</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-44">Target</th>
+                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(e => (
+                      <tr key={e.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
+                        <td className="py-2 px-3 text-slate-500 text-[10px] font-mono">{e.ts}</td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white">{e.actor.split(' ').map(n => n[0]).join('')}</div>
+                            <div>
+                              <div className="text-slate-200 text-[11px]">{e.actor}</div>
+                              <div className="text-[9px] text-slate-500">{e.actorRole}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2 px-3">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${typeColors[e.type] || 'bg-slate-500/15 text-slate-300 border-slate-500/25'}`}>{e.type}</span>
+                        </td>
+                        <td className="py-2 px-3 text-slate-300 text-[11px]">{e.target}</td>
+                        <td className="py-2 px-3 text-slate-400 text-[11px]">{e.details}</td>
+                      </tr>
+                    ))}
+                    {filtered.length === 0 && (
+                      <tr><td colSpan={5} className="py-12 text-center text-slate-500 text-xs">No events matching filters</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* ===== Role Templates ===== */}
+        {activeNavItem === 'admin' && adminSection === 'templates' && (() => {
+          const templates = [
+            { id: 'pub_standard', name: 'client.standard', for: 'publisher', orgs: 1247, desc: 'Базовый набор: SDK + медиация + платежи' },
+            { id: 'pub_analytics', name: 'client.analytics', for: 'publisher', orgs: 423, desc: 'Standard + расширенная аналитика (BigQuery, conversion, shops)' },
+            { id: 'pub_full', name: 'client.full', for: 'publisher', orgs: 175, desc: 'Полный набор: analytics + UA + creatives + ASO + publishing' },
+            { id: 'studio_standard', name: 'studio.standard', for: 'studio', orgs: 5, desc: 'Базовый набор: игры + просмотр кампаний и метрик' },
+            { id: 'studio_full', name: 'studio.full', for: 'studio', orgs: 3, desc: 'Standard + Tenjin/BigQuery analytics + payouts request' },
+          ];
+          const featureMatrix = {
+            pub_standard: { 'apps.read': true, 'apps.write': true, 'mediation.read': true, 'mediation.write': true, 'admob.read': true, 'payments.read': true, 'analytics.bigquery': false, 'analytics.conversion': false, 'analytics.shops': false, 'campaigns.read': false, 'campaigns.write': false, 'creatives.read': false, 'creatives.write': false, 'aso.read': false, 'aso.write': false, 'publishing.read': false, 'publishing.write': false, 'shops.read': false, 'shops.write': false },
+            pub_analytics: { 'apps.read': true, 'apps.write': true, 'mediation.read': true, 'mediation.write': true, 'admob.read': true, 'payments.read': true, 'analytics.bigquery': true, 'analytics.conversion': true, 'analytics.shops': true, 'campaigns.read': false, 'campaigns.write': false, 'creatives.read': false, 'creatives.write': false, 'aso.read': false, 'aso.write': false, 'publishing.read': false, 'publishing.write': false, 'shops.read': false, 'shops.write': false },
+            pub_full: { 'apps.read': true, 'apps.write': true, 'mediation.read': true, 'mediation.write': true, 'admob.read': true, 'payments.read': true, 'analytics.bigquery': true, 'analytics.conversion': true, 'analytics.shops': true, 'campaigns.read': true, 'campaigns.write': true, 'creatives.read': true, 'creatives.write': true, 'aso.read': true, 'aso.write': true, 'publishing.read': true, 'publishing.write': true, 'shops.read': true, 'shops.write': true },
+            studio_standard: { 'games.read': true, 'games.write': true, 'ua_campaigns.view': true, 'revenue.view_own': true, 'payouts.view': true, 'analytics.tenjin': false, 'analytics.bigquery': false, 'revenue.export': false, 'payouts.request': false },
+            studio_full: { 'games.read': true, 'games.write': true, 'ua_campaigns.view': true, 'revenue.view_own': true, 'payouts.view': true, 'analytics.tenjin': true, 'analytics.bigquery': true, 'revenue.export': true, 'payouts.request': true },
+          };
+          const featureGroups = {
+            publisher: [
+              { group: 'Apps & SDK', items: ['apps.read', 'apps.write', 'mediation.read', 'mediation.write', 'admob.read'] },
+              { group: 'Payments', items: ['payments.read'] },
+              { group: 'Analytics', items: ['analytics.bigquery', 'analytics.conversion', 'analytics.shops'] },
+              { group: 'UA & Creatives', items: ['campaigns.read', 'campaigns.write', 'creatives.read', 'creatives.write'] },
+              { group: 'Publishing & ASO', items: ['publishing.read', 'publishing.write', 'aso.read', 'aso.write', 'shops.read', 'shops.write'] },
+            ],
+            studio: [
+              { group: 'Games', items: ['games.read', 'games.write'] },
+              { group: 'UA & Revenue', items: ['ua_campaigns.view', 'revenue.view_own', 'revenue.export'] },
+              { group: 'Payouts', items: ['payouts.view', 'payouts.request'] },
+              { group: 'Analytics', items: ['analytics.tenjin', 'analytics.bigquery'] },
+            ],
+          };
+          const sel = templates.find(t => t.id === selectedTemplate) || templates[0];
+          const features = featureMatrix[sel.id];
+          const groups = featureGroups[sel.for];
+          const enabledCount = Object.values(features).filter(Boolean).length;
+          const totalCount = Object.keys(features).length;
+          return (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Role Templates</span>
+                  <span className="text-[10px] text-slate-500 ml-2">Tier templates layered on top of base roles</span>
+                </div>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                  New template
+                </button>
+              </div>
+
+              <div className="grid grid-cols-12 gap-3">
+                {/* Left: list of templates */}
+                <div className="col-span-4 flex flex-col gap-2">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Publisher templates</div>
+                  {templates.filter(t => t.for === 'publisher').map(t => (
+                    <button key={t.id} onClick={() => setSelectedTemplate(t.id)}
+                      className={`text-left p-3 rounded-xl border transition-colors ${
+                        selectedTemplate === t.id
+                          ? 'bg-blue-500/10 border-blue-500/40'
+                          : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800'
+                      }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs font-mono ${selectedTemplate === t.id ? 'text-blue-300' : 'text-slate-200'}`}>{t.name}</span>
+                        <span className="text-[10px] text-slate-500">{t.orgs.toLocaleString()} orgs</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 leading-snug">{t.desc}</div>
+                    </button>
+                  ))}
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1 mt-3">Studio templates</div>
+                  {templates.filter(t => t.for === 'studio').map(t => (
+                    <button key={t.id} onClick={() => setSelectedTemplate(t.id)}
+                      className={`text-left p-3 rounded-xl border transition-colors ${
+                        selectedTemplate === t.id
+                          ? 'bg-cyan-500/10 border-cyan-500/40'
+                          : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800'
+                      }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs font-mono ${selectedTemplate === t.id ? 'text-cyan-300' : 'text-slate-200'}`}>{t.name}</span>
+                        <span className="text-[10px] text-slate-500">{t.orgs} orgs</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 leading-snug">{t.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Right: editor */}
+                <div className="col-span-8">
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                    {/* Template header */}
+                    <div className="flex items-start justify-between mb-4 pb-3 border-b border-slate-700">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-base font-semibold text-slate-100 font-mono">{sel.name}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${sel.for === 'studio' ? 'bg-cyan-500/15 text-cyan-300' : 'bg-emerald-500/15 text-emerald-300'}`}>{sel.for}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">{sel.desc}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-base font-semibold text-slate-100">{enabledCount}<span className="text-slate-500 text-xs"> / {totalCount}</span></div>
+                        <div className="text-[10px] text-slate-500">features enabled</div>
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      <div className="p-2.5 bg-slate-900/40 rounded-lg border border-slate-700 text-center">
+                        <div className="text-sm font-semibold text-slate-100">{sel.orgs.toLocaleString()}</div>
+                        <div className="text-[10px] text-slate-500">Organizations</div>
+                      </div>
+                      <div className="p-2.5 bg-slate-900/40 rounded-lg border border-slate-700 text-center">
+                        <div className="text-sm font-semibold text-emerald-400">{enabledCount}</div>
+                        <div className="text-[10px] text-slate-500">Enabled</div>
+                      </div>
+                      <div className="p-2.5 bg-slate-900/40 rounded-lg border border-slate-700 text-center">
+                        <div className="text-sm font-semibold text-slate-500">{totalCount - enabledCount}</div>
+                        <div className="text-[10px] text-slate-500">Disabled</div>
+                      </div>
+                    </div>
+
+                    {/* Feature groups */}
+                    <div className="space-y-3">
+                      {groups.map(g => (
+                        <div key={g.group}>
+                          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1.5">{g.group}</div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {g.items.map(item => {
+                              const enabled = features[item];
+                              return (
+                                <div key={item} className={`flex items-center justify-between px-3 py-2 rounded-lg border ${enabled ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-slate-900/30 border-slate-700/50'}`}>
+                                  <span className={`text-[11px] font-mono ${enabled ? 'text-slate-200' : 'text-slate-500'}`}>{item}</span>
+                                  <button className={`w-8 h-4 rounded-full relative transition-colors ${enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+                                    <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`}></span>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Footer actions */}
+                    <div className="mt-4 pt-3 border-t border-slate-700 flex items-center justify-between">
+                      <div className="text-[10px] text-slate-500 italic">Changes apply to all {sel.orgs.toLocaleString()} organizations on this template</div>
+                      <div className="flex items-center gap-2">
+                        <button className="px-3 py-1.5 text-[11px] text-slate-400 hover:text-slate-200">Cancel</button>
+                        <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium rounded transition-colors">Save changes</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* ===== Admin placeholder (in-development sections) ===== */}
+        {activeNavItem === 'admin' && adminSection && !['apps', 'users', 'organizations', 'impersonation', 'audit', 'templates'].includes(adminSection) && (() => {
+          const labels = { mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management' };
+          return (
+            <div className="bg-slate-800/30 border border-slate-800 rounded-xl p-12 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 rounded-xl bg-slate-700/30 flex items-center justify-center text-slate-500 mb-3">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </div>
+              <div className="text-sm font-medium text-slate-200 mb-1">{labels[adminSection]}</div>
+              <div className="text-[11px] text-slate-500 mb-4">In development</div>
+              <button onClick={() => setAdminSection(null)} className="text-[11px] text-blue-400 hover:text-blue-300">← Back to Admin</button>
+            </div>
+          );
+        })()}
+
+        {activeNavItem === 'admin' && adminSection === 'apps' && (() => {
           // Filter apps with overrides applied
           const appsWithOverrides = adminApps.map(a => ({ ...a, ...(adminAppOverrides[a.bundleId] || {}) }));
 
@@ -2792,7 +3835,7 @@ export default function MetricTree() {
 
                       {/* Tabs */}
                       <div className="shrink-0 px-5 border-b border-slate-700/50 flex gap-0">
-                        {[['main', 'Основная'], ['networks', 'Рекламные сети']].map(([id, label]) => (
+                        {[['main', 'Основная'], ['networks', 'Рекламные сети'], ['history', 'History']].map(([id, label]) => (
                           <button key={id} onClick={() => setAdminAppTab(id)}
                             className={`px-4 py-2 text-[11px] font-medium border-b-2 transition-colors ${
                               adminAppTab === id ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'
@@ -2879,6 +3922,291 @@ export default function MetricTree() {
                             </div>
                           </div>
                         )}
+
+                        {adminAppTab === 'history' && (() => {
+                          // Generate deterministic history events across app's entire lifetime
+                          const mgrNames = adminManagers.map(m => m.name);
+                          const initialMgr = mgrNames[(h * 3) % mgrNames.length];
+                          const commission = [10, 12, 15, 8][(h * 7) % 4];
+                          const engineName = ['Unity', 'Native Android', 'Native iOS', 'Flutter', 'Unreal'][(h * 11) % 5];
+                          const startDate = new Date(selectedAppData.dateAdded);
+                          const now = new Date('2026-04-06');
+                          const daysDiff = Math.floor((now - startDate) / 86400000);
+                          const addD = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+                          // Deterministic pseudo-random from seed
+                          const prng = (seed) => ((seed * 1103515245 + 12345) & 0x7fffffff);
+
+                          const allEvents = [];
+                          const push = (dayOffset, type, title, detail, author, flags) => {
+                            if (dayOffset >= 0 && dayOffset <= daysDiff) allEvents.push({ date: addD(startDate, dayOffset), type, title, detail, author, ...flags });
+                          };
+
+                          // === ONBOARDING (day 0-3) ===
+                          push(0, 'lifecycle', 'App added to CAS', null, 'Admin');
+                          push(0, 'finance', `Commission: ${commission}%`, null, 'Admin');
+                          push(0, 'people', `Manager: ${initialMgr}`, null, 'Admin');
+                          push(0, 'monetization', `Networks: ${activeNets.slice(0, 3).join(', ')}`, null, initialMgr);
+                          const sdkMajor = 3 + (h % 2);
+                          const sdkMinor0 = h % 6;
+                          const sdkPatch0 = (h * 7) % 20;
+                          push(1, 'integration', `CAS SDK ${sdkMajor}.${sdkMinor0}.${sdkPatch0} integrated (${engineName})`, null, 'auto');
+                          push(1 + (h % 2), 'integration', 'First impression', null, 'auto');
+                          push(2 + (h % 2), 'integration', `First revenue: $${(((h % 900) + 10) / 100).toFixed(2)}`, null, 'auto');
+
+                          // MMP connected
+                          const mmpName = ['Adjust', 'AppsFlyer', 'Singular', 'Branch'][(h * 19) % 4];
+                          push(15 + (h % 10), 'integration', `MMP connected: ${mmpName}`, null, 'auto');
+
+                          // User added to team
+                          const domain = selectedAppData.bundleId.split('.')[1] || 'studio';
+                          const addedUser = ['dev@' + domain + '.com', 'pm@studio.io', 'analytics@team.co'][(h * 13) % 3];
+                          push(50 + (h % 30), 'people', `User added to team: ${addedUser}`, 'Developer role', 'Admin');
+
+                          // === RECURRING EVENTS across lifetime ===
+                          // SDK updates every ~90 days
+                          let curMinor = sdkMinor0, curPatch = sdkPatch0;
+                          for (let d = 60 + (h % 40); d < daysDiff; d += 80 + prng(h + d) % 50) {
+                            const prevVer = `${sdkMajor}.${curMinor}.${curPatch}`;
+                            curPatch = (curPatch + 1 + prng(h + d) % 5) % 30;
+                            if (prng(h + d * 3) % 4 === 0) { curMinor = curMinor + 1; curPatch = 0; }
+                            const newVer = `${sdkMajor}.${curMinor}.${curPatch}`;
+                            push(d, 'integration', `SDK updated: ${prevVer} → ${newVer}`, null, 'auto');
+                          }
+
+                          // Waterfall / monetization changes every ~60 days
+                          const wfActions = ['Waterfall config updated', 'Floor price adjusted', 'Bidding priority reordered', 'eCPM floors updated'];
+                          const wfDetails = [
+                            (s) => `Added ${networks[prng(s) % networks.length]} (server bidding)`,
+                            (s) => `Interstitial: $${((prng(s) % 30 + 5) / 10).toFixed(2)} → $${((prng(s) % 30 + 10) / 10).toFixed(2)}`,
+                            (s) => `${networks[prng(s + 1) % networks.length]} moved to position #${prng(s) % 3 + 1}`,
+                            (s) => `Tier 1 countries, ${['Banner', 'Interstitial', 'Rewarded'][prng(s) % 3]} format`,
+                          ];
+                          for (let d = 40 + (h % 25); d < daysDiff; d += 50 + prng(h + d * 7) % 40) {
+                            const idx = prng(h + d) % wfActions.length;
+                            push(d, 'monetization', wfActions[idx], wfDetails[idx](h + d), mgrNames[prng(h + d * 3) % mgrNames.length]);
+                          }
+
+                          // A/B tests every ~120 days
+                          const testNames = ['Interstitial cap', 'Banner refresh rate', 'Reward frequency', 'Floor price optimization', 'Cross-promo placement', 'Ad frequency cap', 'Reward cooldown', 'Banner position', 'Mediation priority', 'GDPR consent flow'];
+                          let testIdx = 0;
+                          for (let d = 55 + (h % 30); d < daysDiff; d += 100 + prng(h + d * 11) % 60) {
+                            const tName = testNames[(h + testIdx) % testNames.length];
+                            const variants = [2, 3][prng(h + d) % 2];
+                            const dur = 10 + prng(h + d) % 18;
+                            const mgrAuthor = mgrNames[prng(h + d * 5) % mgrNames.length];
+                            push(d, 'ab_test', `A/B test started: "${tName}"`, `${variants} variants, ${variants === 2 ? '50/50' : 'equal'} split`, mgrAuthor);
+                            const winVar = ['A', 'B', 'C'][prng(h + d + 1) % variants];
+                            const delta = 3 + prng(h + d + 2) % 15;
+                            const metric = ['revenue', 'eCPM', 'fill rate', 'ARPDAU'][prng(h + d + 3) % 4];
+                            push(d + dur, 'ab_test', `A/B test completed: "${tName}"`, `\u2192 Variant ${winVar} wins (+${delta}% ${metric})`, mgrAuthor);
+                            testIdx++;
+                          }
+
+                          // Alerts (revenue / fill rate) every ~130 days
+                          const alertReasons = ['Pangle outage', 'AdMob policy update', 'Unity Ads timeout', 'Network config sync issue', 'Regional traffic drop', 'Seasonal traffic shift', 'Bidding API error'];
+                          for (let d = 80 + (h % 40); d < daysDiff; d += 110 + prng(h + d * 13) % 60) {
+                            const isRevenue = prng(h + d) % 2 === 0;
+                            if (isRevenue) {
+                              push(d, 'alert', `Revenue -${18 + prng(h + d) % 30}% vs 7d avg`, null, 'auto', { isWarning: true });
+                            } else {
+                              push(d, 'alert', `Fill rate drop: -${10 + prng(h + d) % 20}% on ${['Banner', 'Interstitial', 'Rewarded'][prng(h + d) % 3]}`, null, 'auto', { isWarning: true });
+                            }
+                            const resolveDelay = 1 + prng(h + d + 1) % 3;
+                            push(d + resolveDelay, 'alert', `Resolved: ${alertReasons[prng(h + d + 2) % alertReasons.length]}`, null, prng(h + d) % 3 === 0 ? 'auto' : mgrNames[prng(h + d + 3) % mgrNames.length], { isResolved: true });
+                          }
+
+                          // Manager changes every ~200 days
+                          let prevMgr = initialMgr;
+                          for (let d = 100 + (h % 50); d < daysDiff; d += 160 + prng(h + d * 17) % 80) {
+                            const nextMgr = mgrNames[prng(h + d * 19) % mgrNames.length];
+                            if (nextMgr !== prevMgr) {
+                              push(d, 'people', `Manager changed: ${prevMgr.split(' ')[0]} \u2192 ${nextMgr.split(' ')[0]}`, null, 'Admin');
+                              prevMgr = nextMgr;
+                            }
+                          }
+
+                          // Finance events every ~180 days
+                          let curComm = commission;
+                          for (let d = 200 + (h % 60); d < daysDiff; d += 150 + prng(h + d * 23) % 80) {
+                            const ev = prng(h + d) % 3;
+                            if (ev === 0) {
+                              const newComm = Math.max(5, curComm - 1 - prng(h + d) % 3);
+                              push(d, 'finance', `Commission changed: ${curComm}% \u2192 ${newComm}%`, 'Performance tier upgrade', 'Admin');
+                              curComm = newComm;
+                            } else if (ev === 1) {
+                              const types = ['Standard', 'Basic', 'Starter', 'Premium', 'Enterprise', 'Growth'];
+                              push(d, 'finance', `Client type changed: ${types[prng(h + d) % 3]} \u2192 ${types[3 + prng(h + d + 1) % 3]}`, null, 'Admin');
+                            } else {
+                              const amt = (prng(h + d) % 20000) + 500;
+                              push(d, 'finance', `Payout: $${amt.toLocaleString()}`, null, 'auto');
+                            }
+                          }
+
+                          // Ad format enables every ~150 days
+                          const formats = ['Rewarded Interstitial', 'App Open', 'Native Ads', 'MRec Banner', 'Collapsible Banner', 'Rewarded Playable'];
+                          let fmtIdx = 0;
+                          for (let d = 180 + (h % 50); d < daysDiff; d += 130 + prng(h + d * 29) % 60) {
+                            push(d, 'monetization', `Ad format enabled: ${formats[(h + fmtIdx) % formats.length]}`, null, mgrNames[prng(h + d) % mgrNames.length]);
+                            fmtIdx++;
+                          }
+
+                          // Network add/remove every ~100 days
+                          for (let d = 250 + (h % 40); d < daysDiff; d += 90 + prng(h + d * 31) % 50) {
+                            const net = networks[prng(h + d) % networks.length];
+                            if (prng(h + d) % 3 === 0) {
+                              push(d, 'monetization', `Network removed: ${net}`, 'Low fill rate in target geos', mgrNames[prng(h + d + 1) % mgrNames.length]);
+                            } else {
+                              push(d, 'monetization', `Network added: ${net}`, ['Server bidding', 'Waterfall', 'Hybrid'][prng(h + d + 2) % 3], mgrNames[prng(h + d + 1) % mgrNames.length]);
+                            }
+                          }
+
+                          // Server bidding toggles
+                          push(190 + (h % 50), 'monetization', 'Server bidding enabled for all networks', null, mgrNames[(h * 7) % mgrNames.length]);
+
+                          // Sort descending
+                          allEvents.sort((a, b) => b.date - a.date);
+
+                          // Apply period filter
+                          const periodDays = { '30d': 30, '90d': 90, '1y': 365, 'all': Infinity }[historyPeriodFilter] || 90;
+                          const cutoff = periodDays === Infinity ? new Date(0) : addD(now, -periodDays);
+                          const afterPeriod = allEvents.filter(e => e.date >= cutoff);
+
+                          // Apply event type filter
+                          const afterType = historyEventFilter === 'all' ? afterPeriod : afterPeriod.filter(e => e.type === historyEventFilter);
+
+                          // Collect unique authors
+                          const allAuthors = [...new Set(allEvents.map(e => e.author))].sort();
+
+                          // Apply author filter
+                          const filtered = historyAuthorFilter === 'all' ? afterType : afterType.filter(e => e.author === historyAuthorFilter);
+
+                          // Group by month
+                          const groups = [];
+                          let currentGroup = null;
+                          filtered.forEach(ev => {
+                            const key = ev.date.toLocaleString('en-US', { month: 'short', year: 'numeric' }).toUpperCase();
+                            if (!currentGroup || currentGroup.key !== key) {
+                              currentGroup = { key, events: [] };
+                              groups.push(currentGroup);
+                            }
+                            currentGroup.events.push(ev);
+                          });
+
+                          // Summary stats (from all events, not filtered)
+                          const totalDays = daysDiff;
+                          const configChanges = allEvents.filter(e => e.type === 'monetization').length;
+                          const abTests = allEvents.filter(e => e.type === 'ab_test' && e.title.includes('started')).length;
+                          const mgrChanges = allEvents.filter(e => e.title.includes('Manager changed')).length;
+                          const incidents = allEvents.filter(e => e.isWarning).length;
+
+                          // Event type styles
+                          const typeStyles = {
+                            lifecycle: { color: 'text-blue-400', bg: 'bg-blue-500/15 border-blue-500/25', icon: '●' },
+                            integration: { color: 'text-purple-400', bg: 'bg-purple-500/15 border-purple-500/25', icon: '⚡' },
+                            monetization: { color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-500/25', icon: '💰' },
+                            ab_test: { color: 'text-cyan-400', bg: 'bg-cyan-500/15 border-cyan-500/25', icon: '⚗' },
+                            people: { color: 'text-indigo-400', bg: 'bg-indigo-500/15 border-indigo-500/25', icon: '👤' },
+                            finance: { color: 'text-amber-400', bg: 'bg-amber-500/15 border-amber-500/25', icon: '₿' },
+                            alert: { color: 'text-red-400', bg: 'bg-red-500/15 border-red-500/25', icon: '⚠' },
+                          };
+
+                          const typeLabels = {
+                            lifecycle: 'Lifecycle', integration: 'Integration', monetization: 'Monetization',
+                            ab_test: 'A/B Tests', people: 'People', finance: 'Finance', alert: 'Alerts',
+                          };
+
+                          return (
+                            <div className="space-y-4">
+                              {/* Filters */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <select value={historyEventFilter} onChange={(e) => setHistoryEventFilter(e.target.value)}
+                                  className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                                  <option value="all">All events</option>
+                                  {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                </select>
+                                <select value={historyAuthorFilter} onChange={(e) => setHistoryAuthorFilter(e.target.value)}
+                                  className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                                  <option value="all">All authors</option>
+                                  {allAuthors.map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                                <select value={historyPeriodFilter} onChange={(e) => setHistoryPeriodFilter(e.target.value)}
+                                  className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                                  <option value="30d">Last 30 days</option>
+                                  <option value="90d">Last 90 days</option>
+                                  <option value="1y">Last year</option>
+                                  <option value="all">All time</option>
+                                </select>
+                                <span className="text-[10px] text-slate-600 ml-auto">{filtered.length} events</span>
+                              </div>
+
+                              {/* Timeline */}
+                              {groups.length === 0 && (
+                                <div className="py-12 text-center text-slate-500 text-xs">No events match your filters</div>
+                              )}
+                              {groups.map(group => (
+                                <div key={group.key}>
+                                  {/* Month separator */}
+                                  <div className="flex items-center gap-3 mb-3">
+                                    <div className="h-px flex-1 bg-slate-700/50" />
+                                    <span className="text-[10px] font-semibold text-slate-500 tracking-wider">{group.key}</span>
+                                    <div className="h-px flex-1 bg-slate-700/50" />
+                                  </div>
+                                  {/* Events */}
+                                  <div className="space-y-0">
+                                    {group.events.map((ev, idx) => {
+                                      const st = ev.isResolved
+                                        ? { color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-500/25', icon: '✓' }
+                                        : ev.isWarning
+                                          ? { color: 'text-orange-400', bg: 'bg-orange-500/15 border-orange-500/25', icon: '⚠' }
+                                          : typeStyles[ev.type] || typeStyles.lifecycle;
+                                      const dayStr = ev.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+                                      return (
+                                        <div key={idx} className="flex items-start gap-3 py-2 group/evt hover:bg-slate-800/30 rounded-lg px-2 -mx-2 transition-colors">
+                                          {/* Date */}
+                                          <div className="w-14 shrink-0 text-[11px] text-slate-500 pt-0.5 text-right">{dayStr}</div>
+                                          {/* Timeline dot + line */}
+                                          <div className="flex flex-col items-center shrink-0 pt-1">
+                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] ${st.bg}`}>
+                                              <span className={st.color}>{st.icon}</span>
+                                            </div>
+                                            {idx < group.events.length - 1 && <div className="w-px h-full min-h-[12px] bg-slate-700/40 mt-1" />}
+                                          </div>
+                                          {/* Content */}
+                                          <div className="flex-1 min-w-0 pt-0.5">
+                                            <div className="text-[11px] text-slate-200">{ev.title}</div>
+                                            {ev.detail && <div className="text-[10px] text-slate-500 mt-0.5">{ev.detail}</div>}
+                                          </div>
+                                          {/* Author */}
+                                          <div className="shrink-0 pt-0.5">
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${ev.author === 'auto' ? 'bg-slate-700/50 text-slate-500' : 'bg-slate-700/30 text-slate-400'}`}>
+                                              {ev.author === 'auto' ? 'auto' : ev.author.split(' ')[0]}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+
+                              {/* Summary */}
+                              <div className="mt-4 pt-3 border-t border-slate-700/50">
+                                <div className="text-[10px] text-slate-500 flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-slate-400">Summary:</span>
+                                  <span>{totalDays} days</span>
+                                  <span className="text-slate-700">·</span>
+                                  <span>{configChanges} config changes</span>
+                                  <span className="text-slate-700">·</span>
+                                  <span>{abTests} A/B tests</span>
+                                  <span className="text-slate-700">·</span>
+                                  <span>{mgrChanges} manager changes</span>
+                                  <span className="text-slate-700">·</span>
+                                  <span>{incidents} incidents</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                       </div>
                     </div>
