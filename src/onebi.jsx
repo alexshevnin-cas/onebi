@@ -241,6 +241,7 @@ export default function MetricTree() {
   const [historyPeriodFilter, setHistoryPeriodFilter] = useState('all');
   const [adminAppOverrides, setAdminAppOverrides] = useState({});
   const [adminSection, setAdminSection] = useState(null); // null = hub, 'apps' | 'mediation' | 'aso' | 'creatives' | 'networks' | 'users' | 'organizations' | ...
+  const [adminHubTab, setAdminHubTab] = useState('rbac'); // 'rbac' (RBAC: Users/Orgs/Imp/Audit/Templates) | 'tools' (Apps/Mediation/ASO/Creatives/Networks)
   // Users & Roles filters
   const [usersSearch, setUsersSearch] = useState('');
   const [usersFilterGroup, setUsersFilterGroup] = useState('all');
@@ -2310,8 +2311,45 @@ export default function MetricTree() {
             </div>
           ))}
 
-          {/* Separator + Admin (superadmin only) */}
+          {/* Separator + Internal Services & Admin (superadmin only) */}
           <div className="border-t border-slate-800 my-2"></div>
+
+          {/* Internal Services */}
+          <button
+            onClick={() => { setActiveNavItem('tools'); setAdminSection(null); }}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
+              activeNavItem === 'tools'
+                ? 'bg-blue-600/20 text-blue-400'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+            }`}
+            title={!navExpanded ? 'Internal Services' : undefined}
+          >
+            <span className="shrink-0 w-5 h-5 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><line x1="6.8" y1="6.8" x2="10.2" y2="10.2"/><line x1="17.2" y1="6.8" x2="13.8" y2="10.2"/><line x1="6.8" y1="17.2" x2="10.2" y2="13.8"/><line x1="17.2" y1="17.2" x2="13.8" y2="13.8"/></svg>
+            </span>
+            {navExpanded && <span>Internal Services</span>}
+          </button>
+          {activeNavItem === 'tools' && navExpanded && (
+            <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
+              {[
+                { id: 'apps', label: 'Apps Management' },
+                { id: 'mediation', label: 'Default Mediation' },
+                { id: 'aso', label: 'ASO' },
+                { id: 'creatives', label: 'Creatives' },
+                { id: 'networks', label: 'Networks' },
+              ].map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setAdminSection(s.id)}
+                  className={`text-left px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
+                    adminSection === s.id ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >{s.label}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Admin (RBAC) */}
           <button
             onClick={() => { setActiveNavItem('admin'); setAdminSection(null); }}
             className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
@@ -2326,15 +2364,9 @@ export default function MetricTree() {
             </span>
             {navExpanded && <span>Admin</span>}
           </button>
-          {/* Admin sub-navigation */}
           {activeNavItem === 'admin' && navExpanded && (
             <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
               {[
-                { id: 'apps', label: 'Apps Management' },
-                { id: 'mediation', label: 'Default Mediation' },
-                { id: 'aso', label: 'ASO' },
-                { id: 'creatives', label: 'Creatives' },
-                { id: 'networks', label: 'Networks' },
                 { id: 'users', label: 'Users & Roles' },
                 { id: 'organizations', label: 'Organizations' },
                 { id: 'impersonation', label: 'Impersonation' },
@@ -2418,11 +2450,24 @@ export default function MetricTree() {
                 <button onClick={() => setAdminSection(null)} className="text-slate-400 hover:text-slate-200 transition-colors">Admin</button>
                 <span className="text-slate-600">/</span>
                 <span className="text-slate-200 font-medium">{
-                  { apps: 'Apps Management', mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management', users: 'Users & Roles', organizations: 'Organizations & Assignments', impersonation: 'Impersonation', audit: 'Audit Log', templates: 'Role Templates' }[adminSection]
+                  { users: 'Users & Roles', organizations: 'Organizations & Assignments', impersonation: 'Impersonation', audit: 'Audit Log', templates: 'Role Templates' }[adminSection]
                 }</span>
               </span>
             ) : (
               <span className="text-slate-200 font-medium">Admin</span>
+            )
+          )}
+          {activeNavItem === 'tools' && (
+            adminSection ? (
+              <span className="flex items-center gap-2">
+                <button onClick={() => setAdminSection(null)} className="text-slate-400 hover:text-slate-200 transition-colors">Internal Services</button>
+                <span className="text-slate-600">/</span>
+                <span className="text-slate-200 font-medium">{
+                  { apps: 'Apps Management', mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management' }[adminSection]
+                }</span>
+              </span>
+            ) : (
+              <span className="text-slate-200 font-medium">Internal Services</span>
             )
           )}
           {activeNavItem === 'apps' && <span className="text-slate-200 font-medium">Applications</span>}
@@ -2526,8 +2571,8 @@ export default function MetricTree() {
       <div className="flex-1 min-w-0 p-6 overflow-y-auto">
       <div className="mx-auto max-w-screen-lg">
 
-        {/* ===== Admin Hub (tile grid) ===== */}
-        {activeNavItem === 'admin' && adminSection === null && (() => {
+        {/* ===== Admin / Internal Services Hub (tile grid) ===== */}
+        {(activeNavItem === 'admin' || activeNavItem === 'tools') && adminSection === null && (() => {
           const uniqueCustomers = new Set(adminApps.map(a => a.userId)).size;
           const operational = [
             {
@@ -2635,24 +2680,17 @@ export default function MetricTree() {
               </div>
             </button>
           );
+          const isAdmin = activeNavItem === 'admin';
           return (
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Internal Services и Configuration</span>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">{isAdmin ? 'Admin' : 'Internal Services'}</span>
+                  <span className="text-[10px] text-slate-500 ml-2">{isAdmin ? 'Roles, access and audit' : 'Operational services and configuration'}</span>
                 </div>
               </div>
-
-              {/* Group: Operational */}
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Operational</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                {operational.map(renderTile)}
-              </div>
-
-              {/* Group: Access & Governance */}
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Access & Governance</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {governance.map(renderTile)}
+                {(isAdmin ? governance : operational).map(renderTile)}
               </div>
             </>
           );
@@ -3494,8 +3532,8 @@ export default function MetricTree() {
           );
         })()}
 
-        {/* ===== Admin placeholder (in-development sections) ===== */}
-        {activeNavItem === 'admin' && adminSection && !['apps', 'users', 'organizations', 'impersonation', 'audit', 'templates'].includes(adminSection) && (() => {
+        {/* ===== Internal Services placeholder (in-development sections) ===== */}
+        {activeNavItem === 'tools' && adminSection && !['apps'].includes(adminSection) && (() => {
           const labels = { mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management' };
           return (
             <div className="bg-slate-800/30 border border-slate-800 rounded-xl p-12 flex flex-col items-center justify-center text-center">
@@ -3509,7 +3547,7 @@ export default function MetricTree() {
           );
         })()}
 
-        {activeNavItem === 'admin' && adminSection === 'apps' && (() => {
+        {activeNavItem === 'tools' && adminSection === 'apps' && (() => {
           // Filter apps with overrides applied
           const appsWithOverrides = adminApps.map(a => ({ ...a, ...(adminAppOverrides[a.bundleId] || {}) }));
 
