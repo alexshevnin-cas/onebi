@@ -1,8 +1,7 @@
 // Embeddable CAS mediation editor — extracted from the cas-configurator
-// AppEditor. The app is selected upstream (onebi Apps Management), so this
-// component is fully controlled: it takes the current AppConfig + onChange and
-// renders the Mediation / Global tabs. Save/Delete/Export and the Next.js/API
-// plumbing are intentionally dropped.
+// AppEditor. Controlled {app,onChange}; app selection, Save/Delete, Export and
+// the Next.js/API plumbing are intentionally dropped. All `dark:` variants are
+// kept so it renders in dark mode under a `.dark` ancestor (onebi is dark-only).
 
 import { useState } from "react";
 import {
@@ -53,7 +52,7 @@ export function MediationEditor({
   ).length;
 
   return (
-    <div className="space-y-5 text-neutral-900">
+    <div className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold">
@@ -67,7 +66,7 @@ export function MediationEditor({
         </div>
       </header>
 
-      <nav className="flex gap-1 border-b border-neutral-200">
+      <nav className="flex gap-1 border-b border-neutral-200 dark:border-neutral-800">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -75,7 +74,7 @@ export function MediationEditor({
             className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition ${
               tab === t.id
                 ? "border-blue-600 text-blue-600"
-                : "border-transparent text-neutral-500 hover:text-neutral-800"
+                : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
             }`}
           >
             {t.label}
@@ -201,7 +200,7 @@ function MediationTab({ app, onChange }: { app: AppConfig; onChange: (a: AppConf
             className={`rounded-full px-3 py-1 text-sm font-medium ${
               c === iso
                 ? "bg-blue-600 text-white"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300"
             }`}
           >
             {c}
@@ -220,7 +219,7 @@ function MediationTab({ app, onChange }: { app: AppConfig; onChange: (a: AppConf
       ) : (
         <>
           {/* A/B group bar */}
-          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2 dark:border-neutral-800 dark:bg-neutral-950/40">
             {groups!.length > 1 &&
               groups!.map((g, i) => (
                 <button
@@ -229,7 +228,7 @@ function MediationTab({ app, onChange }: { app: AppConfig; onChange: (a: AppConf
                   className={`rounded-full px-3 py-1 text-xs font-medium ${
                     i === gi
                       ? "bg-violet-600 text-white"
-                      : "bg-white text-neutral-600 hover:bg-neutral-100"
+                      : "bg-white text-neutral-600 hover:bg-neutral-100 dark:bg-neutral-900 dark:text-neutral-300"
                   }`}
                 >
                   {g.waterfallName ?? `Group ${String.fromCharCode(65 + i)}`} · {g.abTestWeight ?? 0}%
@@ -292,9 +291,9 @@ function MediationTab({ app, onChange }: { app: AppConfig; onChange: (a: AppConf
 
 // Visual accent per mediation lane (left border + pill colors).
 const LANE_PILL: Record<MediationLane, string> = {
-  max: "bg-violet-100 text-violet-700",
-  "cas-bid": "bg-emerald-100 text-emerald-700",
-  waterfall: "bg-amber-100 text-amber-700",
+  max: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  "cas-bid": "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  waterfall: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
 };
 const LANE_BORDER: Record<MediationLane, string> = {
   max: "border-l-2 border-l-violet-400",
@@ -378,16 +377,16 @@ function MediationGrid({
     const serves = unitFor(p, activeFmt) != null;
     const v = group.ecpm[activeFmt]?.[i] ?? ECPM_EXCLUDE;
     return (
-      <tr key={i} className={`border-b border-neutral-100 ${LANE_BORDER[lane]}`}>
+      <tr key={i} className={`border-b border-neutral-100 dark:border-neutral-900 ${LANE_BORDER[lane]}`}>
         <td className="py-1.5 pr-2 font-mono text-xs text-neutral-400">{i}</td>
         <td className="py-1.5 pr-3" style={{ paddingLeft: depth * 14 }}>
           <span className="font-medium">{p.net}</span>
           {p.label && <span className="ml-1 text-xs text-neutral-400">{p.label}</span>}
-          <span className="ml-1 text-xs text-neutral-300" title={sourceName(p.id, p.net)}>
+          <span className="ml-1 text-xs text-neutral-300 dark:text-neutral-600" title={sourceName(p.id, p.net)}>
             #{p.id}
           </span>
           {lane === "waterfall" && labelFloor != null && (
-            <span className="ml-1 text-xs text-amber-600" title="Floor decoded from label">
+            <span className="ml-1 text-xs text-amber-600 dark:text-amber-400" title="Floor decoded from label">
               ${labelFloor}
             </span>
           )}
@@ -403,11 +402,11 @@ function MediationGrid({
           ) : lane === "waterfall" ? (
             // Waterfall line that doesn't serve this format: show its decoded
             // floor (the tier price) instead of "n/a".
-            <span className="text-xs text-amber-600/70">
+            <span className="text-xs text-amber-600/70 dark:text-amber-400/60">
               {labelFloor != null ? labelFloor : "—"}
             </span>
           ) : (
-            <span className="text-xs text-neutral-300">—</span>
+            <span className="text-xs text-neutral-300 dark:text-neutral-700">—</span>
           )}
         </td>
         <td className="py-1.5 pr-3">
@@ -431,12 +430,12 @@ function MediationGrid({
     const isOpen = !collapsed.has(key);
     const bg =
       depth === 0
-        ? "bg-neutral-100"
+        ? "bg-neutral-100 dark:bg-neutral-800/70"
         : depth === 1
-          ? "bg-neutral-50"
+          ? "bg-neutral-50 dark:bg-neutral-900/60"
           : "bg-transparent";
     return (
-      <tr key={`h-${key}`} className={`${bg} border-b border-neutral-200`}>
+      <tr key={`h-${key}`} className={`${bg} border-b border-neutral-200 dark:border-neutral-800`}>
         <td colSpan={colSpan} className="py-2 pr-3">
           <div className="flex w-full items-center gap-2" style={{ paddingLeft: depth * 14 }}>
             <button type="button" onClick={() => toggle(key)} className="flex items-center gap-2 text-left">
@@ -454,7 +453,7 @@ function MediationGrid({
                 type="button"
                 onClick={() => onAddLine(lane)}
                 title={`Add a ${LANE_LABEL[lane]} ${lane === "waterfall" ? "waterfall floor" : "bidding"} line`}
-                className="ml-1 rounded px-1.5 py-0.5 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                className="ml-1 rounded px-1.5 py-0.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
               >
                 ＋
               </button>
@@ -476,8 +475,8 @@ function MediationGrid({
             onClick={() => setFmt(f)}
             className={`rounded-full px-3 py-1 text-sm font-medium ${
               f === activeFmt
-                ? "bg-neutral-800 text-white"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                ? "bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-900"
+                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300"
             }`}
           >
             {FORMAT_LABEL[f]}
@@ -488,7 +487,7 @@ function MediationGrid({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-400">
+            <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-400 dark:border-neutral-800">
               <th className="py-2 pr-2">#</th>
               <th className="py-2 pr-3">Source · floor</th>
               <th className="py-2 pr-3">{FORMAT_LABEL[activeFmt]} eCPM</th>
@@ -545,7 +544,7 @@ function EcpmCell({
         value={excluded ? "" : value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value === "" ? ECPM_EXCLUDE : Number(e.target.value))}
-        className="w-20 rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-sm disabled:bg-neutral-50 disabled:text-neutral-300"
+        className="w-20 rounded border border-neutral-300 bg-white px-1.5 py-0.5 text-sm disabled:bg-neutral-50 disabled:text-neutral-300 dark:border-neutral-700 dark:bg-neutral-950 dark:disabled:bg-neutral-900"
       />
       {!disabled && excluded && suggestion != null && (
         <button
@@ -627,7 +626,7 @@ function GlobalTab({ app, onChange }: { app: AppConfig; onChange: (a: AppConfig)
         <div className="max-h-[32rem] overflow-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-400">
+              <tr className="border-b border-neutral-200 text-left text-xs uppercase text-neutral-400 dark:border-neutral-800">
                 <th className="py-2 pr-2">#</th>
                 <th className="py-2 pr-3">Net</th>
                 <th className="py-2 pr-3">Label</th>
@@ -643,7 +642,7 @@ function GlobalTab({ app, onChange }: { app: AppConfig; onChange: (a: AppConfig)
                 const kind = providerKind(p);
                 const floor = kind === "floor" ? floorFromLabel(p.label) : null;
                 return (
-                  <tr key={i} className="border-b border-neutral-100">
+                  <tr key={i} className="border-b border-neutral-100 dark:border-neutral-900">
                     <td className="py-1.5 pr-2 font-mono text-xs text-neutral-400">{i}</td>
                     <td className="py-1.5 pr-3 font-medium">{p.net}</td>
                     <td className="py-1.5 pr-3 text-neutral-500">{p.label}</td>
@@ -676,7 +675,7 @@ function GlobalTab({ app, onChange }: { app: AppConfig; onChange: (a: AppConfig)
 }
 
 const selectClass =
-  "w-full rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-sm";
+  "w-full rounded-md border border-neutral-300 bg-white px-2.5 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950";
 
 const SORTED_SOURCES = [...CAS_SOURCES].sort((a, b) => a.name.localeCompare(b.name));
 const CUSTOM = "__custom__";
@@ -828,7 +827,7 @@ function AddLineForm({
   }
 
   return (
-    <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+    <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Field label="Provider">
           <select value={source} onChange={(e) => pickSource(e.target.value)} className={selectClass}>
@@ -892,7 +891,7 @@ function AddLineForm({
               key={k}
               type="button"
               onClick={() => addRow(k)}
-              className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] font-mono text-neutral-600 hover:bg-neutral-300"
+              className="rounded bg-neutral-200 px-1.5 py-0.5 text-[11px] font-mono text-neutral-600 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-300"
             >
               ＋{k}
             </button>
@@ -905,13 +904,13 @@ function AddLineForm({
                 value={r.key}
                 onChange={(e) => setRow(i, { key: e.target.value })}
                 placeholder="key (e.g. inter_unit)"
-                className="w-1/3 rounded border border-neutral-300 bg-white px-2 py-1 font-mono text-xs"
+                className="w-1/3 rounded border border-neutral-300 bg-white px-2 py-1 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-950"
               />
               <input
                 value={r.value}
                 onChange={(e) => setRow(i, { value: e.target.value })}
                 placeholder="value"
-                className="flex-1 rounded border border-neutral-300 bg-white px-2 py-1 text-xs"
+                className="flex-1 rounded border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950"
               />
               <button type="button" onClick={() => removeRow(i)} className="text-xs text-red-500 hover:underline">
                 ✕

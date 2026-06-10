@@ -4028,7 +4028,7 @@ export default function MetricTree() {
                           const cfg = casApps[selectedAppData.bundleId]
                             || seedAppConfig({ bundle: selectedAppData.bundleId, platform: selectedAppData.platform, appName: sd?.appName });
                           return (
-                            <div className="rounded-lg bg-white text-neutral-900 p-4">
+                            <div className="dark rounded-lg bg-neutral-950 text-neutral-100 p-4 border border-slate-700/40">
                               <MediationEditor
                                 app={cfg}
                                 onChange={(next) => setCasApps(prev => ({ ...prev, [selectedAppData.bundleId]: next }))}
