@@ -1,0 +1,1483 @@
+{
+  "bundle": "com.psv.drivex",
+  "platform": "android",
+  "appName": "DriveX",
+  "info": {
+    "sdk": 406300,
+    "adTypes": 6,
+    "appV": "0.96.1",
+    "appVC": 110,
+    "coppa": 2,
+    "gdpr": 3,
+    "ccpa": 3,
+    "orient": 3,
+    "bSize": 0,
+    "adIdS": 1,
+    "sdkFile": 1,
+    "framework": "Unity_2022.3.62f2",
+    "firebase": "drivecsx-385b3",
+    "appName": "DriveX",
+    "cmp": 300,
+    "gad": "ca-app-pub-1022958838828668~1291031401",
+    "prot": "7.11.0",
+    "installFrom": "com.android.vending",
+    "osmin": 24,
+    "ostrg": 35,
+    "sources": [
+      {
+        "code": 2,
+        "flags": 10351
+      },
+      {
+        "code": 9,
+        "flags": 11375
+      },
+      {
+        "code": 7,
+        "flags": 15399
+      },
+      {
+        "code": 8,
+        "flags": 14375
+      },
+      {
+        "code": 13,
+        "flags": 4199
+      },
+      {
+        "code": 49,
+        "flags": 1071
+      },
+      {
+        "code": 10,
+        "flags": 14447
+      },
+      {
+        "code": 4,
+        "flags": 11311
+      },
+      {
+        "code": 18,
+        "flags": 13351
+      },
+      {
+        "code": 19,
+        "flags": 11375
+      },
+      {
+        "code": 38,
+        "flags": 11375
+      },
+      {
+        "code": 50,
+        "flags": 10279
+      },
+      {
+        "code": 28,
+        "flags": 11375
+      },
+      {
+        "code": 30,
+        "flags": 11375
+      },
+      {
+        "code": 52,
+        "flags": 9255,
+        "ver": "1.2.9.1",
+        "sdk": "1.2.7"
+      },
+      {
+        "code": 62,
+        "flags": 1135
+      }
+    ],
+    "nets": "11011100111000110001100111010000",
+    "invalidSetup": 0
+  },
+  "global": {
+    "providers": [
+      {
+        "id": 2,
+        "net": "AdMob",
+        "label": "x1.10Bid",
+        "settings": {
+          "inter_rtb": "ca-app-pub-1022958838828668/7071370494",
+          "mediation": "max",
+          "reward_rtb": "ca-app-pub-1022958838828668/8192880476"
+        }
+      },
+      {
+        "id": 2,
+        "net": "AdMob",
+        "label": "x0.70",
+        "settings": {
+          "inter_AdUnit": "ca-app-pub-1022958838828668/4298130820"
+        }
+      },
+      {
+        "id": 2,
+        "net": "AdMob",
+        "label": "x2.50",
+        "settings": {
+          "inter_AdUnit": "ca-app-pub-1022958838828668/1819043815",
+          "reward_AdUnit": "ca-app-pub-1022958838828668/4664134353"
+        }
+      },
+      {
+        "id": 2,
+        "net": "AdMob",
+        "label": "x7.00",
+        "settings": {
+          "inter_AdUnit": "ca-app-pub-1022958838828668/3435377814"
+        }
+      },
+      {
+        "id": 2,
+        "net": "AdMob",
+        "label": "x4.00",
+        "settings": {
+          "inter_AdUnit": "ca-app-pub-1022958838828668/6061541156",
+          "reward_AdUnit": "ca-app-pub-1022958838828668/9617642789"
+        }
+      },
+      {
+        "id": 2,
+        "net": "AdMob",
+        "label": "x1.30",
+        "settings": {
+          "inter_AdUnit": "ca-app-pub-1022958838828668/4951639465"
+        }
+      },
+      {
+        "id": 52,
+        "net": "YsoNetwork",
+        "label": "MaxBid",
+        "settings": {
+          "inter_rtb": "BEhDmPMoUjkE",
+          "mediation": "max",
+          "reward_rtb": "HbmgXs2ZAolv"
+        }
+      },
+      {
+        "id": 29,
+        "net": "AppLovin",
+        "label": "Core",
+        "settings": {
+          "inter_Id": "2ad8ebaa598612a7",
+          "reward_Id": "2c79ab5835afab68"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "CasBid",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "inter_rtb": "I_BID-0725625",
+          "mediation": "cas",
+          "reward_rtb": "V_BID-1636995"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "09.50",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "inter_PlacementID": "INTER_12_00-5092163"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "03.50",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "reward_PlacementID": "REWARD_03_00-1219524"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "06.50",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "inter_PlacementID": "INTER_08_00-9010996"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "16.00",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "inter_PlacementID": "INTER_19_00-9323407"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "03.00",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "inter_PlacementID": "INTER_03_50-2441050"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "08.00",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "reward_PlacementID": "REWARD_06_50-9289800"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "12.00",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "reward_PlacementID": "REWARD_09_50-2345605"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "22.50",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "inter_PlacementID": "INTER_27_00-8414269"
+        }
+      },
+      {
+        "id": 9,
+        "net": "Vungle",
+        "label": "27.00",
+        "settings": {
+          "ApplicationID": "6760359e9e6ef0ac4dc6d216",
+          "AccountID": "5c657afed9e6e60012bab5d9",
+          "reward_PlacementID": "REWARD_22_50-3550639"
+        }
+      },
+      {
+        "id": 28,
+        "net": "Mintegral",
+        "label": "CasBid",
+        "settings": {
+          "appId": "340098",
+          "inter_placement": "1988438",
+          "apiKey": "702a2f322dd9bc99d0e6cdfd9d026115",
+          "inter_unit": "3952415",
+          "mediation": "cas",
+          "reward_placement": "1988440",
+          "reward_unit": "3952417"
+        }
+      },
+      {
+        "id": 38,
+        "net": "Bigo",
+        "label": "CasBid",
+        "settings": {
+          "inter_rtb": "10973989-10420878",
+          "appId": "10973989",
+          "mediation": "cas",
+          "reward_rtb": "10973989-10668200"
+        }
+      },
+      {
+        "id": 62,
+        "net": "Maticoo",
+        "label": "CasBid",
+        "settings": {
+          "mediation": "cas",
+          "inter_rtb": "1004103711",
+          "appId": "e265f42d3dbcc95542977a42b11e41ab3f5c0d643588cf84203bab185b552722",
+          "reward_rtb": "1004103657"
+        }
+      },
+      {
+        "id": 4,
+        "net": "InMobi",
+        "label": "CasBid",
+        "settings": {
+          "inter_rtb": "10000626273",
+          "AccountID": "3827b83fea2a45f68676baecd1cec7a1",
+          "mediation": "cas",
+          "reward_rtb": "10000626274"
+        }
+      },
+      {
+        "id": 50,
+        "net": "Ogury",
+        "label": "MaxBid",
+        "settings": {
+          "inter_rtb": "4512a2ee-8657-4ef2-b0fe-1a20f63a0da7",
+          "mediation": "max",
+          "AssetKey": "OGY-85C0F56D2985",
+          "reward_rtb": "6a574ffb-1cb7-4ce4-8fd5-b04e9deb3165"
+        }
+      },
+      {
+        "id": 49,
+        "net": "CASExchange",
+        "label": "Bid",
+        "settings": {
+          "inter_rtb": "test1",
+          "reward_rtb": "test1"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra10.30",
+        "settings": {
+          "inter_AdUnit": "/90851098,186431214/34065401/v733_android_interstitial_fp_010.30"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra02.06",
+        "settings": {
+          "inter_AdUnit": "/90851098,186431214/34065401/v733_android_interstitial_fp_002.06"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra04.15",
+        "settings": {
+          "inter_AdUnit": "/90851098,186431214/34065401/v733_android_interstitial_fp_004.15"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra36.50",
+        "settings": {
+          "reward_AdUnit": "/90851098,186431214/34065401/v733_android_rewarded_fp_036.50"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra08.80",
+        "settings": {
+          "reward_AdUnit": "/90851098,186431214/34065401/v733_android_rewarded_fp_008.80"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra20.55",
+        "settings": {
+          "reward_AdUnit": "/90851098,186431214/34065401/v733_android_rewarded_fp_020.55"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra51.85",
+        "settings": {
+          "reward_AdUnit": "/90851098,186431214/34065401/v733_android_rewarded_fp_051.85"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra06.50",
+        "settings": {
+          "reward_AdUnit": "/90851098,186431214/34065401/v733_android_rewarded_fp_006.50"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra10.00",
+        "settings": {
+          "reward_AdUnit": "/90851098,186431214/34065401/v733_android_rewarded_fp_010.00"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra20.00",
+        "settings": {
+          "inter_AdUnit": "/90851098,186431214/34065401/v733_android_interstitial_fp_020.00"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra40.00",
+        "settings": {
+          "inter_AdUnit": "/90851098,186431214/34065401/v733_android_interstitial_fp_040.00"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra04.10",
+        "settings": {
+          "reward_AdUnit": "/90851098,186431214/34065401/v733_android_rewarded_fp_004.10"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra12.50",
+        "settings": {
+          "reward_AdUnit": "/90851098,186431214/34065401/v733_android_rewarded_fp_012.50"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra08.25",
+        "settings": {
+          "inter_AdUnit": "/90851098,186431214/34065401/v733_android_interstitial_fp_008.25"
+        }
+      },
+      {
+        "id": 41,
+        "net": "AdMob",
+        "label": "ra03.03",
+        "settings": {
+          "inter_AdUnit": "/90851098,186431214/34065401/v733_android_interstitial_fp_003.03"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad03.00",
+        "settings": {
+          "inter_AdUnit": "/23195226677,186431214/jt_psv-cas_interstitial_fp3_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad04.10",
+        "settings": {
+          "inter_AdUnit": "/23195226677,186431214/jt_psv-cas_interstitial_fp4.1_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad02.93",
+        "settings": {
+          "reward_AdUnit": "/23195226677,186431214/jt_psv-cas_rewarded_fp2.93_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad07.22",
+        "settings": {
+          "reward_AdUnit": "/23195226677,186431214/jt_psv-cas_rewarded_fp7.22_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad11.93",
+        "settings": {
+          "reward_AdUnit": "/23195226677,186431214/jt_psv-cas_rewarded_fp11.93_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad33.05",
+        "settings": {
+          "inter_AdUnit": "/23195226677,186431214/jt_psv-cas_interstitial_fp33.05_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad19.89",
+        "settings": {
+          "reward_AdUnit": "/23195226677,186431214/jt_psv-cas_rewarded_fp19.89_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad01.20",
+        "settings": {
+          "inter_AdUnit": "/23195226677,186431214/jt_psv-cas_interstitial_fp1.2_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad05.40",
+        "settings": {
+          "reward_AdUnit": "/23195226677,186431214/jt_psv-cas_rewarded_fp5.4_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad05.70",
+        "settings": {
+          "inter_AdUnit": "/23195226677,186431214/jt_psv-cas_interstitial_fp5.7_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad02.18",
+        "settings": {
+          "inter_AdUnit": "/23195226677,186431214/jt_psv-cas_interstitial_fp2.18_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad13.00",
+        "settings": {
+          "inter_AdUnit": "/23195226677,186431214/jt_psv-cas_interstitial_fp13_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad35.00",
+        "settings": {
+          "reward_AdUnit": "/23195226677,186431214/jt_psv-cas_rewarded_fp35_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad26.00",
+        "settings": {
+          "reward_AdUnit": "/23195226677,186431214/jt_psv-cas_rewarded_fp26_set316"
+        }
+      },
+      {
+        "id": 54,
+        "net": "AdMob",
+        "label": "ad17.50",
+        "settings": {
+          "reward_AdUnit": "/23195226677,186431214/jt_psv-cas_rewarded_fp17.5_set316"
+        }
+      },
+      {
+        "id": 10,
+        "net": "Facebook",
+        "label": "x1.10Bid",
+        "settings": {
+          "mediation": "max",
+          "inter_PlacementID": "627850589678971_627851529678877",
+          "reward_PlacementID": "627850589678971_627851793012184"
+        }
+      },
+      {
+        "id": 19,
+        "net": "Yandex",
+        "label": "MaxBid",
+        "settings": {
+          "inter_rtb": "R-M-13557944-25",
+          "mediation": "max",
+          "reward_rtb": "R-M-13557944-26"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax05.70",
+        "settings": {
+          "reward_AdUnit": "/23104024203,186431214/adpixis_psv_rewarded_5.7_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax12.65",
+        "settings": {
+          "reward_AdUnit": "/23104024203,186431214/adpixis_psv_rewarded_12.65_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax01.26",
+        "settings": {
+          "inter_AdUnit": "/23104024203,186431214/adpixis_psv_interstitial_1.26_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax34.50",
+        "settings": {
+          "inter_AdUnit": "/23104024203,186431214/adpixis_psv_interstitial_34.5_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax07.48",
+        "settings": {
+          "inter_AdUnit": "/23104024203,186431214/adpixis_psv_interstitial_7.48_p244",
+          "reward_AdUnit": "/23104024203,186431214/adpixis_psv_rewarded_7.48_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax06.04",
+        "settings": {
+          "inter_AdUnit": "/23104024203,186431214/adpixis_psv_interstitial_6.04_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax13.80",
+        "settings": {
+          "inter_AdUnit": "/23104024203,186431214/adpixis_psv_interstitial_13.8_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax20.13",
+        "settings": {
+          "reward_AdUnit": "/23104024203,186431214/adpixis_psv_rewarded_20.13_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax27.03",
+        "settings": {
+          "reward_AdUnit": "/23104024203,186431214/adpixis_psv_rewarded_27.03_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax02.50",
+        "settings": {
+          "inter_AdUnit": "/23104024203,186431214/adpixis_psv_interstitial_2.5_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax01.15",
+        "settings": {
+          "reward_AdUnit": "/23104024203,186431214/adpixis_psv_rewarded_1.15_p244"
+        }
+      },
+      {
+        "id": 58,
+        "net": "AdMob",
+        "label": "ax03.10",
+        "settings": {
+          "inter_AdUnit": "/23104024203,186431214/adpixis_psv_interstitial_3.1_p244",
+          "reward_AdUnit": "/23104024203,186431214/adpixis_psv_rewarded_3.1_p244"
+        }
+      },
+      {
+        "id": 30,
+        "net": "Pangle",
+        "label": "CasBid",
+        "settings": {
+          "inter_rtb": "981739157",
+          "AccountID": "5015768",
+          "AppID": "8570113",
+          "mediation": "cas",
+          "reward_rtb": "981739168"
+        }
+      },
+      {
+        "id": 7,
+        "net": "Chartboost",
+        "label": "MaxBid",
+        "settings": {
+          "appId": "6777c1c715b12e08d5c3ba5b",
+          "signature": "46ef67f387d063e952da1bcfcf67961727f514bb",
+          "inter_rtb": "i_bid",
+          "mediation": "max",
+          "reward_rtb": "r_bid"
+        }
+      },
+      {
+        "id": 18,
+        "net": "IronSource",
+        "label": "MaxBid",
+        "settings": {
+          "inter_rtb": "px5xbqp8t74f46rn",
+          "appId": "20a13295d",
+          "mediation": "max",
+          "inter_instance_id": "23028767",
+          "reward_rtb": "mjn659je8wmgc1ih",
+          "reward_instance_id": "23028767"
+        }
+      },
+      {
+        "id": 8,
+        "net": "Unity",
+        "label": "MaxBid",
+        "settings": {
+          "GameID": "5767904",
+          "inter_rtb": "i_bid",
+          "mediation": "max",
+          "reward_rtb": "v_bid"
+        }
+      },
+      {
+        "id": 57,
+        "net": "Prado",
+        "label": "Default",
+        "settings": {
+          "AppID": "15504",
+          "Token": "fa5c8a07cd803937243f4356462af4a1"
+        }
+      },
+      {
+        "id": 11,
+        "net": "Kidoz",
+        "label": "Default",
+        "settings": {
+          "AppID": "11645",
+          "Token": "8mvGy08EWJtoUH6CtGjPFUlM2ELDCc1X"
+        }
+      }
+    ],
+    "admobAppId": "ca-app-pub-1022958838828668~1291031401",
+    "applovinAppId": "Nm6wZC6SKQRz3_uuqdoCIGUhMzPTbetzD0anq2Uk_HEuC2fUThA5vME1LKzc9_7e_NcSWLxbsZTOXvkPbRwouu",
+    "collectAnalytics": 4356,
+    "trackerCollect": 1023,
+    "privacyPref": 1,
+    "consentPlatform": 2,
+    "bannerRefresh": 5,
+    "appPublisherName": "PSV",
+    "appPublisherId": "208",
+    "allowEndless": 1,
+    "cancelNetLevel": 1,
+    "extra": {
+      "config": [
+        {
+          "id": 5,
+          "use_preload": 1
+        }
+      ]
+    }
+  },
+  "countries": {
+    "BR": [
+      {
+        "location": "BR",
+        "ecpm": {
+          "inter": [
+            2.796,
+            1.784,
+            6.355,
+            19.448,
+            10.347,
+            3.37,
+            1,
+            1,
+            1,
+            9.5,
+            -1,
+            6.5,
+            16,
+            3,
+            -1,
+            -1,
+            22.5,
+            -1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            2.06,
+            4.15,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            3.03,
+            3,
+            4.1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            1.2,
+            -1,
+            5.7,
+            2.18,
+            -1,
+            -1,
+            -1,
+            -1,
+            3.073,
+            -1,
+            -1,
+            -1,
+            1.26,
+            -1,
+            7.48,
+            6.04,
+            -1,
+            -1,
+            -1,
+            2.5,
+            -1,
+            3.1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            -1
+          ],
+          "reward": [
+            3.474,
+            -1,
+            8.284,
+            -1,
+            15.681,
+            -1,
+            1,
+            1,
+            1,
+            -1,
+            3.5,
+            -1,
+            -1,
+            -1,
+            8,
+            12,
+            -1,
+            27,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            -1,
+            -1,
+            -1,
+            8.8,
+            -1,
+            -1,
+            6.5,
+            -1,
+            -1,
+            -1,
+            4.1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            2.93,
+            7.22,
+            -1,
+            -1,
+            -1,
+            -1,
+            5.4,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            4.185,
+            -1,
+            5.7,
+            -1,
+            -1,
+            -1,
+            7.48,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            1.15,
+            3.1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            -1
+          ]
+        },
+        "order": {
+          "inter": [
+            16,
+            3,
+            12,
+            4,
+            9,
+            60,
+            11,
+            2,
+            61,
+            48,
+            26,
+            40,
+            5,
+            67,
+            54,
+            38,
+            39,
+            13,
+            0,
+            65,
+            49,
+            25,
+            1,
+            58,
+            46,
+            7,
+            20,
+            21,
+            18,
+            23,
+            68,
+            8,
+            19,
+            22,
+            6,
+            69,
+            71,
+            70
+          ],
+          "reward": [
+            17,
+            4,
+            15,
+            28,
+            2,
+            14,
+            60,
+            42,
+            31,
+            56,
+            47,
+            54,
+            35,
+            10,
+            0,
+            67,
+            41,
+            66,
+            70,
+            71,
+            69,
+            6,
+            22,
+            19,
+            8,
+            68,
+            23,
+            18,
+            21,
+            20,
+            7
+          ]
+        },
+        "priority": {
+          "0": 1,
+          "19": 1,
+          "68": 1
+        }
+      }
+    ],
+    "RU": [
+      {
+        "location": "RU",
+        "ecpm": {
+          "inter": [
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            1,
+            1,
+            1,
+            9.5,
+            -1,
+            6.5,
+            16,
+            3,
+            -1,
+            -1,
+            22.5,
+            -1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            4.392,
+            0.96,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            1,
+            -1,
+            1,
+            1,
+            -1,
+            -1
+          ],
+          "reward": [
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            1,
+            1,
+            1,
+            -1,
+            3.5,
+            -1,
+            -1,
+            -1,
+            8,
+            12,
+            -1,
+            27,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            3.881,
+            0.96,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            1,
+            -1,
+            1,
+            1,
+            -1,
+            -1
+          ]
+        },
+        "order": {
+          "inter": [
+            16,
+            12,
+            9,
+            11,
+            54,
+            13,
+            23,
+            70,
+            71,
+            6,
+            22,
+            19,
+            8,
+            68,
+            18,
+            21,
+            20,
+            7,
+            55
+          ],
+          "reward": [
+            17,
+            15,
+            14,
+            54,
+            10,
+            23,
+            70,
+            71,
+            6,
+            22,
+            19,
+            8,
+            68,
+            18,
+            21,
+            20,
+            7,
+            55
+          ]
+        },
+        "priority": {
+          "7": 1,
+          "19": 1,
+          "55": 1,
+          "71": 1
+        }
+      }
+    ],
+    "US": [
+      {
+        "location": "US",
+        "ecpm": {
+          "inter": [
+            18.716,
+            13.031,
+            46.519,
+            161.886,
+            75.839,
+            23.851,
+            1,
+            1,
+            1,
+            9.5,
+            -1,
+            6.5,
+            16,
+            3,
+            -1,
+            -1,
+            22.5,
+            -1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            10.3,
+            -1,
+            4.15,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            20,
+            40,
+            -1,
+            -1,
+            8.25,
+            -1,
+            -1,
+            4.1,
+            -1,
+            -1,
+            -1,
+            33.05,
+            -1,
+            -1,
+            -1,
+            5.7,
+            -1,
+            13,
+            -1,
+            -1,
+            -1,
+            19.284,
+            -1,
+            -1,
+            -1,
+            -1,
+            34.5,
+            7.48,
+            6.04,
+            13.8,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            -1
+          ],
+          "reward": [
+            27.702,
+            -1,
+            73.389,
+            -1,
+            112.375,
+            -1,
+            1,
+            1,
+            1,
+            -1,
+            3.5,
+            -1,
+            -1,
+            -1,
+            8,
+            12,
+            -1,
+            27,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            -1,
+            -1,
+            36.5,
+            8.8,
+            20.55,
+            51.85,
+            6.5,
+            10,
+            -1,
+            -1,
+            -1,
+            12.5,
+            -1,
+            -1,
+            -1,
+            -1,
+            -1,
+            7.22,
+            11.93,
+            -1,
+            19.89,
+            -1,
+            5.4,
+            -1,
+            -1,
+            -1,
+            35,
+            26,
+            17.5,
+            29.219,
+            -1,
+            5.7,
+            12.65,
+            -1,
+            -1,
+            7.48,
+            -1,
+            -1,
+            20.13,
+            27.03,
+            -1,
+            -1,
+            -1,
+            1,
+            1,
+            1,
+            1,
+            -1,
+            -1
+          ]
+        },
+        "order": {
+          "inter": [
+            3,
+            4,
+            2,
+            34,
+            59,
+            44,
+            5,
+            16,
+            33,
+            54,
+            0,
+            12,
+            62,
+            1,
+            50,
+            24,
+            9,
+            37,
+            60,
+            11,
+            61,
+            48,
+            26,
+            40,
+            13,
+            7,
+            23,
+            20,
+            21,
+            18,
+            68,
+            8,
+            19,
+            22,
+            6,
+            70,
+            71,
+            69
+          ],
+          "reward": [
+            4,
+            2,
+            30,
+            27,
+            51,
+            54,
+            0,
+            64,
+            17,
+            52,
+            29,
+            63,
+            45,
+            53,
+            57,
+            36,
+            15,
+            43,
+            32,
+            28,
+            14,
+            60,
+            42,
+            31,
+            56,
+            47,
+            10,
+            70,
+            71,
+            69,
+            6,
+            22,
+            19,
+            8,
+            68,
+            23,
+            18,
+            21,
+            20,
+            7
+          ]
+        },
+        "priority": {
+          "0": 1,
+          "7": 1,
+          "54": 1,
+          "68": 1
+        }
+      }
+    ]
+  },
+  "updatedAt": 1780497041475
+}

@@ -2,6 +2,8 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { adminManagers, adminCustomersInitial, adminApps } from './adminData.js';
 import { storeData } from './storeData.js';
+import { MediationEditor } from './cas/MediationEditor.tsx';
+import { seedAppConfig } from './cas/seed.js';
 
 export default function MetricTree() {
   const [activeScreen, setActiveScreen] = useState('quickview'); // quickview, reports, glossary
@@ -246,6 +248,7 @@ export default function MetricTree() {
   const [medGroup, setMedGroup] = useState('control');
   const [medConfig, setMedConfig] = useState({}); // keyed `${bundleId}|${format}|${country}|${group}` -> { bidding:[], floors:[] }
   const [medMeta, setMedMeta] = useState({}); // keyed bundleId -> { countries:[], groups:[] }
+  const [casApps, setCasApps] = useState({}); // bundleId -> AppConfig for the embedded cas-configurator
   const [adminAppOverrides, setAdminAppOverrides] = useState({});
   const [adminSection, setAdminSection] = useState(null); // null = hub, 'apps' | 'mediation' | 'aso' | 'creatives' | 'networks' | 'users' | 'organizations' | ...
   const [adminHubTab, setAdminHubTab] = useState('rbac'); // 'rbac' (RBAC: Users/Orgs/Imp/Audit/Templates) | 'tools' (Apps/Mediation/ASO/Creatives/Networks)
@@ -4018,278 +4021,21 @@ export default function MetricTree() {
                           </div>
                         )}
 
-                        {adminAppTab === 'mediation' && (
-                          <div className="space-y-4 text-slate-300">
-                            {/* Sub-header: summary + actions */}
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="text-[11px] text-slate-500 font-mono truncate">
-                                {medBundle}
-                                <span className="text-slate-600"> · </span>{medBiddingCount} bidding
-                                <span className="text-slate-600"> · </span>{medFloorCount} floor lines
-                                <span className="text-slate-600"> · </span>{medMetaFor.countries.length} countries
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button className="px-3 py-1.5 text-[11px] text-slate-400 hover:text-red-300 transition-colors">Delete</button>
-                                <button className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-[11px] text-white font-medium transition-colors">Save</button>
-                              </div>
+                        {adminAppTab === 'mediation' && (() => {
+                          // Embedded cas-configurator. The app is chosen upstream
+                          // (Apps Management); we seed each app from our DriveX
+                          // sample and keep edits per-bundle for the session.
+                          const cfg = casApps[selectedAppData.bundleId]
+                            || seedAppConfig({ bundle: selectedAppData.bundleId, platform: selectedAppData.platform, appName: sd?.appName });
+                          return (
+                            <div className="rounded-lg bg-white text-neutral-900 p-4">
+                              <MediationEditor
+                                app={cfg}
+                                onChange={(next) => setCasApps(prev => ({ ...prev, [selectedAppData.bundleId]: next }))}
+                              />
                             </div>
-
-                            {/* Sub-tabs */}
-                            <div className="flex gap-4 border-b border-slate-700/50">
-                              {[['mediation', 'Mediation'], ['global', 'Global'], ['export', 'Export']].map(([id, label]) => (
-                                <button key={id} onClick={() => setMedSubTab(id)}
-                                  className={`pb-2 -mb-px text-[11px] font-medium border-b-2 transition-colors ${
-                                    medSubTab === id ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'
-                                  }`}>{label}</button>
-                              ))}
-                            </div>
-
-                            {medSubTab === 'mediation' && (
-                              <div className="space-y-4">
-                                <div>
-                                  <div className="text-sm font-semibold text-slate-100">Mediation</div>
-                                  <div className="text-[11px] text-slate-500 mt-0.5">Per format: bidding networks (auction) and floor lines (waterfall). Prices are per country &amp; A/B group.</div>
-                                </div>
-
-                                {/* Format selector */}
-                                <div className="flex gap-1.5 flex-wrap">
-                                  {MED_FORMATS.map(([id, label]) => (
-                                    <button key={id} onClick={() => setMedFormat(id)}
-                                      className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
-                                        medFormat === id ? 'bg-slate-100 text-slate-900' : 'bg-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-700/70'
-                                      }`}>{label}</button>
-                                  ))}
-                                </div>
-
-                                {/* Country & A/B group selector */}
-                                <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-3 space-y-3">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mr-1">Country</span>
-                                    {medMetaFor.countries.map(c => (
-                                      <span key={c} className={`group/c flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors ${
-                                        curCountry === c ? 'bg-blue-600 text-white' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'
-                                      }`}>
-                                        <span onClick={() => setMedCountry(c)}>{c}</span>
-                                        {medMetaFor.countries.length > 1 && (
-                                          <button onClick={() => medSetMeta(m => ({ ...m, countries: m.countries.filter(x => x !== c) }))}
-                                            className="opacity-50 hover:opacity-100 leading-none">
-                                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                                          </button>
-                                        )}
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <input placeholder="ISO2" maxLength={2}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        const v = e.target.value.trim().toUpperCase();
-                                        if (v.length === 2 && !medMetaFor.countries.includes(v)) {
-                                          medSetMeta(m => ({ ...m, countries: [...m.countries, v] }));
-                                          setMedCountry(v);
-                                        }
-                                        e.target.value = '';
-                                      }
-                                    }}
-                                    className="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-[11px] text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500" />
-                                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                                    <button onClick={() => { const el = document.querySelector('input[placeholder="ISO2"]'); el && el.focus(); }}
-                                      className="px-2.5 py-1 rounded-lg text-[11px] text-slate-400 bg-slate-800 hover:bg-slate-700/70 transition-colors">+ Country</button>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-[10px] text-slate-500 uppercase tracking-wider">Group</span>
-                                      {medMetaFor.groups.map(g => (
-                                        <span key={g} className={`group/g flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] font-medium cursor-pointer transition-colors ${
-                                          curGroup === g ? 'bg-purple-600 text-white' : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'
-                                        }`}>
-                                          <span onClick={() => setMedGroup(g)}>{g}</span>
-                                          {medMetaFor.groups.length > 1 && (
-                                            <button onClick={() => medSetMeta(m => ({ ...m, groups: m.groups.filter(x => x !== g) }))}
-                                              className="opacity-50 hover:opacity-100 leading-none">
-                                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                                            </button>
-                                          )}
-                                        </span>
-                                      ))}
-                                      <button onClick={() => medSetMeta(m => {
-                                        const names = ['control', 'test', 'holdout', 'variant_d', 'variant_e'];
-                                        const next = names[m.groups.length] || `group_${m.groups.length + 1}`;
-                                        return { ...m, groups: [...m.groups, next] };
-                                      })} className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors">+ A/B group</button>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Bidding */}
-                                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-                                  <div className="flex items-center justify-between gap-3 mb-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[12px] font-semibold text-slate-100">⚡ Bidding</span>
-                                      <span className="text-[10px] text-slate-500 bg-slate-800/70 border border-slate-700 rounded px-1.5 py-0.5">real-time auction · no floor</span>
-                                    </div>
-                                    <select value="" onChange={(e) => {
-                                      const code = e.target.value; if (!code) return;
-                                      const net = MED_NETWORKS.find(n => n.code === code); const fc = MED_FMT_CODE[medFormat];
-                                      medSet(medFormat, curCountry, curGroup, c => ({ ...c, bidding: [...c.bidding, { id: 'b' + Date.now(), network: net.name, adUnit: `${code}-${fc}-rtb`, floor: '0' }] }));
-                                      e.target.value = '';
-                                    }} className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
-                                      <option value="">+ Add bidding network</option>
-                                      {MED_NETWORKS.map(n => <option key={n.code} value={n.code}>{n.name}</option>)}
-                                    </select>
-                                  </div>
-                                  {medCur.bidding.length === 0 ? (
-                                    <div className="text-[11px] text-slate-600 py-2">No bidding networks for this format.</div>
-                                  ) : (
-                                    <table className="w-full text-[11px]">
-                                      <thead>
-                                        <tr className="text-slate-500">
-                                          <th className="text-left font-medium pb-1.5">Network</th>
-                                          <th className="text-left font-medium pb-1.5 w-44">RTB ad unit id</th>
-                                          <th className="text-left font-medium pb-1.5 w-32">Bid floor</th>
-                                          <th className="w-8"></th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {medCur.bidding.map(b => (
-                                          <tr key={b.id}>
-                                            <td className="py-1 pr-3 text-slate-300">{b.network}</td>
-                                            <td className="py-1 pr-3">
-                                              <input value={b.adUnit} onChange={(e) => medSet(medFormat, curCountry, curGroup, c => ({ ...c, bidding: c.bidding.map(x => x.id === b.id ? { ...x, adUnit: e.target.value } : x) }))}
-                                                className="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono focus:outline-none focus:border-blue-500" />
-                                            </td>
-                                            <td className="py-1 pr-3">
-                                              <input value={b.floor} onChange={(e) => medSet(medFormat, curCountry, curGroup, c => ({ ...c, bidding: c.bidding.map(x => x.id === b.id ? { ...x, floor: e.target.value } : x) }))}
-                                                className="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-blue-500" />
-                                            </td>
-                                            <td className="py-1 text-center">
-                                              <button onClick={() => medSet(medFormat, curCountry, curGroup, c => ({ ...c, bidding: c.bidding.filter(x => x.id !== b.id) }))}
-                                                className="text-slate-600 hover:text-red-400 transition-colors">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                                              </button>
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  )}
-                                </div>
-
-                                {/* Floors / Waterfall */}
-                                <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-3">
-                                  <div className="flex items-center justify-between gap-3 mb-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[12px] font-semibold text-slate-100">📊 Floors / Waterfall</span>
-                                      <span className="text-[10px] text-slate-500 bg-slate-800/70 border border-slate-700 rounded px-1.5 py-0.5">sorted by eCPM · {curCountry}</span>
-                                    </div>
-                                    <select value="" onChange={(e) => {
-                                      const code = e.target.value; if (!code) return;
-                                      const net = MED_NETWORKS.find(n => n.code === code); const fc = MED_FMT_CODE[medFormat];
-                                      medSet(medFormat, curCountry, curGroup, c => ({ ...c, floors: [...c.floors, { id: 'f' + Date.now(), network: net.name, label: '', adUnit: `${code}-${fc}`, ecpm: '', prio: false }] }));
-                                      e.target.value = '';
-                                    }} className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
-                                      <option value="">+ Add floor line</option>
-                                      {MED_NETWORKS.map(n => <option key={n.code} value={n.code}>{n.name}</option>)}
-                                    </select>
-                                  </div>
-                                  {medCur.floors.length === 0 ? (
-                                    <div className="text-[11px] text-slate-600 py-2">No floor lines for this format.</div>
-                                  ) : (
-                                    <table className="w-full text-[11px]">
-                                      <thead>
-                                        <tr className="text-slate-500">
-                                          <th className="text-left font-medium pb-1.5 w-6">#</th>
-                                          <th className="text-left font-medium pb-1.5">Network / label</th>
-                                          <th className="text-left font-medium pb-1.5 w-44">Floor ad unit id</th>
-                                          <th className="text-left font-medium pb-1.5 w-24">eCPM $</th>
-                                          <th className="text-center font-medium pb-1.5 w-12">Prio</th>
-                                          <th className="w-8"></th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {medFloorsSorted.map((f, i) => (
-                                          <tr key={f.id}>
-                                            <td className="py-1 pr-2 text-slate-500">{i + 1}</td>
-                                            <td className="py-1 pr-3">
-                                              <div className="text-slate-300">{f.network}</div>
-                                              <input value={f.label} placeholder="label (tier)" onChange={(e) => medSet(medFormat, curCountry, curGroup, c => ({ ...c, floors: c.floors.map(x => x.id === f.id ? { ...x, label: e.target.value } : x) }))}
-                                                className="w-full bg-transparent text-[10px] text-slate-500 placeholder-slate-600 focus:outline-none focus:text-slate-300" />
-                                            </td>
-                                            <td className="py-1 pr-3">
-                                              <input value={f.adUnit} onChange={(e) => medSet(medFormat, curCountry, curGroup, c => ({ ...c, floors: c.floors.map(x => x.id === f.id ? { ...x, adUnit: e.target.value } : x) }))}
-                                                className="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono focus:outline-none focus:border-blue-500" />
-                                            </td>
-                                            <td className="py-1 pr-3">
-                                              <input value={f.ecpm} placeholder="—1" onChange={(e) => medSet(medFormat, curCountry, curGroup, c => ({ ...c, floors: c.floors.map(x => x.id === f.id ? { ...x, ecpm: e.target.value } : x) }))}
-                                                className="w-full bg-slate-900/60 border border-slate-700 rounded px-2 py-1 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500" />
-                                            </td>
-                                            <td className="py-1 text-center">
-                                              <input type="checkbox" checked={!!f.prio} onChange={(e) => medSet(medFormat, curCountry, curGroup, c => ({ ...c, floors: c.floors.map(x => x.id === f.id ? { ...x, prio: e.target.checked } : x) }))}
-                                                className="accent-blue-600 cursor-pointer" />
-                                            </td>
-                                            <td className="py-1 text-center">
-                                              <button onClick={() => medSet(medFormat, curCountry, curGroup, c => ({ ...c, floors: c.floors.filter(x => x.id !== f.id) }))}
-                                                className="text-slate-600 hover:text-red-400 transition-colors">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                                              </button>
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  )}
-                                  <div className="text-[10px] text-slate-600 mt-3">Empty eCPM = excluded for this format (–1). Prices are per country; round to 0.##.</div>
-                                </div>
-                              </div>
-                            )}
-
-                            {medSubTab === 'global' && (
-                              <div className="space-y-3">
-                                <div className="text-[11px] text-slate-500">Global mediation settings — apply across all formats and countries.</div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <F label="Mediation server" val={fakeMediation ? 'CAS Cloud' : 'Off'} />
-                                  <F label="Bidding timeout, ms" val="3000" />
-                                  <F label="Banner refresh, сек" val={String(fakeBannerRefresh)} />
-                                  <F label="Inter delay, сек" val={String(fakeInterDelay)} />
-                                  <F label="Default A/B split" val="control 50% / test 50%" />
-                                  <F label="Auto-optimization" val={(h % 2) ? 'eCPM' : 'Revenue'} />
-                                </div>
-                                <div className="flex flex-wrap gap-4 pt-1">
-                                  <Chk label="GDPR consent" checked={true} />
-                                  <Chk label="CCPA" checked={(h % 2) === 0} />
-                                  <Chk label="COPPA / child-directed" checked={false} />
-                                  <Chk label="Test mode" checked={false} />
-                                </div>
-                              </div>
-                            )}
-
-                            {medSubTab === 'export' && (() => {
-                              const medExport = {
-                                bundleId: medBundle,
-                                platform: selectedAppData.platform,
-                                countries: medMetaFor.countries,
-                                groups: medMetaFor.groups,
-                                format: medFormat,
-                                country: curCountry,
-                                group: curGroup,
-                                bidding: medCur.bidding.map(b => ({ network: b.network, adUnitId: b.adUnit, bidFloor: Number(b.floor) || 0 })),
-                                waterfall: medFloorsSorted.map((f, i) => ({
-                                  order: i + 1, network: f.network, label: f.label || null, adUnitId: f.adUnit,
-                                  ecpm: f.ecpm === '' ? -1 : Number(String(f.ecpm).replace(',', '.')), prio: !!f.prio,
-                                })),
-                              };
-                              return (
-                                <div className="space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <div className="text-[11px] text-slate-500">Config preview for <span className="font-mono text-slate-400">{medFormat} · {curCountry} · {curGroup}</span></div>
-                                    <div className="flex gap-1.5">
-                                      <button className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[11px] text-slate-300 hover:bg-slate-700 transition-colors">Copy JSON</button>
-                                      <button className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-[11px] text-slate-300 hover:bg-slate-700 transition-colors">Download</button>
-                                    </div>
-                                  </div>
-                                  <pre className="bg-slate-950/70 border border-slate-700 rounded-lg p-3 text-[10px] leading-relaxed text-slate-300 font-mono overflow-x-auto max-h-80 overflow-y-auto">{JSON.stringify(medExport, null, 2)}</pre>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         {adminAppTab === 'history' && (() => {
                           // Generate deterministic history events across app's entire lifetime
