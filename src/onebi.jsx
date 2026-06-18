@@ -4,6 +4,8 @@ import { adminManagers, adminCustomersInitial, adminApps } from './adminData.js'
 import { storeData } from './storeData.js';
 import { MediationEditor } from './cas/MediationEditor.tsx';
 import { seedAppConfig } from './cas/seed.js';
+import { TechRadar } from './tech/TechRadar.jsx';
+import { radarData } from './tech/radarData.js';
 
 export default function MetricTree() {
   const [activeScreen, setActiveScreen] = useState('quickview'); // quickview, reports, glossary
@@ -250,7 +252,8 @@ export default function MetricTree() {
   const [medMeta, setMedMeta] = useState({}); // keyed bundleId -> { countries:[], groups:[] }
   const [casApps, setCasApps] = useState({}); // bundleId -> AppConfig for the embedded cas-configurator
   const [adminAppOverrides, setAdminAppOverrides] = useState({});
-  const [adminSection, setAdminSection] = useState(null); // null = hub, 'apps' | 'mediation' | 'aso' | 'creatives' | 'networks' | 'users' | 'organizations' | ...
+  const [adminSection, setAdminSection] = useState(null); // null = hub, 'apps' | 'mediation' | 'aso' | 'creatives' | 'networks' | 'tech' | 'users' | 'organizations' | ...
+  const [techZone, setTechZone] = useState(null); // within Internal Services → Tech: null = zone hub, 'radar' = Tech Radar
   const [adminHubTab, setAdminHubTab] = useState('rbac'); // 'rbac' (RBAC: Users/Orgs/Imp/Audit/Templates) | 'tools' (Apps/Mediation/ASO/Creatives/Networks)
   // Users & Roles filters
   const [usersSearch, setUsersSearch] = useState('');
@@ -2326,7 +2329,7 @@ export default function MetricTree() {
 
           {/* Internal Services */}
           <button
-            onClick={() => { setActiveNavItem('tools'); setAdminSection(null); }}
+            onClick={() => { setActiveNavItem('tools'); setAdminSection(null); setTechZone(null); }}
             className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
               activeNavItem === 'tools'
                 ? 'bg-blue-600/20 text-blue-400'
@@ -2347,10 +2350,11 @@ export default function MetricTree() {
                 { id: 'aso', label: 'ASO' },
                 { id: 'creatives', label: 'Creatives' },
                 { id: 'networks', label: 'Networks' },
+                { id: 'tech', label: 'Tech' },
               ].map(s => (
                 <button
                   key={s.id}
-                  onClick={() => setAdminSection(s.id)}
+                  onClick={() => { setAdminSection(s.id); setTechZone(null); }}
                   className={`text-left px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
                     adminSection === s.id ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
                   }`}
@@ -2385,7 +2389,7 @@ export default function MetricTree() {
               ].map(s => (
                 <button
                   key={s.id}
-                  onClick={() => setAdminSection(s.id)}
+                  onClick={() => { setAdminSection(s.id); setTechZone(null); }}
                   className={`text-left px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
                     adminSection === s.id ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
                   }`}
@@ -2470,11 +2474,19 @@ export default function MetricTree() {
           {activeNavItem === 'tools' && (
             adminSection ? (
               <span className="flex items-center gap-2">
-                <button onClick={() => setAdminSection(null)} className="text-slate-400 hover:text-slate-200 transition-colors">Internal Services</button>
+                <button onClick={() => { setAdminSection(null); setTechZone(null); }} className="text-slate-400 hover:text-slate-200 transition-colors">Internal Services</button>
                 <span className="text-slate-600">/</span>
-                <span className="text-slate-200 font-medium">{
-                  { apps: 'Apps Management', mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management' }[adminSection]
-                }</span>
+                {adminSection === 'tech' && techZone ? (
+                  <>
+                    <button onClick={() => setTechZone(null)} className="text-slate-400 hover:text-slate-200 transition-colors">Tech</button>
+                    <span className="text-slate-600">/</span>
+                    <span className="text-slate-200 font-medium">{ { radar: 'Tech Radar' }[techZone] }</span>
+                  </>
+                ) : (
+                  <span className="text-slate-200 font-medium">{
+                    { apps: 'Apps Management', mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management', tech: 'Tech' }[adminSection]
+                  }</span>
+                )}
               </span>
             ) : (
               <span className="text-slate-200 font-medium">Internal Services</span>
@@ -2625,6 +2637,14 @@ export default function MetricTree() {
               ready: false,
               icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M9.5 9.5L6.5 6.5M14.5 9.5l3-3M9.5 14.5l-3 3M14.5 14.5l3 3"/></svg>,
             },
+            {
+              id: 'tech',
+              title: 'Tech',
+              desc: 'Tech team services',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>,
+            },
           ];
           const governance = [
             {
@@ -2671,7 +2691,7 @@ export default function MetricTree() {
           const renderTile = (t) => (
             <button
               key={t.id}
-              onClick={() => setAdminSection(t.id)}
+              onClick={() => { setAdminSection(t.id); setTechZone(null); }}
               className={`text-left p-4 rounded-xl border transition-colors flex flex-col gap-3 min-h-[150px] ${
                 t.ready
                   ? 'bg-slate-800/50 border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 cursor-pointer'
@@ -2690,17 +2710,20 @@ export default function MetricTree() {
               </div>
             </button>
           );
-          const isAdmin = activeNavItem === 'admin';
+          const hubMeta = {
+            admin: { title: 'Admin', subtitle: 'Roles, access and audit', tiles: governance },
+            tools: { title: 'Internal Services', subtitle: 'Operational services and configuration', tiles: operational },
+          }[activeNavItem];
           return (
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">{isAdmin ? 'Admin' : 'Internal Services'}</span>
-                  <span className="text-[10px] text-slate-500 ml-2">{isAdmin ? 'Roles, access and audit' : 'Operational services and configuration'}</span>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">{hubMeta.title}</span>
+                  <span className="text-[10px] text-slate-500 ml-2">{hubMeta.subtitle}</span>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {(isAdmin ? governance : operational).map(renderTile)}
+                {hubMeta.tiles.map(renderTile)}
               </div>
             </>
           );
@@ -3543,7 +3566,7 @@ export default function MetricTree() {
         })()}
 
         {/* ===== Internal Services placeholder (in-development sections) ===== */}
-        {activeNavItem === 'tools' && adminSection && !['apps'].includes(adminSection) && (() => {
+        {activeNavItem === 'tools' && adminSection && !['apps', 'tech'].includes(adminSection) && (() => {
           const labels = { mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management' };
           return (
             <div className="bg-slate-800/30 border border-slate-800 rounded-xl p-12 flex flex-col items-center justify-center text-center">
@@ -3556,6 +3579,75 @@ export default function MetricTree() {
             </div>
           );
         })()}
+
+        {/* ===== Tech (zone hub inside Internal Services) ===== */}
+        {activeNavItem === 'tools' && adminSection === 'tech' && techZone === null && (() => {
+          const zones = [
+            {
+              id: 'radar',
+              title: 'Tech Radar',
+              desc: 'Technologies the teams adopt, trial, assess and hold',
+              stat: `${radarData.entries.length} technologies · ${radarData.teams.length} teams`,
+              ready: true,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+            },
+            {
+              id: 'stack',
+              title: 'Stack Inventory',
+              desc: 'Services, languages and versions in production',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>,
+            },
+            {
+              id: 'runbooks',
+              title: 'Runbooks',
+              desc: 'On-call procedures, incident playbooks and escalation',
+              stat: 'In development',
+              ready: false,
+              icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>,
+            },
+          ];
+          return (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Tech</span>
+                  <span className="text-[10px] text-slate-500 ml-2">Tech team services</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {zones.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => t.ready && setTechZone(t.id)}
+                    className={`text-left p-4 rounded-xl border transition-colors flex flex-col gap-3 min-h-[150px] ${
+                      t.ready
+                        ? 'bg-slate-800/50 border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 cursor-pointer'
+                        : 'bg-slate-800/30 border-slate-800 hover:bg-slate-800/50 hover:border-slate-700 cursor-pointer'
+                    }`}
+                  >
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${t.ready ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-700/30 text-slate-500'}`}>
+                      {t.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className={`text-sm font-medium mb-1 ${t.ready ? 'text-slate-100' : 'text-slate-300'}`}>{t.title}</div>
+                      <div className="text-[11px] text-slate-500 leading-snug">{t.desc}</div>
+                    </div>
+                    <div className={`text-[10px] pt-2 border-t ${t.ready ? 'text-slate-400 border-slate-700/60' : 'text-slate-600 border-slate-800 italic'}`}>
+                      {t.ready ? t.stat : `— ${t.stat}`}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          );
+        })()}
+
+        {/* ===== Tech → Tech Radar ===== */}
+        {activeNavItem === 'tools' && adminSection === 'tech' && techZone === 'radar' && (
+          <TechRadar />
+        )}
 
         {activeNavItem === 'tools' && adminSection === 'apps' && (() => {
           // Filter apps with overrides applied
