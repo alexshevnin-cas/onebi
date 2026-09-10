@@ -933,7 +933,7 @@ export default function MetricTree() {
   };
 
   // D3: Chart series colors
-  const seriesColors = ['var(--accent-deep)', '#8b5cf6', 'var(--success)', 'var(--warning)', 'var(--error)', '#ec4899', 'var(--info)', 'var(--accent)'];
+  const seriesColors = ['var(--accent-deep)', 'var(--purple)', 'var(--success)', 'var(--warning)', 'var(--error)', '#E85D9E', 'var(--info)', 'var(--accent)'];
 
   const toggleSeries = (id) => {
     const next = new Set(hiddenSeries);
@@ -2159,7 +2159,7 @@ export default function MetricTree() {
     setExpandedNodes(newSet);
   };
 
-  const formatNum = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(0)+'K' : n;
+  const formatNum = (n) => n == null ? n : Math.round(n).toLocaleString('en-US');
   const calcDelta = (c, p) => { const d = ((c-p)/p*100).toFixed(1); return d > 0 ? '+'+d+'%' : d+'%'; };
 
   const data = dashboardData[selectedApp];
@@ -4817,9 +4817,9 @@ export default function MetricTree() {
                         <thead>
                           <tr className="border-b border-line">
                             <th className="py-2 pr-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3">App</th>
-                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">Ad Revenue</th>
-                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">eCPM</th>
-                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">DAU</th>
+                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3">Ad Revenue</th>
+                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3">eCPM</th>
+                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3">DAU</th>
                             <th className="py-2 pl-3"></th>
                           </tr>
                         </thead>
@@ -4837,9 +4837,9 @@ export default function MetricTree() {
                                   <span className="text-[13px] text-ink truncate max-w-[190px]" title={app.name}>{app.name}</span>
                                 </div>
                               </td>
-                              <td className="py-2.5 px-3 text-[13px] font-semibold text-ink text-right tabular">${app.revenue.toLocaleString()}</td>
-                              <td className="py-2.5 px-3 text-[13px] text-ink text-right tabular">${app.ecpm.toFixed(2)}</td>
-                              <td className="py-2.5 px-3 text-[13px] text-ink text-right tabular">{formatNum(app.dau)}</td>
+                              <td className="py-2.5 px-3 text-[13px] font-semibold text-ink tabular">${app.revenue.toLocaleString()}</td>
+                              <td className="py-2.5 px-3 text-[13px] text-ink tabular">${app.ecpm.toFixed(2)}</td>
+                              <td className="py-2.5 px-3 text-[13px] text-ink tabular">{formatNum(app.dau)}</td>
                               <td className="py-2.5 pl-3 text-right">
                                 <button
                                   onClick={() => { setActiveScreen('reports'); }}
@@ -5540,7 +5540,7 @@ export default function MetricTree() {
                                   onDragStart={(e) => handleColumnDragStart(e, mid)}
                                   onDragOver={(e) => handleColumnDragOver(e, mid)}
                                   onDragEnd={handleColumnDragEnd}
-                                  className={`text-right ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap cursor-grab active:cursor-grabbing select-none ${draggedColumn === mid ? 'opacity-40' : ''} ${tip ? 'cursor-help' : ''}`}
+                                  className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap cursor-grab active:cursor-grabbing select-none ${draggedColumn === mid ? 'opacity-40' : ''} ${tip ? 'cursor-help' : ''}`}
                                   title={tip ? `${tip.desc}\n= ${tip.formula}\nMetrics Dictionary: ${tip.ref}` : undefined}
                                 >
                                   {metric?.name || mid}
@@ -5594,7 +5594,7 @@ export default function MetricTree() {
                                   return (
                                     <td
                                       key={mid}
-                                      className={`${cellPy} px-3 text-right text-ink whitespace-nowrap relative group/cell ${anomalyCls}`}
+                                      className={`${cellPy} px-3 text-left text-ink whitespace-nowrap relative group/cell ${anomalyCls}`}
                                       title={anomaly ? anomalyTooltip[anomaly] : undefined}
                                     >
                                       {/* C5: Copy button */}
@@ -5621,7 +5621,7 @@ export default function MetricTree() {
                               const mk = metricKeyMap[mid];
                               const val = totals[mid];
                               return (
-                                <td key={mid} className={`${cellPy} px-3 text-right text-ink whitespace-nowrap`}>
+                                <td key={mid} className={`${cellPy} px-3 text-left text-ink whitespace-nowrap`}>
                                   {val != null && mk ? mk.fmt(val) : '—'}
                                 </td>
                               );
@@ -5670,12 +5670,12 @@ export default function MetricTree() {
                           <h4 className="text-sm font-medium text-ink mb-3">{metric?.name}</h4>
                           <div className="flex items-end gap-2" style={{ height: '160px' }}>
                             {periodData.map((pd, pi) => (
-                              <div key={pi} className="flex-1 flex flex-col items-center gap-1 group relative">
+                              <div key={pi} className="flex-1 h-full flex flex-col items-center justify-end gap-1 group relative">
                                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface border border-line px-2 py-1 rounded text-[10px] text-ink opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10">
                                   {pd.segments.map(s => `${s.label}: ${mk.fmt(s.value)}`).join(' · ')}
                                 </div>
                                 {hasAdTypeSplit ? (
-                                  <div className="w-full flex flex-col-reverse" style={{ height: `${(pd.segments.reduce((a, s) => a + s.value, 0) / maxVal) * 100}%`, minHeight: '4px' }}>
+                                  <div className="w-full max-w-[56px] flex flex-col-reverse rounded-t overflow-hidden" style={{ height: `${(pd.segments.reduce((a, s) => a + s.value, 0) / maxVal) * 100}%`, minHeight: '4px' }}>
                                     {pd.segments.map((seg, si) => (
                                       <div
                                         key={si}
@@ -5690,7 +5690,7 @@ export default function MetricTree() {
                                   </div>
                                 ) : (
                                   <div
-                                    className="w-full bg-accent-12 rounded-t hover:brightness-95 transition-colors"
+                                    className="w-full max-w-[56px] bg-accent rounded-t hover:brightness-95 transition-colors"
                                     style={{ height: `${(pd.segments[0].value / maxVal) * 100}%`, minHeight: '4px' }}
                                   />
                                 )}
@@ -5746,22 +5746,22 @@ export default function MetricTree() {
                   metricRanges[mid] = { min: Math.min(...vals), max: Math.max(...vals) || 1 };
                 });
 
-                const svgW = 600;
-                const svgH = 180;
-                const padL = 10;
-                const padR = 10;
-                const padT = 10;
-                const padB = 25;
+                const svgW = 1400;
+                const svgH = 190;
+                const padL = 24;
+                const padR = 24;
+                const padT = 14;
+                const padB = 28;
                 const chartW = svgW - padL - padR;
                 const chartH = svgH - padT - padB;
 
                 return (
                   <div className="bg-base border border-line rounded-xl p-5">
                     <h4 className="text-sm font-medium text-ink mb-3">Metrics Trend</h4>
-                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: '220px' }}>
+                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full h-auto">
                       {/* Grid lines */}
                       {[0, 0.25, 0.5, 0.75, 1].map(f => (
-                        <line key={f} x1={padL} y1={padT + chartH * (1 - f)} x2={svgW - padR} y2={padT + chartH * (1 - f)} stroke="var(--bg-surface-3)" strokeWidth="0.5" />
+                        <line key={f} x1={padL} y1={padT + chartH * (1 - f)} x2={svgW - padR} y2={padT + chartH * (1 - f)} stroke="var(--bg-surface-3)" strokeWidth="1" strokeDasharray="3 4" />
                       ))}
                       {/* Lines */}
                       {visibleMetrics.map((mid, mi) => {
@@ -5779,12 +5779,14 @@ export default function MetricTree() {
                             <polyline
                               fill="none"
                               stroke={color}
-                              strokeWidth="2"
+                              strokeWidth="2.5"
+                              strokeLinejoin="round"
+                              strokeLinecap="round"
                               points={points.map(p => `${p.x},${p.y}`).join(' ')}
                             />
                             {points.map((p, i) => (
                               <g key={i}>
-                                <circle cx={p.x} cy={p.y} r="3.5" fill={color} />
+                                <circle cx={p.x} cy={p.y} r="4" fill={color} />
                                 <title>{`${allMetricsOptions.find(m => m.id === mid)?.name}: ${metricKeyMap[mid]?.fmt(p.val)}`}</title>
                               </g>
                             ))}
@@ -5794,7 +5796,7 @@ export default function MetricTree() {
                       {/* X labels */}
                       {periods.map((label, i) => {
                         const x = periods.length > 1 ? padL + (i / (periods.length - 1)) * chartW : svgW / 2;
-                        return <text key={i} x={x} y={svgH - 4} fill="var(--text-secondary)" fontSize="8" textAnchor="middle">{label.split(' ')[0]?.slice(0, 3)}</text>;
+                        return <text key={i} x={x} y={svgH - 8} fill="var(--text-muted)" fontSize="11" fontFamily="Geist" textAnchor="middle">{label.split(' ')[0]?.slice(0, 3)}</text>;
                       })}
                     </svg>
 
@@ -6693,7 +6695,7 @@ export default function MetricTree() {
                     <th className="px-6 py-3 font-medium">Date</th>
                     <th className="px-4 py-3 font-medium">Period</th>
                     <th className="px-4 py-3 font-medium">Method</th>
-                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                    <th className="px-4 py-3 font-medium">Amount</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-6 py-3 font-medium">Reference</th>
                   </tr>
@@ -6713,7 +6715,7 @@ export default function MetricTree() {
                       <td className="px-6 py-3 text-xs text-ink">{p.date}</td>
                       <td className="px-4 py-3 text-xs text-ink-2">{p.period}</td>
                       <td className="px-4 py-3 text-xs text-ink-2">{p.method}</td>
-                      <td className="px-4 py-3 text-xs text-ink font-medium text-right">{p.amount}</td>
+                      <td className="px-4 py-3 text-xs text-ink font-medium tabular">{p.amount}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
                           p.status === 'processed' ? 'bg-success-subtle text-success' :
