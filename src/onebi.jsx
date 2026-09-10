@@ -6207,7 +6207,93 @@ export default function MetricTree() {
               })()}
 
               {/* D1: Stacked/Grouped Bar Chart */}
-              {viewType === 'bar' && (() => {
+              {/* Сравнение версий столбцами: дневная разница теста и контроля */}
+              {viewType === 'bar' && reportsSplits.includes('abGroup') && (() => {
+                const appId = selectedApp === 'all' ? 'puzzle' : selectedApp;
+                const series = getAbDailySeries(dashboardData[appId], appId);
+                if (!series) return null;
+                const { days, control, test, seriesFor } = series;
+                const metrics = selectedMetrics.filter(mid => metricKeyMap[mid] && control.metrics[mid] != null);
+
+                const W = 1400, H = 180, padL = 78, padR = 24, padT = 18, padB = 30;
+                const cW = W - padL - padR, cH = H - padT - padB;
+                const slot = cW / days.length;
+                const barW = Math.min(30, slot * 0.5);
+
+                return (
+                  <div className="bg-base border border-line border-t-0 rounded-b-card p-5">
+                    <div className="flex items-center gap-5 mb-4">
+                      <span className="text-[11px] text-ink-2">
+                        Δ {test.label} vs {control.label}, % per day
+                      </span>
+                      <span className="flex items-center gap-2 text-[11px] text-ink-2">
+                        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--success)' }} /> test above
+                      </span>
+                      <span className="flex items-center gap-2 text-[11px] text-ink-2">
+                        <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--error)' }} /> test below
+                      </span>
+                      <span className="ml-auto text-[11px] text-ink-3">{days[0].label} — {days[days.length - 1].label} · {days.length} days · {metrics.length} metrics</span>
+                    </div>
+
+                    <div className="flex flex-col gap-6">
+                      {metrics.map(mid => {
+                        const mk = metricKeyMap[mid];
+                        const name = allMetricsOptions.find(m => m.id === mid)?.name || mid;
+                        const cVals = seriesFor(control, mid) || [];
+                        const tVals = seriesFor(test, mid) || [];
+                        const deltas = tVals.map((v, i) => cVals[i] ? (v - cVals[i]) / Math.abs(cVals[i]) * 100 : 0);
+                        const span = Math.max(...deltas.map(Math.abs), 1) * 1.15;
+                        const up = deltas.filter(d => d > 0).length;
+                        const avg = deltas.reduce((a, b) => a + b, 0) / (deltas.length || 1);
+                        const zero = padT + cH / 2;
+                        const y = (d) => zero - (d / span) * (cH / 2);
+
+                        return (
+                          <div key={mid} className="min-w-0">
+                            <div className="flex items-baseline gap-2 mb-1.5">
+                              <span className="text-[13px] font-medium text-ink truncate">{name}</span>
+                              <span className="text-[11px] tabular shrink-0" style={{ color: avg >= 0 ? 'var(--success)' : 'var(--error)' }}>
+                                {avg >= 0 ? '+' : ''}{avg.toFixed(1)}%
+                              </span>
+                              <span className="text-[11px] text-ink-3 shrink-0">· above control {up} of {days.length} days</span>
+                            </div>
+                            <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+                              {[span, span / 2, 0, -span / 2, -span].map((v, i) => (
+                                <g key={i}>
+                                  <line x1={padL} y1={y(v)} x2={W - padR} y2={y(v)}
+                                    stroke={v === 0 ? 'var(--border-default)' : 'var(--bg-surface-3)'}
+                                    strokeWidth={v === 0 ? 1.2 : 1}
+                                    strokeDasharray={v === 0 ? undefined : '3 4'} />
+                                  <text x={padL - 10} y={y(v) + 4} fill="var(--text-muted)" fontSize="11" textAnchor="end" fontFamily="Geist">
+                                    {(v > 0 ? '+' : '') + v.toFixed(1)}%
+                                  </text>
+                                </g>
+                              ))}
+                              {days.map((d, i) => {
+                                const val = deltas[i];
+                                const cx = padL + slot * (i + 0.5);
+                                const top = val >= 0 ? y(val) : zero;
+                                const h = Math.max(Math.abs(zero - y(val)), 1);
+                                return (
+                                  <g key={d.n}>
+                                    <rect x={cx - barW / 2} y={top} width={barW} height={h} rx="2"
+                                      fill={val >= 0 ? 'var(--success)' : 'var(--error)'} fillOpacity="0.85">
+                                      <title>{`${d.label}: ${val >= 0 ? '+' : ''}${val.toFixed(2)}% · ${mk.fmt(cVals[i])} → ${mk.fmt(tVals[i])}`}</title>
+                                    </rect>
+                                    <text x={cx} y={H - 9} fill="var(--text-muted)" fontSize="11" textAnchor="middle" fontFamily="Geist">{d.label}</text>
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {viewType === 'bar' && !reportsSplits.includes('abGroup') && (() => {
                 const rows = buildReportsRows().filter(r => r._type === 'data');
                 const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
                 const hasAdTypeSplit = !!segSplitId;
