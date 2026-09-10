@@ -5686,7 +5686,7 @@ export default function MetricTree() {
                   }`}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 8l4 4-4 4M20 8l-4 4 4 4M12 4v16"/></svg>
-                  Fit columns
+                  {fitColumns ? 'Fit columns' : 'Compact columns'}
                 </button>
 
                 {/* Export */}
@@ -5802,7 +5802,7 @@ export default function MetricTree() {
                       <table className={`w-full tabular ${cellText}`}>
                         <thead>
                           <tr className="border-b border-line bg-surface">
-                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold sticky left-0 bg-surface z-10`}>
+                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap sticky left-0 bg-surface z-10`}>
                               {segSplitLabel ? (reportsSplits.includes('date') ? `Period / ${segSplitLabel}` : segSplitLabel) : 'Period'}
                             </th>
                             {selectedMetrics.map(mid => {
@@ -5822,6 +5822,7 @@ export default function MetricTree() {
                                 </th>
                               );
                             })}
+                            {!fitColumns && <th className="w-full" aria-hidden />}
                           </tr>
                         </thead>
                         <tbody>
@@ -5835,7 +5836,7 @@ export default function MetricTree() {
                                   className="bg-surface-2 cursor-pointer hover:bg-surface-2"
                                   onClick={() => toggleGroup(row._label)}
                                 >
-                                  <td className={`${cellPy} px-3 font-semibold text-ink sticky left-0 bg-surface-2 z-10`} colSpan={selectedMetrics.length + 1}>
+                                  <td className={`${cellPy} px-4 font-semibold text-ink sticky left-0 bg-surface-2 z-10`} colSpan={selectedMetrics.length + (fitColumns ? 1 : 2)}>
                                     <span className="text-[10px] mr-1.5">{isCollapsed ? '▸' : '▾'}</span>
                                     {highlight(row._label)}
                                     {isCollapsed && (
@@ -5852,7 +5853,7 @@ export default function MetricTree() {
                             const prevDataRow = visible.slice(0, ri).reverse().find(r => r._type === 'data');
                             return (
                               <tr key={'d-' + ri} className="border-b border-line hover:bg-surface-2 group/row">
-                                <td className={`${cellPy} px-3 text-ink sticky left-0 bg-base z-10 group-hover/row:bg-surface-2`}>
+                                <td className={`${cellPy} px-4 text-ink whitespace-nowrap sticky left-0 bg-base z-10 group-hover/row:bg-surface-2`}>
                                   {row._group && <span className="ml-4" />}
                                   {highlight(row._label)}
                                 </td>
@@ -5871,7 +5872,7 @@ export default function MetricTree() {
                                   return (
                                     <td
                                       key={mid}
-                                      className={`${cellPy} px-3 text-left text-ink whitespace-nowrap relative group/cell ${anomalyCls}`}
+                                      className={`${cellPy} px-4 text-left text-ink whitespace-nowrap relative group/cell ${anomalyCls}`}
                                       title={anomaly ? anomalyTooltip[anomaly] : undefined}
                                     >
                                       {/* C5: Copy button */}
@@ -5886,6 +5887,7 @@ export default function MetricTree() {
                                     </td>
                                   );
                                 })}
+                                {!fitColumns && <td aria-hidden />}
                               </tr>
                             );
                           })}
@@ -5893,16 +5895,17 @@ export default function MetricTree() {
                         {/* C2: Totals row (sticky) */}
                         <tfoot className="sticky bottom-0">
                           <tr className="bg-base border-t border-line font-semibold">
-                            <td className={`${cellPy} px-3 text-ink-2 sticky left-0 bg-base z-10`}>Total</td>
+                            <td className={`${cellPy} px-4 text-ink-2 whitespace-nowrap sticky left-0 bg-base z-10`}>Total</td>
                             {selectedMetrics.map(mid => {
                               const mk = metricKeyMap[mid];
                               const val = totals[mid];
                               return (
-                                <td key={mid} className={`${cellPy} px-3 text-left text-ink whitespace-nowrap`}>
+                                <td key={mid} className={`${cellPy} px-4 text-left text-ink whitespace-nowrap`}>
                                   {val != null && mk ? mk.fmt(val) : '—'}
                                 </td>
                               );
                             })}
+                            {!fitColumns && <td aria-hidden />}
                           </tr>
                         </tfoot>
                       </table>
