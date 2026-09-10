@@ -89,7 +89,6 @@ export default function MetricTree() {
   const [showQvCountry, setShowQvCountry] = useState(false);
   const [qvChartType, setQvChartType] = useState('area'); // area | bar
   const [editMode, setEditMode] = useState(false);
-  const [dismissedAlerts, setDismissedAlerts] = useState([]);
   const [reportsCompare, setReportsCompare] = useState(false);
   const [fitColumns, setFitColumns] = useState(false);
   const [measureSearch, setMeasureSearch] = useState('');
@@ -541,16 +540,6 @@ export default function MetricTree() {
   };
 
   // Quick View — trend data: daily revenue line
-  // Баннеры-оповещения на Home
-  const qvAlerts = [
-    { id: 'adstxt', title: 'App-Ads.txt issue detected', action: 'Open',
-      tone: { bg: 'var(--warning-subtle)', text: 'text-warning', btn: 'border-warning text-warning hover:bg-base' } },
-    { id: 'payment', title: 'Payment Details required', action: null,
-      tone: { bg: 'var(--info-subtle)', text: 'text-info', btn: '' } },
-    { id: 'suspended', title: 'You have suspended apps', action: 'Open',
-      tone: { bg: 'var(--error-subtle)', text: 'text-error', btn: 'border-error text-error hover:bg-base' } },
-  ];
-
   // Палитра для баров разбивки по сетям
   const networkColors = ['#E8636B', '#8B7BF0', '#C964D9', '#F0A04B', '#4BC0C8', '#E85D9E', '#5B8FF9', '#3FBF7F'];
 
@@ -4697,23 +4686,6 @@ export default function MetricTree() {
         {activeNavItem === 'analytics' && <>
         {activeScreen === 'quickview' && (
           <>
-            {/* ===== Alert banners ===== */}
-            <div className="-mx-6 -mt-6 mb-5">
-              {qvAlerts.filter(a => !dismissedAlerts.includes(a.id)).map(a => (
-                <div key={a.id} className="flex items-center gap-3 px-6 py-2.5 border-b border-line" style={{ background: a.tone.bg }}>
-                  <span className={`text-[13px] font-semibold ${a.tone.text}`}>{a.title}</span>
-                  <div className="flex-1"></div>
-                  <button className="text-[13px] text-ink-2 hover:text-ink transition-colors">Show more</button>
-                  {a.action && (
-                    <button className={`px-4 py-1 rounded-lg border text-[13px] font-medium transition-colors ${a.tone.btn}`}>{a.action}</button>
-                  )}
-                  <button onClick={() => setDismissedAlerts([...dismissedAlerts, a.id])} className={`w-6 h-6 flex items-center justify-center rounded ${a.tone.text} hover:bg-black/5`}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-
             {/* ===== Controls row ===== */}
             <div className="flex items-center gap-3 mb-4 flex-wrap">
               {/* App selector */}
