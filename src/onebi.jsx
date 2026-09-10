@@ -743,6 +743,48 @@ export default function MetricTree() {
     dau_discrepancy: mk('dauDiscrepancy', pctFmt),
   };
 
+  // Разбивки по версиям берут значения из sdkVersionTable приложения
+  const versionSplitKeys = { appVersion: 'appVersion', sdkVersion: 'version' };
+
+  const getVersionSegments = (appData, splitId) => {
+    const table = appData?.sdkVersionTable || [];
+    const field = versionSplitKeys[splitId];
+    if (!table.length || !field) return null;
+    // у одной версии SDK может быть несколько версий приложения — складываем
+    const acc = new Map();
+    table.forEach(v => {
+      const label = v[field];
+      if (!label) return;
+      const prev = acc.get(label);
+      if (prev) {
+        const dau = prev.dau + v.dau;
+        acc.set(label, {
+          label, dau, share: prev.share + v.dauShare / 100,
+          revenue: prev.revenue + v.revenue,
+          ecpm: (prev.ecpm * prev.dau + v.ecpm * v.dau) / dau,
+          arpdau: (prev.arpdau * prev.dau + v.arpdau * v.dau) / dau,
+          fillRate: (prev.fillRate * prev.dau + v.fillRate * v.dau) / dau,
+          imprPerDau: (prev.imprPerDau * prev.dau + v.imprPerDau * v.dau) / dau,
+          sessions: (prev.sessions * prev.dau + v.sessions * v.dau) / dau,
+          duration: (prev.duration * prev.dau + v.duration * v.dau) / dau,
+        });
+      } else {
+        acc.set(label, { label, dau: v.dau, share: v.dauShare / 100, revenue: v.revenue,
+          ecpm: v.ecpm, arpdau: v.arpdau, fillRate: v.fillRate, imprPerDau: v.imprPerDau,
+          sessions: v.sessions, duration: v.duration });
+      }
+    });
+    return [...acc.values()].map(v => ({
+      label: v.label,
+      share: v.share,
+      metrics: {
+        dau: v.dau, revenue: v.revenue, ecpm: v.ecpm, arpdau: v.arpdau,
+        fill_rate: v.fillRate, impr_per_dau: v.imprPerDau,
+        sessions: v.sessions, session_duration: v.duration,
+      },
+    }));
+  };
+
   // Значения разбивок и их доли — на них строятся подстроки отчёта
   const splitSegments = {
     adType:     [['Banner', 0.35], ['Interstitial', 0.40], ['Rewarded', 0.25]],
@@ -882,10 +924,47 @@ export default function MetricTree() {
     // Build split column label
     const splitLabel = reportsSplits.includes('date') ? 'Period' : reportsSplits[0] || 'Period';
 
-    // Разбивка на подстроки: первый split, у которого есть значения
-    const segSplit = reportsSplits.find(id => id !== 'date' && splitSegments[id]);
-    const segments = segSplit ? splitSegments[segSplit] : null;
+    // Разбивка на подстроки: первый split, у которого есть значения.
+    // Для версий берём реальные строки sdkVersionTable, для остальных — доли.
+    const segSplit = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
+    const versionRows = versionSplitKeys[segSplit] ? getVersionSegments(d, segSplit) : null;
+    const segments = versionRows
+      ? versionRows.map(v => [v.label, v.share])
+      : (segSplit ? splitSegments[segSplit] : null);
+    // значения версии подставляем поверх долей — eCPM и ARPDAU у релиза свои
+    const segOverrides = versionRows
+      ? Object.fromEntries(versionRows.map(v => [v.label, v.metrics]))
+      : {};
+    const splitByPeriod = reportsSplits.includes('date');
     const rows = [];
+
+    // Разбивка без периода: одна строка на значение, метрики за весь диапазон
+    if (segments && !splitByPeriod) {
+      const totals = {};
+      selectedMetrics.forEach(mid => {
+        const mk = metricKeyMap[mid];
+        if (!mk) return;
+        const vals = merged.map(r => r[mk.key]).filter(v => v != null && typeof v === 'number');
+        if (!vals.length) { totals[mid] = null; return; }
+        totals[mid] = additiveMetrics.has(mid)
+          ? vals.reduce((a, b) => a + b, 0)
+          : vals.reduce((a, b) => a + b, 0) / vals.length;
+      });
+      segments.forEach(([segLabel, share]) => {
+        const dataRow = { _type: 'data', _label: segLabel, _idx: 0 };
+        selectedMetrics.forEach(mid => {
+          const mk = metricKeyMap[mid];
+          if (!mk) return;
+          const own = segOverrides[segLabel]?.[mid];
+          if (own != null) { dataRow[mid] = own; return; }
+          const val = totals[mid];
+          if (val == null) { dataRow[mid] = null; return; }
+          dataRow[mid] = additiveMetrics.has(mid) ? val * share : val * (0.82 + share * 1.15);
+        });
+        rows.push(dataRow);
+      });
+      return rows;
+    }
 
     merged.forEach((row, idx) => {
       const period = row._month;
@@ -901,6 +980,8 @@ export default function MetricTree() {
             const val = row[mk.key];
             if (val == null) { subRow[mid] = null; return; }
             if (!mk.isNum) { subRow[mid] = val; return; }
+            const own = segOverrides[segLabel]?.[mid];
+            if (own != null && !additiveMetrics.has(mid)) { subRow[mid] = own; return; }
             // аддитивные метрики делятся по доле сегмента, ставки и средние — варьируются вокруг базы
             subRow[mid] = additiveMetrics.has(mid) ? val * share : val * (0.82 + share * 1.15);
           });
@@ -1004,8 +1085,8 @@ export default function MetricTree() {
     {
       code: 'L2-03', role: 'L2', name: 'App version comparison',
       story: 'Сравнить версии приложения и понять, как релиз повлиял на монетизацию',
-      splits: ['appVersion'], metrics: ['revenue', 'ecpm', 'dau', 'impr_per_dau'],
-      app: 'puzzle',
+      splits: ['appVersion'], metrics: ['revenue', 'ecpm', 'dau', 'arpdau', 'impr_per_dau'],
+      app: 'drivecsx',
     },
     {
       code: 'L2-01', role: 'L2', name: 'SDK version impact',
@@ -1035,13 +1116,13 @@ export default function MetricTree() {
     {
       code: 'MON-03', role: 'MON', name: 'Revenue drop decomposition',
       story: 'Пройти дерево метрик: выручка → показы и цена → форматы → заполняемость',
-      splits: ['adType'], metrics: ['revenue', 'impressions', 'ecpm', 'fill_rate', 'impr_per_session'],
+      splits: ['date', 'adType'], metrics: ['revenue', 'impressions', 'ecpm', 'fill_rate', 'impr_per_session'],
       app: 'puzzle',
     },
     {
       code: 'AN-01', role: 'AN', name: 'Network drop detection',
       story: 'Таблица «сети × периоды», чтобы поймать отвалившуюся сеть',
-      splits: ['network'], metrics: ['impressions', 'ecpm', 'revenue', 'network_gap', 'anomaly_flag'],
+      splits: ['date', 'network'], metrics: ['impressions', 'ecpm', 'revenue', 'network_gap', 'anomaly_flag'],
       app: 'all',
     },
     {
@@ -1053,7 +1134,7 @@ export default function MetricTree() {
     {
       code: 'RND-02', role: 'RND', name: 'SDK adoption speed',
       story: 'Скорость раскатки версий SDK, чтобы планировать deprecation',
-      splits: ['sdkVersion'], metrics: ['dau', 'sessions', 'revenue'],
+      splits: ['date', 'sdkVersion'], metrics: ['dau', 'sessions', 'revenue'],
       app: 'all',
     },
     {
@@ -1335,8 +1416,9 @@ export default function MetricTree() {
     { id: 'puzzle', name: 'Puzzle Game' },
     { id: 'idle', name: 'Idle Tycoon' },
     { id: 'stack', name: 'Stack Tower' },
+    { id: 'drivecsx', name: 'DriveCSX' },
   ];
-  const realAppIds = ['puzzle', 'idle', 'stack'];
+  const realAppIds = ['puzzle', 'idle', 'stack', 'drivecsx'];
 
   // Weekly data for all apps
   const weeklyData = {
@@ -1628,6 +1710,45 @@ export default function MetricTree() {
         { version: 'CAS 3.8.5', appVersion: '2.3.8', dau: 52400, dauShare: 31, sessions: 3.4, duration: 9.0, revenue: 2280, arpdau: 0.0435, imprPerDau: 7.8, ecpm: 5.58, fillRate: 96.8 },
         { version: 'CAS 3.7.1', appVersion: '2.2.0', dau: 18600, dauShare: 11, sessions: 3.2, duration: 8.5, revenue: 695, arpdau: 0.0374, imprPerDau: 7.2, ecpm: 5.19, fillRate: 95.1 },
         { version: 'CAS 3.6.0', appVersion: '2.1.x', dau: 8300, dauShare: 5, sessions: 3.0, duration: 8.1, revenue: 195, arpdau: 0.0235, imprPerDau: 6.5, ecpm: 3.62, fillRate: 91.4 },
+      ]
+    },
+    drivecsx: {
+      name: 'DriveCSX',
+      current: { dau: 162000, arpdau: 0.041, retention_d7: 24, ltv: 0.33, roas: 118 },
+      previous: { dau: 148000, arpdau: 0.046, retention_d7: 25, ltv: 0.36, roas: 127 },
+      cohortTable: [
+        { month: 'January 2026', installs: 54200, dau: 162400, wau: 398000, mau: 1128000, d1Retention: 41.8, d7Retention: 24.1, d30Retention: 11.2, impressions: 1382000, clicks: 6910, ctr: 0.50, ecpm: 4.2100, revenue: 5818.22, ltv: 0.33, cpi: 0.071, roas: 118 },
+        { month: 'December 2025', installs: 51600, dau: 155800, wau: 382000, mau: 1074000, d1Retention: 42.3, d7Retention: 24.6, d30Retention: 11.6, impressions: 1318000, clicks: 6720, ctr: 0.51, ecpm: 4.6800, revenue: 6168.24, ltv: 0.35, cpi: 0.070, roas: 124 },
+        { month: 'November 2025', installs: 48900, dau: 148200, wau: 364000, mau: 1018000, d1Retention: 42.6, d7Retention: 25.0, d30Retention: 11.9, impressions: 1246000, clicks: 6480, ctr: 0.52, ecpm: 5.4200, revenue: 6753.32, ltv: 0.36, cpi: 0.069, roas: 127 },
+        { month: 'October 2025', installs: 45100, dau: 138600, wau: 340000, mau: 952000, d1Retention: 42.9, d7Retention: 25.3, d30Retention: 12.1, impressions: 1162000, clicks: 6040, ctr: 0.52, ecpm: 5.5100, revenue: 6402.62, ltv: 0.37, cpi: 0.068, roas: 129 },
+        { month: 'September 2025', installs: 41800, dau: 128400, wau: 315000, mau: 884000, d1Retention: 43.1, d7Retention: 25.6, d30Retention: 12.4, impressions: 1074000, clicks: 5580, ctr: 0.52, ecpm: 5.4800, revenue: 5885.52, ltv: 0.37, cpi: 0.068, roas: 130 },
+        { month: 'August 2025', installs: 37400, dau: 116200, wau: 285000, mau: 802000, d1Retention: 43.4, d7Retention: 25.9, d30Retention: 12.6, impressions: 968000, clicks: 4980, ctr: 0.51, ecpm: 5.4400, revenue: 5265.92, ltv: 0.38, cpi: 0.067, roas: 132 },
+        { month: 'July 2025', installs: 33100, dau: 104800, wau: 258000, mau: 724000, d1Retention: 43.6, d7Retention: 26.1, d30Retention: 12.8, impressions: 872000, clicks: 4450, ctr: 0.51, ecpm: 5.3900, revenue: 4700.08, ltv: 0.38, cpi: 0.067, roas: 133 },
+      ],
+      monetisationTable: [
+        { month: 'January 2026', adRevenue: 5818, arpdau: 0.0358, imprPerDau: 8.5, imprBanner: 3.6, imprInter: 1.7, imprReward: 1.1, ecpm: 4.21, fillRate: 94.2 },
+        { month: 'December 2025', adRevenue: 6168, arpdau: 0.0396, imprPerDau: 8.5, imprBanner: 3.5, imprInter: 1.7, imprReward: 1.1, ecpm: 4.68, fillRate: 95.8 },
+        { month: 'November 2025', adRevenue: 6753, arpdau: 0.0456, imprPerDau: 8.4, imprBanner: 3.5, imprInter: 1.6, imprReward: 1.0, ecpm: 5.42, fillRate: 96.4 },
+        { month: 'October 2025', adRevenue: 6403, arpdau: 0.0462, imprPerDau: 8.4, imprBanner: 3.4, imprInter: 1.6, imprReward: 1.0, ecpm: 5.51, fillRate: 96.6 },
+        { month: 'September 2025', adRevenue: 5886, arpdau: 0.0458, imprPerDau: 8.4, imprBanner: 3.4, imprInter: 1.6, imprReward: 1.0, ecpm: 5.48, fillRate: 96.5 },
+        { month: 'August 2025', adRevenue: 5266, arpdau: 0.0453, imprPerDau: 8.3, imprBanner: 3.3, imprInter: 1.5, imprReward: 1.0, ecpm: 5.44, fillRate: 96.3 },
+        { month: 'July 2025', adRevenue: 4700, arpdau: 0.0448, imprPerDau: 8.3, imprBanner: 3.3, imprInter: 1.5, imprReward: 0.9, ecpm: 5.39, fillRate: 96.1 },
+      ],
+      engagementTable: [],
+      uaTable: [],
+      networksTable: [
+        { network: 'AppLovin', revenue: 1746, impressions: 402000, ecpm: 4.34, fillRate: 96.1, sov: 29, winRate: 35, latency: 152 },
+        { network: 'AdMob', revenue: 1338, impressions: 331000, ecpm: 4.04, fillRate: 95.4, sov: 24, winRate: 30, latency: 128 },
+        { network: 'Unity Ads', revenue: 1047, impressions: 262000, ecpm: 4.00, fillRate: 93.2, sov: 19, winRate: 23, latency: 186 },
+        { network: 'ironSource', revenue: 931, impressions: 235000, ecpm: 3.96, fillRate: 92.8, sov: 17, winRate: 21, latency: 174 },
+        { network: 'Meta AN', revenue: 756, impressions: 152000, ecpm: 4.97, fillRate: 89.6, sov: 11, winRate: 26, latency: 210 },
+        { network: 'Bigo Ads', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
+      ],
+      sdkVersionTable: [
+        { version: 'CAS 3.9.2', appVersion: '4.2.0', dau: 74700, dauShare: 46, sessions: 3.1, duration: 7.8, revenue: 2385, arpdau: 0.0319, imprPerDau: 8.6, ecpm: 3.62, fillRate: 92.4 },
+        { version: 'CAS 3.9.2', appVersion: '4.1.3', dau: 50300, dauShare: 31, sessions: 3.3, duration: 8.4, revenue: 2166, arpdau: 0.0431, imprPerDau: 8.4, ecpm: 5.14, fillRate: 96.2 },
+        { version: 'CAS 3.8.5', appVersion: '4.0.7', dau: 24400, dauShare: 15, sessions: 3.4, duration: 8.7, revenue: 1052, arpdau: 0.0431, imprPerDau: 8.3, ecpm: 5.21, fillRate: 96.5 },
+        { version: 'CAS 3.7.1', appVersion: '3.9.5', dau: 13000, dauShare: 8, sessions: 3.4, duration: 8.8, revenue: 215, arpdau: 0.0165, imprPerDau: 6.9, ecpm: 2.41, fillRate: 88.1 },
       ]
     },
     idle: {
@@ -5621,7 +5742,7 @@ export default function MetricTree() {
               {viewType === 'table' && (() => {
                 const rows = buildReportsRows();
                 const searchLower = reportsSearch.toLowerCase();
-                const segSplitId = reportsSplits.find(id => id !== 'date' && splitSegments[id]);
+                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
                 const segSplitLabel = segSplitId
                   ? sidebarDimensions.flatMap(g => g.items).find(i => i.id === segSplitId)?.label
                   : null;
@@ -5682,7 +5803,7 @@ export default function MetricTree() {
                         <thead>
                           <tr className="border-b border-line bg-surface">
                             <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold sticky left-0 bg-surface z-10`}>
-                              {segSplitLabel ? `Period / ${segSplitLabel}` : 'Period'}
+                              {segSplitLabel ? (reportsSplits.includes('date') ? `Period / ${segSplitLabel}` : segSplitLabel) : 'Period'}
                             </th>
                             {selectedMetrics.map(mid => {
                               const metric = allMetricsOptions.find(m => m.id === mid);
@@ -5739,7 +5860,9 @@ export default function MetricTree() {
                                   const mk = metricKeyMap[mid];
                                   const val = row[mid];
                                   const prevVal = prevDataRow?.[mid];
-                                  const anomaly = getAnomaly(val, prevVal);
+                                  // аномалия имеет смысл только между соседними периодами:
+                                  // в разбивке по версиям или сетям соседние строки — не «до/после»
+                                  const anomaly = reportsSplits.includes('date') ? getAnomaly(val, prevVal) : null;
                                   const anomalyCls = anomaly ? anomalyStyle[anomaly] : '';
                                   const formatted = val != null && mk ? mk.fmt(val) : '—';
                                   const cellKey = `${ri}-${ci}`;
@@ -5797,9 +5920,13 @@ export default function MetricTree() {
               {/* D1: Stacked/Grouped Bar Chart */}
               {viewType === 'bar' && (() => {
                 const rows = buildReportsRows().filter(r => r._type === 'data');
-                const segSplitId = reportsSplits.find(id => id !== 'date' && splitSegments[id]);
+                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
                 const hasAdTypeSplit = !!segSplitId;
-                const segments = hasAdTypeSplit ? splitSegments[segSplitId].map(([label]) => label) : ['Total'];
+                const segments = hasAdTypeSplit
+                  ? (splitSegments[segSplitId]
+                      ? splitSegments[segSplitId].map(([label]) => label)
+                      : (getVersionSegments(dashboardData[selectedApp === 'all' ? 'puzzle' : selectedApp], segSplitId) || []).map(v => v.label))
+                  : ['Total'];
                 const periods = [...new Set(rows.map(r => r._group || r._label))];
 
                 return (
