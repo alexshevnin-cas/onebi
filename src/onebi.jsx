@@ -45,21 +45,17 @@ export default function MetricTree() {
   const [viewType, setViewType] = useState('table'); // table, bar, line
   const [draggedColumn, setDraggedColumn] = useState(null);
 
+  // Тема оформления — токены light/dark из design/сolor
+  const [theme, setTheme] = useState('light');
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
+  // Internal-контур: показывает бейдж INTERNAL и служебные разделы
+  const isSuperadmin = true;
+
   // Left nav (cabinet)
   const [navExpanded, setNavExpanded] = useState(false);
   const [activeNavItem, setActiveNavItem] = useState('analytics');
 
-  // Sidebar state (Reports)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarSearch, setSidebarSearch] = useState('');
-  const [collapsedSections, setCollapsedSections] = useState(new Set());
   const [reportsSplits, setReportsSplits] = useState(['date']);
-
-  const toggleSidebarSection = (id) => {
-    const next = new Set(collapsedSections);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setCollapsedSections(next);
-  };
 
   const addSplit = (id) => {
     if (!reportsSplits.includes(id)) setReportsSplits([...reportsSplits, id]);
@@ -89,6 +85,14 @@ export default function MetricTree() {
   const [showExportDD, setShowExportDD] = useState(false);
   const [showAppSelector, setShowAppSelector] = useState(false);
   const [appSelectorSearch, setAppSelectorSearch] = useState('');
+  const [qvCountry, setQvCountry] = useState('all');
+  const [showQvCountry, setShowQvCountry] = useState(false);
+  const [qvChartType, setQvChartType] = useState('area'); // area | bar
+  const [editMode, setEditMode] = useState(false);
+  const [dismissedAlerts, setDismissedAlerts] = useState([]);
+  const [reportsCompare, setReportsCompare] = useState(false);
+  const [fitColumns, setFitColumns] = useState(false);
+  const [measureSearch, setMeasureSearch] = useState('');
 
   // Superadmin filter states
   const [filterCustomer, setFilterCustomer] = useState('all');
@@ -349,89 +353,6 @@ export default function MetricTree() {
     ]},
   ];
 
-  const sidebarMeasures = [
-    { group: 'Monetization', items: [
-      { id: 'revenue', label: 'Revenue' },
-      { id: 'arpdau', label: 'ARPDAU' },
-      { id: 'ecpm', label: 'eCPM' },
-      { id: 'fill_rate', label: 'Fill Rate' },
-      { id: 'impressions', label: 'Impressions' },
-      { id: 'iap_revenue', label: 'IAP Revenue' },
-      { id: 'iap_arpdau', label: 'IAP ARPDAU' },
-      { id: 'paying_users', label: 'Paying Users' },
-      { id: 'purchases', label: 'Purchases' },
-      { id: 'iap_arppu', label: 'IAP ARPPU' },
-    ]},
-    { group: 'Session', items: [
-      { id: 'dau', label: 'DAU' },
-      { id: 'sessions', label: 'Sessions' },
-      { id: 'session_duration', label: 'Duration' },
-      { id: 'sessions_per_user', label: 'Sessions/User' },
-      { id: 'time_per_user', label: 'Time/User' },
-      { id: 'ad_session_length', label: 'Ad Session Len' },
-      { id: 'impr_per_session', label: 'Impr/Session' },
-      { id: 'session_count', label: 'Session Count' },
-    ]},
-    { group: 'Impressions', items: [
-      { id: 'impr_per_dau', label: 'Impr/DAU' },
-      { id: 'impr_inter_daily', label: 'Inter Impr/Day' },
-      { id: 'impr_reward_daily', label: 'Reward Impr/Day' },
-      { id: 'impr_banner_daily', label: 'Banner Impr/Day' },
-      { id: 'impr_mrec_daily', label: 'MREC Impr/Day' },
-      { id: 'ctr_inter', label: 'CTR Inter' },
-      { id: 'ctr_reward', label: 'CTR Reward' },
-      { id: 'ctr_banner', label: 'CTR Banner' },
-    ]},
-    { group: 'Retention', items: [
-      { id: 'd1_retention', label: 'D1 Retention' },
-      { id: 'd7_retention', label: 'D7 Retention' },
-      { id: 'd14_retention', label: 'D14 Retention' },
-      { id: 'd30_retention', label: 'D30 Retention' },
-      { id: 'd60_retention', label: 'D60 Retention' },
-      { id: 'd90_retention', label: 'D90 Retention' },
-      { id: 'rolling_ret_d7', label: 'Rolling Ret D7' },
-      { id: 'rolling_ret_d30', label: 'Rolling Ret D30' },
-      { id: 'churn_d7', label: 'Churn D7' },
-      { id: 'churn_d30', label: 'Churn D30' },
-      { id: 'stickiness', label: 'Stickiness' },
-      { id: 'avg_lifetime', label: 'Avg Lifetime' },
-    ]},
-    { group: 'Cohort', items: [
-      { id: 'ltv', label: 'LTV' },
-      { id: 'time_per_user_lt', label: 'Time/User LT' },
-      { id: 'sessions_per_user_lt', label: 'Sess/User LT' },
-      { id: 'time_per_user_daily', label: 'Time/User Daily' },
-      { id: 'sessions_per_user_daily', label: 'Sess/User Daily' },
-    ]},
-    { group: 'UA', items: [
-      { id: 'installs', label: 'Installs' },
-      { id: 'cpi', label: 'CPI' },
-      { id: 'roas', label: 'ROAS' },
-      { id: 'roas_todate', label: 'ROAS To-Date' },
-      { id: 'profit_cal', label: 'Profit Calendar' },
-      { id: 'att_optin', label: 'ATT Opt-In' },
-      { id: 'mmp_installs', label: 'MMP Installs' },
-      { id: 'eroas_d60', label: 'eROAS D60' },
-      { id: 'eroas_d365', label: 'eROAS D365' },
-      { id: 'arpu_d7', label: 'ARPU D7' },
-      { id: 'arpu_d14', label: 'ARPU D14' },
-      { id: 'arpu_d30', label: 'ARPU D30' },
-    ]},
-    { group: 'Network', items: [
-      { id: 'render_rate', label: 'Render Rate' },
-      { id: 'bid_price', label: 'Bid Price' },
-      { id: 'ctr_network', label: 'CTR Network' },
-      { id: 'bidding_share', label: 'Bidding %' },
-    ]},
-    { group: 'Diagnostic', items: [
-      { id: 'rev_by_sdk', label: 'Rev by SDK' },
-      { id: 'rev_by_platform', label: 'Rev by Platform' },
-      { id: 'ecpm_by_platform', label: 'eCPM by Platform' },
-      { id: 'anomaly_flag', label: 'Anomaly Flag' },
-      { id: 'network_gap', label: 'Network Gap' },
-      { id: 'dau_discrepancy', label: 'DAU Discrep.' },
-    ]},
-  ];
 
   // Quick View — metric cards per client type
   const qvCardDefs = {
@@ -566,6 +487,37 @@ export default function MetricTree() {
   };
 
   // Quick View — trend data: daily revenue line
+  // Баннеры-оповещения на Home
+  const qvAlerts = [
+    { id: 'adstxt', title: 'App-Ads.txt issue detected', action: 'Open',
+      tone: { bg: 'var(--warning-subtle)', text: 'text-warning', btn: 'border-warning text-warning hover:bg-base' } },
+    { id: 'payment', title: 'Payment Details required', action: null,
+      tone: { bg: 'var(--info-subtle)', text: 'text-info', btn: '' } },
+    { id: 'suspended', title: 'You have suspended apps', action: 'Open',
+      tone: { bg: 'var(--error-subtle)', text: 'text-error', btn: 'border-error text-error hover:bg-base' } },
+  ];
+
+  // Палитра для баров разбивки по сетям
+  const networkColors = ['#E8636B', '#8B7BF0', '#C964D9', '#F0A04B', '#4BC0C8', '#E85D9E', '#5B8FF9', '#3FBF7F'];
+
+  // Топ приложений для блока Apps Performance — детерминированные значения по bundleId
+  const qvTopApps = (() => {
+    const ids = Object.keys(storeData).slice(0, 6);
+    return ids.map((bundleId, i) => {
+      const seed = bundleId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      const rnd = (mod, base) => base + (seed * (i + 3)) % mod;
+      return {
+        id: bundleId,
+        name: storeData[bundleId].appName,
+        icon: storeData[bundleId].iconUrl,
+        starred: i < 3,
+        revenue: rnd(40000, 12000),
+        ecpm: 3.2 + ((seed % 30) / 10),
+        dau: rnd(700000, 120000),
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
+  })();
+
   const qvTrendDays = { today: 1, last7: 7, last30: 30, thisMonth: 30, custom: 14 };
   const getQvTrendDataSingle = (appId) => {
     const d = dashboardData[appId];
@@ -634,19 +586,19 @@ export default function MetricTree() {
     const total = totalBanner + totalInter + totalReward;
     if (!total) return [];
     return [
-      { label: 'Banner', value: totalBanner, pct: ((totalBanner / total) * 100).toFixed(0), color: '#94a3b8' },
-      { label: 'Interstitial', value: totalInter, pct: ((totalInter / total) * 100).toFixed(0), color: '#cbd5e1' },
-      { label: 'Rewarded', value: totalReward, pct: ((totalReward / total) * 100).toFixed(0), color: '#e2e8f0' },
+      { label: 'Banner', value: totalBanner, pct: ((totalBanner / total) * 100).toFixed(0), color: 'var(--text-secondary)' },
+      { label: 'Interstitial', value: totalInter, pct: ((totalInter / total) * 100).toFixed(0), color: 'var(--text-secondary)' },
+      { label: 'Rewarded', value: totalReward, pct: ((totalReward / total) * 100).toFixed(0), color: 'var(--text-primary)' },
     ];
   };
 
   const getQvBreakdownCountry = () => {
     return [
-      { label: 'US', pct: 38, color: '#e2e8f0' },
-      { label: 'DE', pct: 22, color: '#cbd5e1' },
-      { label: 'UK', pct: 15, color: '#94a3b8' },
-      { label: 'JP', pct: 12, color: '#64748b' },
-      { label: 'Other', pct: 13, color: '#475569' },
+      { label: 'US', pct: 38, color: 'var(--text-primary)' },
+      { label: 'DE', pct: 22, color: 'var(--text-secondary)' },
+      { label: 'UK', pct: 15, color: 'var(--text-secondary)' },
+      { label: 'JP', pct: 12, color: 'var(--text-muted)' },
+      { label: 'Other', pct: 13, color: 'var(--text-muted)' },
     ];
   };
 
@@ -907,10 +859,10 @@ export default function MetricTree() {
   };
 
   const anomalyStyle = {
-    zero: 'bg-red-500/15 text-red-400',
-    drop: 'bg-amber-500/15 text-amber-400',
-    missing: 'italic text-slate-600',
-    spike: 'bg-emerald-500/15 text-emerald-400',
+    zero: 'bg-error-subtle text-error',
+    drop: 'bg-warning-subtle text-warning',
+    missing: 'italic text-ink-3',
+    spike: 'bg-success-subtle text-success',
   };
 
   const anomalyTooltip = {
@@ -928,7 +880,7 @@ export default function MetricTree() {
   };
 
   // D3: Chart series colors
-  const seriesColors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
+  const seriesColors = ['var(--accent-deep)', '#8b5cf6', 'var(--success)', 'var(--warning)', 'var(--error)', '#ec4899', 'var(--info)', 'var(--accent)'];
 
   const toggleSeries = (id) => {
     const next = new Set(hiddenSeries);
@@ -1310,20 +1262,20 @@ export default function MetricTree() {
   };
 
   const versionColors = {
-    '2.4.1': '#3b82f6', '2.4.0': '#8b5cf6', '2.3.8': '#ec4899',
-    '1.8.0': '#3b82f6', '1.7.5': '#8b5cf6', '1.6.0': '#ec4899',
-    '3.2.1': '#3b82f6', '3.1.8': '#8b5cf6', '3.0.0': '#ec4899',
-    '1.2.0': '#3b82f6', '1.1.5': '#8b5cf6', '1.0.8': '#ec4899',
-    'Portfolio': '#3b82f6',
+    '2.4.1': 'var(--accent-deep)', '2.4.0': '#8b5cf6', '2.3.8': '#ec4899',
+    '1.8.0': 'var(--accent-deep)', '1.7.5': '#8b5cf6', '1.6.0': '#ec4899',
+    '3.2.1': 'var(--accent-deep)', '3.1.8': '#8b5cf6', '3.0.0': '#ec4899',
+    '1.2.0': 'var(--accent-deep)', '1.1.5': '#8b5cf6', '1.0.8': '#ec4899',
+    'Portfolio': 'var(--accent-deep)',
   };
 
   // Версии CAS SDK для разбивки
   const sdkVersionsList = ['4.5.4', '4.5.2', '4.4.8'];
 
   const sdkVersionColors = {
-    '4.5.4': '#10b981',
-    '4.5.2': '#f59e0b',
-    '4.4.8': '#ef4444',
+    '4.5.4': 'var(--success)',
+    '4.5.2': 'var(--warning)',
+    '4.4.8': 'var(--error)',
   };
 
   // Генерация данных с разбивкой по версиям приложения
@@ -1902,9 +1854,9 @@ export default function MetricTree() {
                         headerColor: 'bg-orange-500', 
                         zone: 'monetisation',
                         children: [
-                          { id: 'ecpm_applovin', title: 'AppLovin', value: '$5.20', change: '+4%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
+                          { id: 'ecpm_applovin', title: 'AppLovin', value: '$5.20', change: '+4%', color: 'bg-accent', headerColor: 'bg-accent', zone: 'monetisation' },
                           { id: 'ecpm_admob', title: 'AdMob', value: '$4.10', change: '+1%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
-                          { id: 'ecpm_unity', title: 'Unity Ads', value: '$3.85', change: '-2%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
+                          { id: 'ecpm_unity', title: 'Unity Ads', value: '$3.85', change: '-2%', color: 'bg-surface-3', headerColor: 'bg-surface-3', zone: 'monetisation' },
                           { id: 'ecpm_ironsrc', title: 'ironSource', value: '$4.60', change: '+3%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
                         ]
                       },
@@ -1917,9 +1869,9 @@ export default function MetricTree() {
                         headerColor: 'bg-lime-500', 
                         zone: 'monetisation',
                         children: [
-                          { id: 'fill_applovin', title: 'AppLovin', value: '98.2%', change: '+0.5%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
+                          { id: 'fill_applovin', title: 'AppLovin', value: '98.2%', change: '+0.5%', color: 'bg-accent', headerColor: 'bg-accent', zone: 'monetisation' },
                           { id: 'fill_admob', title: 'AdMob', value: '97.8%', change: '+0.8%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
-                          { id: 'fill_unity', title: 'Unity Ads', value: '94.5%', change: '-0.5%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
+                          { id: 'fill_unity', title: 'Unity Ads', value: '94.5%', change: '-0.5%', color: 'bg-surface-3', headerColor: 'bg-surface-3', zone: 'monetisation' },
                           { id: 'fill_ironsrc', title: 'ironSource', value: '96.1%', change: '+1.0%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
                         ]
                       },
@@ -1932,9 +1884,9 @@ export default function MetricTree() {
                         headerColor: 'bg-indigo-500', 
                         zone: 'monetisation',
                         children: [
-                          { id: 'sov_applovin', title: 'AppLovin', value: '32%', change: '+2%', color: 'bg-blue-400', headerColor: 'bg-blue-500', zone: 'monetisation' },
+                          { id: 'sov_applovin', title: 'AppLovin', value: '32%', change: '+2%', color: 'bg-accent', headerColor: 'bg-accent', zone: 'monetisation' },
                           { id: 'sov_admob', title: 'AdMob', value: '28%', change: '-1%', color: 'bg-yellow-400', headerColor: 'bg-yellow-500', zone: 'monetisation' },
-                          { id: 'sov_unity', title: 'Unity Ads', value: '22%', change: '-2%', color: 'bg-slate-400', headerColor: 'bg-slate-500', zone: 'monetisation' },
+                          { id: 'sov_unity', title: 'Unity Ads', value: '22%', change: '-2%', color: 'bg-surface-3', headerColor: 'bg-surface-3', zone: 'monetisation' },
                           { id: 'sov_ironsrc', title: 'ironSource', value: '18%', change: '+1%', color: 'bg-violet-400', headerColor: 'bg-violet-500', zone: 'monetisation' },
                         ]
                       },
@@ -2074,12 +2026,12 @@ export default function MetricTree() {
   };
 
   const sections = [
-    { id: 'northstar', name: 'North Star', bg: 'bg-blue-900/20', text: 'text-blue-400' },
-    { id: 'app', name: 'Приложение', bg: 'bg-purple-900/20', text: 'text-purple-400' },
-    { id: 'adrevenue', name: 'Монетизация', bg: 'bg-green-900/20', text: 'text-green-400' },
-    { id: 'networks', name: 'Ad Networks', bg: 'bg-cyan-900/20', text: 'text-cyan-400' },
-    { id: 'experiment', name: 'Эксперименты', bg: 'bg-orange-900/20', text: 'text-orange-400' },
-    { id: 'ua', name: 'UA', bg: 'bg-pink-900/20', text: 'text-pink-400' },
+    { id: 'northstar', name: 'North Star', bg: 'bg-accent-12', text: 'text-accent-deep' },
+    { id: 'app', name: 'Приложение', bg: 'bg-purple-100', text: 'text-purple-600' },
+    { id: 'adrevenue', name: 'Монетизация', bg: 'bg-success-subtle', text: 'text-success' },
+    { id: 'networks', name: 'Ad Networks', bg: 'bg-cyan-100', text: 'text-cyan-600' },
+    { id: 'experiment', name: 'Эксперименты', bg: 'bg-orange-100', text: 'text-orange-600' },
+    { id: 'ua', name: 'UA', bg: 'bg-pink-100', text: 'text-pink-600' },
   ];
 
   const initialMetrics = [
@@ -2164,13 +2116,13 @@ export default function MetricTree() {
     const delta = calcDelta(value, prev);
     const isUp = value >= prev;
     return (
-      <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+      <div className="bg-base rounded-lg p-3 border border-line">
         <div className="flex justify-between items-start">
           <div>
-            <div className="text-slate-400 text-xs uppercase">{label}</div>
-            <div className="text-xl font-bold text-white">{formatted}{suffix}</div>
+            <div className="text-ink-2 text-xs uppercase">{label}</div>
+            <div className="text-xl font-bold text-ink">{formatted}{suffix}</div>
           </div>
-          <span className={`text-xs font-medium ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>{delta}</span>
+          <span className={`text-xs font-medium ${isUp ? 'text-success' : 'text-error'}`}>{delta}</span>
         </div>
       </div>
     );
@@ -2198,12 +2150,12 @@ export default function MetricTree() {
         >
           {/* Header - Compact */}
           <div className={`${node.headerColor} px-2 py-1 text-center`}>
-            <div className="text-white font-medium text-xs truncate">{node.title}</div>
+            <div className="text-ink font-medium text-xs truncate">{node.title}</div>
           </div>
           {/* Body - Compact */}
-          <div className="bg-slate-800 px-2 py-1.5 text-center">
-            <div className="text-white text-base font-bold">{node.value}</div>
-            <div className={`text-xs ${node.change.startsWith('+') ? 'text-emerald-400' : node.change.startsWith('-') ? 'text-red-400' : 'text-slate-400'}`}>
+          <div className="bg-base px-2 py-1.5 text-center">
+            <div className="text-ink text-base font-bold">{node.value}</div>
+            <div className={`text-xs ${node.change.startsWith('+') ? 'text-success' : node.change.startsWith('-') ? 'text-error' : 'text-ink-2'}`}>
               {node.change}
             </div>
             {/* Zone Label - small dot */}
@@ -2211,13 +2163,13 @@ export default function MetricTree() {
               <span className={`w-1.5 h-1.5 rounded-full ${
                 node.zone === 'clevel' ? 'bg-purple-500' : 
                 node.zone === 'monetisation' ? 'bg-emerald-500' : 
-                node.zone === 'ua' ? 'bg-pink-500' : 'bg-blue-500'
+                node.zone === 'ua' ? 'bg-pink-500' : 'bg-accent'
               }`} title={zoneLabel}></span>
             </div>
           </div>
           {/* Expand/Collapse Button */}
           {hasChildren && (
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-slate-700 border border-slate-600 rounded-full flex items-center justify-center text-white text-xs z-10">
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-surface-2 border border-line rounded-full flex items-center justify-center text-ink text-xs z-10">
               {isExpanded ? '−' : '+'}
             </div>
           )}
@@ -2227,13 +2179,13 @@ export default function MetricTree() {
         {hasChildren && isExpanded && (
           <div className="flex flex-col items-center mt-4">
             {/* Vertical Line */}
-            <div className="w-px h-4 bg-slate-600" />
+            <div className="w-px h-4 bg-surface-3" />
             {/* Horizontal Line + Children */}
             <div className="relative flex items-start gap-2">
               {/* Horizontal connector */}
               {node.children.length > 1 && (
                 <div 
-                  className="absolute top-0 h-px bg-slate-600" 
+                  className="absolute top-0 h-px bg-surface-3" 
                   style={{ 
                     left: '50%', 
                     right: '50%',
@@ -2247,7 +2199,7 @@ export default function MetricTree() {
               {node.children.map((child, idx) => (
                 <div key={child.id} className="flex flex-col items-center">
                   {/* Vertical line to child */}
-                  <div className="w-px h-4 bg-slate-600" />
+                  <div className="w-px h-4 bg-surface-3" />
                   <TreeNode node={child} level={level + 1} />
                 </div>
               ))}
@@ -2259,277 +2211,255 @@ export default function MetricTree() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-surface text-ink">
       {/* H3: Responsive — "Use desktop" for <1024px */}
       <div className="lg:hidden flex items-center justify-center min-h-[60vh]">
         <div className="text-center p-8">
           <div className="text-4xl mb-4">🖥️</div>
-          <h2 className="text-lg font-semibold text-slate-200 mb-2">Desktop Required</h2>
-          <p className="text-sm text-slate-400 max-w-xs">This BI dashboard is optimized for desktop screens. Please use a device with a screen width of 1024px or more.</p>
+          <h2 className="text-lg font-semibold text-ink mb-2">Desktop Required</h2>
+          <p className="text-sm text-ink-2 max-w-xs">This BI dashboard is optimized for desktop screens. Please use a device with a screen width of 1024px or more.</p>
         </div>
       </div>
       <div className="hidden lg:flex min-h-screen">
 
       {/* ===== Left Navigation (Cabinet) ===== */}
-      <div
-        className={`shrink-0 bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-200 ${navExpanded ? 'w-52' : 'w-14'}`}
-        onMouseEnter={() => setNavExpanded(true)}
-        onMouseLeave={() => setNavExpanded(false)}
-      >
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 px-3 py-4 border-b border-slate-800">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-blue-500/20 shrink-0">CAS</div>
-          {navExpanded && <span className="text-sm font-semibold text-slate-100 whitespace-nowrap overflow-hidden">CAS Mediation</span>}
-        </div>
+      {(() => {
+        const ic = {
+          home: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>,
+          analytics: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 16v-4M12 16V8M16 16v-2"/></svg>,
+          apps: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>,
+          networks: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 4.5-9 4.5-9-4.5L12 3z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5L12 21l9-4.5"/></svg>,
+          payments: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19"/></svg>,
+          tools: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M6.6 6.6l3.6 3.6M17.4 6.6l-3.6 3.6M6.6 17.4l3.6-3.6M17.4 17.4l-3.6-3.6"/></svg>,
+          admin: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.5l7.5 3.5v6c0 4.5-3.2 7.8-7.5 9.5-4.3-1.7-7.5-5-7.5-9.5v-6L12 2.5z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/></svg>,
+          support: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15v-3a8 8 0 0116 0v3"/><path d="M20 16.5a2.5 2.5 0 01-2.5 2.5H16v-6h1.5A2.5 2.5 0 0120 15.5v1z"/><path d="M4 16.5A2.5 2.5 0 006.5 19H8v-6H6.5A2.5 2.5 0 004 15.5v1z"/></svg>,
+          settings: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 008 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.35.42.63.77.77H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
+        };
 
-        {/* Nav Items — main */}
-        <nav className="py-3 flex flex-col gap-0.5 px-2">
-          {[
-            { id: 'analytics', label: 'Analytics', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 5-9"/></svg>,
-              sub: [{ id: 'quickview', label: 'Quick View' }, { id: 'reports', label: 'Reports' }] },
-            { id: 'apps', label: 'Applications', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg> },
-            { id: 'payments', label: 'Payments', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> },
-            { id: 'profile', label: 'Profile', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
-          ].map(item => (
-            <div key={item.id}>
-              <button
-                onClick={() => { setActiveNavItem(item.id); if (item.id === 'analytics') setActiveScreen('quickview'); }}
-                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
-                  activeNavItem === item.id
-                    ? 'bg-blue-600/20 text-blue-400'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                }`}
-                title={!navExpanded ? item.label : undefined}
-              >
-                <span className="shrink-0 w-5 h-5 flex items-center justify-center">{item.icon}</span>
-                {navExpanded && <span>{item.label}</span>}
-              </button>
-              {/* Sub-navigation */}
-              {item.sub && activeNavItem === item.id && navExpanded && (
-                <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
-                  {item.sub.map(s => (
-                    <button
-                      key={s.id}
-                      onClick={() => setActiveScreen(s.id)}
-                      className={`text-left px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
-                        activeScreen === s.id ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
-                      }`}
-                    >{s.label}</button>
-                  ))}
-                </div>
+        const mainNav = [
+          { id: 'home', label: 'Home', icon: ic.home, active: activeNavItem === 'analytics' && activeScreen === 'quickview',
+            go: () => { setActiveNavItem('analytics'); setActiveScreen('quickview'); } },
+          { id: 'analytics', label: 'Analytics', icon: ic.analytics, active: activeNavItem === 'analytics' && activeScreen !== 'quickview',
+            go: () => { setActiveNavItem('analytics'); setActiveScreen('reports'); } },
+          { id: 'apps', label: 'Applications', icon: ic.apps, active: activeNavItem === 'apps',
+            go: () => setActiveNavItem('apps') },
+          { id: 'networks', label: 'Networks', icon: ic.networks, active: false, soon: true, go: () => {} },
+          { id: 'payments', label: 'Payments', icon: ic.payments, active: activeNavItem === 'payments',
+            go: () => setActiveNavItem('payments') },
+        ];
+
+        const internalNav = isSuperadmin ? [
+          { id: 'tools', label: 'Internal Services', icon: ic.tools, active: activeNavItem === 'tools',
+            go: () => { setActiveNavItem('tools'); setAdminSection(null); } },
+          { id: 'admin', label: 'Admin', icon: ic.admin, active: activeNavItem === 'admin',
+            go: () => { setActiveNavItem('admin'); setAdminSection(null); } },
+        ] : [];
+
+        const bottomNav = [
+          { id: 'support', label: 'Support', icon: ic.support, active: false, go: () => {} },
+          { id: 'settings', label: 'Settings', icon: ic.settings, active: activeNavItem === 'profile',
+            go: () => setActiveNavItem('profile') },
+        ];
+
+        const Logo = (
+          <div className="relative w-9 h-9 rounded-full bg-ink flex items-center justify-center shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--bg-base)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7"/><path d="M9 7h8v8"/></svg>
+            <span className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-accent border-2 border-base"></span>
+          </div>
+        );
+
+        // кнопка узкого рельса
+        const RailBtn = (item) => (
+          <button
+            key={item.id}
+            onClick={item.go}
+            disabled={item.soon}
+            title={item.soon ? item.label + ' — coming soon' : item.label}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+              item.active ? 'bg-accent text-accent-ink'
+              : item.soon ? 'text-ink-3 opacity-40 cursor-default'
+              : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+            }`}
+          >{item.icon}</button>
+        );
+
+        // строка раскрытой панели
+        const PanelBtn = (item) => (
+          <button
+            key={item.id}
+            onClick={item.go}
+            disabled={item.soon}
+            className={`w-full h-10 px-3 rounded-xl flex items-center gap-3 text-sm font-medium transition-colors ${
+              item.active ? 'bg-accent text-accent-ink'
+              : item.soon ? 'text-ink-3 opacity-50 cursor-default'
+              : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+            }`}
+          >
+            <span className="shrink-0">{item.icon}</span>
+            <span className="whitespace-nowrap">{item.label}</span>
+            {item.soon && <span className="ml-auto text-[10px] font-semibold tracking-wide text-ink-3 border border-line rounded px-1.5 py-0.5">SOON</span>}
+          </button>
+        );
+
+        return (
+          <div
+            className="relative shrink-0 z-40"
+            onMouseEnter={() => setNavExpanded(true)}
+            onMouseLeave={() => setNavExpanded(false)}
+          >
+            {/* Узкий рельс */}
+            <div className="w-16 h-full bg-base border-r border-line flex flex-col items-center py-4">
+              <div className="mb-5">{Logo}</div>
+              <div className="flex flex-col gap-1">{mainNav.map(RailBtn)}</div>
+              {internalNav.length > 0 && (
+                <>
+                  <div className="w-8 h-px bg-line my-2.5"></div>
+                  <div className="flex flex-col gap-1">{internalNav.map(RailBtn)}</div>
+                </>
               )}
-            </div>
-          ))}
-
-          {/* Separator + Internal Services & Admin (superadmin only) */}
-          <div className="border-t border-slate-800 my-2"></div>
-
-          {/* Internal Services */}
-          <button
-            onClick={() => { setActiveNavItem('tools'); setAdminSection(null); }}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
-              activeNavItem === 'tools'
-                ? 'bg-blue-600/20 text-blue-400'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-            }`}
-            title={!navExpanded ? 'Internal Services' : undefined}
-          >
-            <span className="shrink-0 w-5 h-5 flex items-center justify-center">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><line x1="6.8" y1="6.8" x2="10.2" y2="10.2"/><line x1="17.2" y1="6.8" x2="13.8" y2="10.2"/><line x1="6.8" y1="17.2" x2="10.2" y2="13.8"/><line x1="17.2" y1="17.2" x2="13.8" y2="13.8"/></svg>
-            </span>
-            {navExpanded && <span>Internal Services</span>}
-          </button>
-          {activeNavItem === 'tools' && navExpanded && (
-            <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
-              {[
-                { id: 'apps', label: 'Apps Management' },
-                { id: 'mediation', label: 'Default Mediation' },
-                { id: 'aso', label: 'ASO' },
-                { id: 'creatives', label: 'Creatives' },
-                { id: 'networks', label: 'Networks' },
-              ].map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => setAdminSection(s.id)}
-                  className={`text-left px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
-                    adminSection === s.id ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >{s.label}</button>
-              ))}
-            </div>
-          )}
-
-          {/* Admin (RBAC) */}
-          <button
-            onClick={() => { setActiveNavItem('admin'); setAdminSection(null); }}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap overflow-hidden ${
-              activeNavItem === 'admin'
-                ? 'bg-blue-600/20 text-blue-400'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-            }`}
-            title={!navExpanded ? 'Admin' : undefined}
-          >
-            <span className="shrink-0 w-5 h-5 flex items-center justify-center">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/><path d="M9 12l2 2 4-4"/></svg>
-            </span>
-            {navExpanded && <span>Admin</span>}
-          </button>
-          {activeNavItem === 'admin' && navExpanded && (
-            <div className="ml-7 mt-0.5 flex flex-col gap-0.5">
-              {[
-                { id: 'users', label: 'Users & Roles' },
-                { id: 'organizations', label: 'Organizations' },
-                { id: 'impersonation', label: 'Impersonation' },
-                { id: 'audit', label: 'Audit Log' },
-                { id: 'templates', label: 'Role Templates' },
-              ].map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => setAdminSection(s.id)}
-                  className={`text-left px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors ${
-                    adminSection === s.id ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >{s.label}</button>
-              ))}
-            </div>
-          )}
-        </nav>
-
-        {/* Spacer */}
-        <div className="flex-1"></div>
-
-        {/* Human Touch — Your CAS Team */}
-        <div className="px-2 py-2 border-t border-slate-800">
-          <div className={`px-2.5 py-2 ${navExpanded ? '' : 'flex justify-center'}`}>
-            {navExpanded ? (
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-slate-600 font-semibold mb-2">Your CAS Team</div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-xs font-bold text-white shrink-0">SS</div>
-                  <div>
-                    <div className="text-xs text-slate-200 font-medium">Serhii</div>
-                    <div className="text-[10px] text-slate-500">Personal Manager</div>
-                  </div>
-                </div>
-                <div className="flex gap-1.5 mb-1.5">
-                  <a href="#" className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors" title="Telegram">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-blue-400"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0h-.056zm4.962 7.224l-1.84 8.684c-.127.6-.48.746-.972.464l-2.688-1.98-1.296 1.248c-.144.144-.264.264-.54.264l.192-2.724 4.968-4.488c.216-.192-.048-.3-.336-.108L8.632 13.308l-2.616-.816c-.564-.18-.576-.564.12-.84l10.236-3.948c.468-.168.876.108.72.84l.024-.32z"/></svg>
-                    <span className="text-[10px] text-slate-400">Chat</span>
-                  </a>
-                  <a href="#" className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 transition-colors" title="WhatsApp">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-400"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.136.558 4.143 1.534 5.886L0 24l6.305-1.654A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-1.98 0-3.82-.562-5.39-1.527l-.386-.23-4.006 1.05 1.07-3.91-.252-.4A9.716 9.716 0 012.25 12c0-5.385 4.365-9.75 9.75-9.75S21.75 6.615 21.75 12s-4.365 9.75-9.75 9.75z"/></svg>
-                    <span className="text-[10px] text-slate-400">Chat</span>
-                  </a>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                  <span className="text-[10px] text-slate-500">Need help?</span>
-                </div>
+              <div className="flex-1"></div>
+              <div className="flex flex-col gap-1 items-center">
+                {bottomNav.map(RailBtn)}
+                <button onClick={() => setActiveNavItem('profile')} className="w-9 h-9 mt-1.5 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-accent-ink" title="Oleg Shlyamovych">O</button>
               </div>
-            ) : (
-              <a href="#" className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-xs font-bold text-white" title="Your manager: Serhii">SS</a>
+            </div>
+
+            {/* Раскрытая панель — поверх контента, без сдвига лейаута */}
+            {navExpanded && (
+              <div className="absolute left-0 top-0 h-full w-60 bg-base border-r border-line shadow-pop flex flex-col py-4 px-3">
+                <div className="flex items-center gap-2.5 px-1.5 mb-5">
+                  {Logo}
+                  <span className="font-display text-lg font-bold tracking-[-0.02em] text-ink">CAS.AI</span>
+                </div>
+                <div className="flex flex-col gap-1">{mainNav.map(PanelBtn)}</div>
+                {internalNav.length > 0 && (
+                  <>
+                    <div className="h-px bg-line my-2.5"></div>
+                    <div className="flex flex-col gap-1">{internalNav.map(PanelBtn)}</div>
+                  </>
+                )}
+                <div className="flex-1"></div>
+                <div className="flex flex-col gap-1">{bottomNav.map(PanelBtn)}</div>
+                <div className="h-px bg-line my-2.5"></div>
+                <button onClick={() => setActiveNavItem('profile')} className="flex items-center gap-2.5 px-1.5 py-1.5 rounded-xl hover:bg-surface-2 transition-colors text-left">
+                  <span className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-accent-ink shrink-0">O</span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-ink truncate">Oleg Shlyamovych</span>
+                    <span className="block text-[11px] text-ink-3 truncate">oleg@psvgames.com</span>
+                  </span>
+                </button>
+              </div>
             )}
           </div>
-        </div>
-
-        {/* Resources */}
-        <div className="px-2 py-2 border-t border-slate-800">
-          {[
-            { label: 'API Docs', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg> },
-            { label: 'Resources', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/></svg> },
-          ].map(r => (
-            <a key={r.label} href="#" className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors text-xs whitespace-nowrap overflow-hidden ${navExpanded ? '' : 'justify-center'}`} title={!navExpanded ? r.label : undefined}>
-              <span className="shrink-0 w-4 h-4 flex items-center justify-center">{r.icon}</span>
-              {navExpanded && <span>{r.label}</span>}
-            </a>
-          ))}
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ===== Main Area (Header + Content) ===== */}
       <div className="flex-1 min-w-0 flex flex-col">
 
       {/* ===== Header ===== */}
-      <div className="h-12 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm flex items-center justify-between px-5">
-        {/* Left: breadcrumb / page title */}
-        <div className="text-sm text-slate-400">
-          {activeNavItem === 'analytics' && <span className="text-slate-200 font-medium">Analytics</span>}
-          {activeNavItem === 'admin' && (
-            adminSection ? (
-              <span className="flex items-center gap-2">
-                <button onClick={() => setAdminSection(null)} className="text-slate-400 hover:text-slate-200 transition-colors">Admin</button>
-                <span className="text-slate-600">/</span>
-                <span className="text-slate-200 font-medium">{
-                  { users: 'Users & Roles', organizations: 'Organizations & Assignments', impersonation: 'Impersonation', audit: 'Audit Log', templates: 'Role Templates' }[adminSection]
-                }</span>
-              </span>
-            ) : (
-              <span className="text-slate-200 font-medium">Admin</span>
-            )
+      {(() => {
+        const sectionTitles = {
+          analytics: activeScreen === 'quickview' ? 'Home' : 'Analytics',
+          apps: 'Applications',
+          payments: 'Payments',
+          profile: 'Profile',
+          admin: 'Admin',
+          tools: 'Internal Services',
+        };
+        const subTitles = {
+          users: 'Users & Roles', organizations: 'Organizations & Assignments',
+          impersonation: 'Impersonation', audit: 'Audit Log', templates: 'Role Templates',
+          apps: 'Apps Management', mediation: 'Default Mediation Setup',
+          aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management',
+        };
+        const isSection = (activeNavItem === 'admin' || activeNavItem === 'tools') && adminSection;
+        const crumb = isSection ? sectionTitles[activeNavItem] : null;
+        const title = isSection ? (subTitles[adminSection] || sectionTitles[activeNavItem]) : sectionTitles[activeNavItem];
+        return (
+      <div className="h-16 shrink-0 border-b border-line bg-base flex items-center justify-between px-6 gap-4">
+        {/* Left: page title + data freshness */}
+        <div className="flex items-baseline gap-3 min-w-0">
+          {crumb && (
+            <button onClick={() => setAdminSection(null)} className="text-sm text-ink-2 hover:text-ink transition-colors shrink-0">
+              {crumb} <span className="text-ink-3">/</span>
+            </button>
           )}
-          {activeNavItem === 'tools' && (
-            adminSection ? (
-              <span className="flex items-center gap-2">
-                <button onClick={() => setAdminSection(null)} className="text-slate-400 hover:text-slate-200 transition-colors">Internal Services</button>
-                <span className="text-slate-600">/</span>
-                <span className="text-slate-200 font-medium">{
-                  { apps: 'Apps Management', mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management' }[adminSection]
-                }</span>
-              </span>
-            ) : (
-              <span className="text-slate-200 font-medium">Internal Services</span>
-            )
-          )}
-          {activeNavItem === 'apps' && <span className="text-slate-200 font-medium">Applications</span>}
-          {activeNavItem === 'payments' && <span className="text-slate-200 font-medium">Payments</span>}
-          {activeNavItem === 'profile' && <span className="text-slate-200 font-medium">Profile</span>}
+          <h1 className="font-display text-[30px] leading-9 font-bold tracking-[-0.02em] text-ink truncate">{title}</h1>
+          <span className="text-xs text-ink-3 whitespace-nowrap hidden xl:inline">
+            Data through Sep 8, 2026 · <span className="text-success">up to date</span>
+          </span>
         </div>
 
-        {/* Right: Balance + Notifications + Profile */}
-        <div className="flex items-center gap-3">
+        {/* Right: internal badge + theme + lang + balance + bell + profile */}
+        <div className="flex items-center gap-2 shrink-0">
+          {isSuperadmin && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-error text-[11px] font-semibold tracking-wide text-error bg-error-subtle">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+              INTERNAL
+            </span>
+          )}
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors"
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            )}
+          </button>
+
+          {/* Language */}
+          <button className="h-9 px-2.5 rounded-lg text-xs font-semibold text-ink-2 hover:bg-surface-2 hover:text-ink transition-colors">EN</button>
+
+          <span className="w-px h-6 bg-line" />
+
           {/* Balance */}
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors" title="Current balance — click to view Payments">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-            <span className="text-sm font-semibold text-emerald-400">$12,450</span>
+          <button className="flex items-center gap-1.5 px-3 h-9 rounded-lg hover:bg-surface-2 transition-colors tabular" title="Current balance — click to view Payments">
+            <span className="text-sm font-semibold text-success">$12,450</span>
           </button>
 
           {/* Notifications */}
           <div className="relative">
             <button
               onClick={() => { setShowNotificationsDD(!showNotificationsDD); setShowProfileDD(false); }}
-              className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-800 transition-colors"
+              className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-2 transition-colors"
               title="Notifications"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-ink-2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
               {notifications.filter(n => !n.read).length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center text-white">{notifications.filter(n => !n.read).length}</span>
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-error rounded-full text-[9px] font-bold flex items-center justify-center text-white">{notifications.filter(n => !n.read).length}</span>
               )}
             </button>
 
             {/* Notifications Dropdown */}
             {showNotificationsDD && (
-              <div className="absolute right-0 top-10 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
-                  <span className="text-sm font-semibold text-slate-100">Notifications</span>
+              <div className="absolute right-0 top-11 w-80 bg-base border border-line rounded-card shadow-pop z-50 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-line">
+                  <span className="text-sm font-semibold text-ink">Notifications</span>
                   <button
                     onClick={() => setNotifications(notifications.map(n => ({ ...n, read: true })))}
-                    className="text-[11px] text-blue-400 hover:text-blue-300"
+                    className="text-[11px] font-medium text-accent-deep hover:underline"
                   >Dismiss All</button>
                 </div>
                 <div className="max-h-72 overflow-y-auto">
                   {notifications.map(n => (
-                    <div key={n.id} className={`flex items-start gap-3 px-4 py-3 border-b border-slate-700/50 hover:bg-slate-750 cursor-pointer ${n.read ? 'opacity-50' : ''}`}>
+                    <div key={n.id} className={`flex items-start gap-3 px-4 py-3 border-b border-line last:border-0 hover:bg-surface-2 cursor-pointer ${n.read ? 'opacity-50' : ''}`}>
                       <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5 ${
-                        n.type === 'critical' ? 'bg-red-500/20 text-red-400' :
-                        n.type === 'info' ? 'bg-blue-500/20 text-blue-400' :
-                        'bg-emerald-500/20 text-emerald-400'
+                        n.type === 'critical' ? 'bg-error-subtle text-error' :
+                        n.type === 'info' ? 'bg-accent-12 text-accent-deep' :
+                        'bg-success-subtle text-success'
                       }`}>{n.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-slate-200">{n.text}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{n.time}</div>
+                        <div className="text-xs text-ink">{n.text}</div>
+                        <div className="text-[10px] text-ink-3 mt-0.5">{n.time}</div>
                       </div>
                       {!n.read && (
-                        <button onClick={(e) => { e.stopPropagation(); setNotifications(notifications.map(x => x.id === n.id ? { ...x, read: true } : x)); }} className="text-slate-500 hover:text-slate-300 text-xs shrink-0 mt-0.5">&times;</button>
+                        <button onClick={(e) => { e.stopPropagation(); setNotifications(notifications.map(x => x.id === n.id ? { ...x, read: true } : x)); }} className="text-ink-3 hover:text-ink text-xs shrink-0 mt-0.5">&times;</button>
                       )}
                     </div>
                   ))}
@@ -2542,33 +2472,36 @@ export default function MetricTree() {
           <div className="relative">
             <button
               onClick={() => { setShowProfileDD(!showProfileDD); setShowNotificationsDD(false); }}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-2 pl-1 pr-2 h-9 rounded-lg hover:bg-surface-2 transition-colors"
             >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[10px] font-bold text-white">O</div>
-              <span className="text-xs text-slate-300 font-medium">Oleg</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500"><path d="M6 9l6 6 6-6"/></svg>
+              <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-accent-ink">O</div>
+              <span className="text-xs text-ink font-medium">Oleg</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-3"><path d="M6 9l6 6 6-6"/></svg>
             </button>
 
             {/* Profile Dropdown */}
             {showProfileDD && (
-              <div className="absolute right-0 top-10 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/40 z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-700">
-                  <div className="text-sm font-medium text-slate-100">Oleg Shlyamovych</div>
-                  <div className="text-[11px] text-slate-500">oleg@psvgames.com</div>
+              <div className="absolute right-0 top-11 w-56 bg-base border border-line rounded-card shadow-pop z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-line">
+                  <div className="text-sm font-medium text-ink">Oleg Shlyamovych</div>
+                  <div className="text-[11px] text-ink-3">oleg@psvgames.com</div>
                 </div>
                 <div className="py-1">
-                  <div className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-750 cursor-pointer">
+                  <button
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-surface-2"
+                  >
                     <div className="flex items-center gap-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
-                      <span className="text-xs text-slate-300">Dark Mode</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-2"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+                      <span className="text-xs text-ink">Dark Mode</span>
                     </div>
-                    <div className="w-8 h-4.5 bg-blue-600 rounded-full relative">
-                      <div className="absolute right-0.5 top-0.5 w-3.5 h-3.5 bg-white rounded-full"></div>
-                    </div>
-                  </div>
-                  <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-slate-750 text-left">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    <span className="text-xs text-slate-300">Log out</span>
+                    <span className={`w-8 h-[18px] rounded-full relative transition-colors ${theme === 'dark' ? 'bg-accent' : 'bg-surface-3'}`}>
+                      <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-ink transition-all ${theme === 'dark' ? 'right-0.5' : 'left-0.5'}`}></span>
+                    </span>
+                  </button>
+                  <button className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-surface-2 text-left">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span className="text-xs text-ink">Log out</span>
                   </button>
                 </div>
               </div>
@@ -2576,10 +2509,12 @@ export default function MetricTree() {
           </div>
         </div>
       </div>
+        );
+      })()}
 
       {/* ===== Content Area ===== */}
-      <div className="flex-1 min-w-0 p-6 overflow-y-auto">
-      <div className="mx-auto max-w-screen-lg">
+      <div className="flex-1 min-w-0 bg-surface-2 p-6 overflow-y-auto">
+      <div className="mx-auto max-w-[1720px]">
 
         {/* ===== Admin / Internal Services Hub (tile grid) ===== */}
         {(activeNavItem === 'admin' || activeNavItem === 'tools') && adminSection === null && (() => {
@@ -2674,18 +2609,18 @@ export default function MetricTree() {
               onClick={() => setAdminSection(t.id)}
               className={`text-left p-4 rounded-xl border transition-colors flex flex-col gap-3 min-h-[150px] ${
                 t.ready
-                  ? 'bg-slate-800/50 border-slate-700 hover:bg-slate-800 hover:border-blue-500/40 cursor-pointer'
-                  : 'bg-slate-800/30 border-slate-800 hover:bg-slate-800/50 hover:border-slate-700 cursor-pointer'
+                  ? 'bg-base border-line hover:bg-base hover:border-accent-line cursor-pointer'
+                  : 'bg-base border-line hover:bg-base hover:border-line cursor-pointer'
               }`}
             >
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${t.ready ? 'bg-blue-500/15 text-blue-400' : 'bg-slate-700/30 text-slate-500'}`}>
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${t.ready ? 'bg-accent-12 text-accent-deep' : 'bg-surface-2 text-ink-3'}`}>
                 {t.icon}
               </div>
               <div className="flex-1">
-                <div className={`text-sm font-medium mb-1 ${t.ready ? 'text-slate-100' : 'text-slate-300'}`}>{t.title}</div>
-                <div className="text-[11px] text-slate-500 leading-snug">{t.desc}</div>
+                <div className={`text-sm font-medium mb-1 ${t.ready ? 'text-ink' : 'text-ink'}`}>{t.title}</div>
+                <div className="text-[11px] text-ink-3 leading-snug">{t.desc}</div>
               </div>
-              <div className={`text-[10px] pt-2 border-t ${t.ready ? 'text-slate-400 border-slate-700/60' : 'text-slate-600 border-slate-800 italic'}`}>
+              <div className={`text-[10px] pt-2 border-t ${t.ready ? 'text-ink-2 border-line' : 'text-ink-3 border-line italic'}`}>
                 {t.ready ? t.stat : `— ${t.stat}`}
               </div>
             </button>
@@ -2695,8 +2630,8 @@ export default function MetricTree() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">{isAdmin ? 'Admin' : 'Internal Services'}</span>
-                  <span className="text-[10px] text-slate-500 ml-2">{isAdmin ? 'Roles, access and audit' : 'Operational services and configuration'}</span>
+                  <span className="text-sm font-semibold text-ink leading-tight tracking-tight">{isAdmin ? 'Admin' : 'Internal Services'}</span>
+                  <span className="text-[10px] text-ink-3 ml-2">{isAdmin ? 'Roles, access and audit' : 'Operational services and configuration'}</span>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -2730,22 +2665,22 @@ export default function MetricTree() {
           // Group color palette — pastel/distinct
           const groupColor = (g) => {
             const map = {
-              'Super User': 'bg-purple-900/40 border-purple-700/50 text-purple-200',
-              'Admin CAS': 'bg-rose-900/40 border-rose-700/50 text-rose-200',
-              'User': 'bg-slate-700/50 border-slate-600 text-slate-200',
-              'ASO User': 'bg-cyan-900/40 border-cyan-700/50 text-cyan-200',
-              'Translates Users': 'bg-blue-900/40 border-blue-700/50 text-blue-200',
-              'Sound Manager Users': 'bg-indigo-900/40 border-indigo-700/50 text-indigo-200',
-              'Report Users': 'bg-emerald-900/40 border-emerald-700/50 text-emerald-200',
-              'Admob Users': 'bg-amber-900/40 border-amber-700/50 text-amber-200',
-              'Shops': 'bg-pink-900/40 border-pink-700/50 text-pink-200',
-              'Conversion Group': 'bg-teal-900/40 border-teal-700/50 text-teal-200',
-              'CAS Users': 'bg-sky-900/40 border-sky-700/50 text-sky-200',
-              'Downloader Users': 'bg-orange-900/40 border-orange-700/50 text-orange-200',
-              'BigQuery': 'bg-violet-900/40 border-violet-700/50 text-violet-200',
-              'SuperSet Group': 'bg-fuchsia-900/40 border-fuchsia-700/50 text-fuchsia-200',
+              'Super User': 'bg-purple-100 border-purple-200 text-purple-700',
+              'Admin CAS': 'bg-rose-100 border-rose-200 text-rose-700',
+              'User': 'bg-surface-2 border-line text-ink',
+              'ASO User': 'bg-cyan-100 border-cyan-200 text-cyan-700',
+              'Translates Users': 'bg-accent-12 border-accent-line text-accent-deep',
+              'Sound Manager Users': 'bg-indigo-100 border-indigo-200 text-indigo-700',
+              'Report Users': 'bg-success-subtle border-success text-success',
+              'Admob Users': 'bg-warning-subtle border-warning text-warning',
+              'Shops': 'bg-pink-100 border-pink-200 text-pink-700',
+              'Conversion Group': 'bg-teal-100 border-teal-200 text-teal-700',
+              'CAS Users': 'bg-sky-100 border-sky-200 text-sky-700',
+              'Downloader Users': 'bg-orange-100 border-orange-200 text-orange-700',
+              'BigQuery': 'bg-violet-100 border-violet-200 text-violet-700',
+              'SuperSet Group': 'bg-fuchsia-100 border-fuchsia-200 text-fuchsia-700',
             };
-            return map[g] || 'bg-slate-700/50 border-slate-600 text-slate-200';
+            return map[g] || 'bg-surface-2 border-line text-ink';
           };
           const filtered = internalUsers
             .filter(u => usersFilterGroup === 'all' || u.groups.includes(usersFilterGroup))
@@ -2758,15 +2693,15 @@ export default function MetricTree() {
               {/* Header — title + Manage buttons */}
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Users</span>
-                  <span className="text-[10px] text-slate-500 ml-2">{internalUsers.length} users · {ALL_GROUPS.length} groups</span>
+                  <span className="text-sm font-semibold text-ink leading-tight tracking-tight">Users</span>
+                  <span className="text-[10px] text-ink-3 ml-2">{internalUsers.length} users · {ALL_GROUPS.length} groups</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium text-white transition-colors uppercase tracking-wide">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium text-ink transition-colors uppercase tracking-wide">
                     Manage Permissions
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                   </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium text-white transition-colors uppercase tracking-wide">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium text-ink transition-colors uppercase tracking-wide">
                     Manage Groups
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
                   </button>
@@ -2776,33 +2711,33 @@ export default function MetricTree() {
               {/* Stat strip — top groups by membership */}
               <div className="grid grid-cols-7 gap-2 mb-3">
                 {groupCounts.map(({ g, count }) => (
-                  <button key={g} onClick={() => setUsersFilterGroup(g === usersFilterGroup ? 'all' : g)} className={`text-left p-2 border rounded-lg transition-colors ${usersFilterGroup === g ? groupColor(g) : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800'}`}>
-                    <div className="text-base font-semibold text-slate-100">{count}</div>
+                  <button key={g} onClick={() => setUsersFilterGroup(g === usersFilterGroup ? 'all' : g)} className={`text-left p-2 border rounded-lg transition-colors ${usersFilterGroup === g ? groupColor(g) : 'bg-base border-line hover:bg-base'}`}>
+                    <div className="text-base font-semibold text-ink">{count}</div>
                     <div className="text-[9px] uppercase tracking-wide truncate">{g}</div>
                   </button>
                 ))}
               </div>
 
               {/* Filters */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 mb-3">
+              <div className="bg-base border border-line rounded-xl p-3 mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 min-w-[200px]">
-                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <input type="text" placeholder="Search by name or email..." value={usersSearch} onChange={(e) => setUsersSearch(e.target.value)}
-                      className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"/>
+                      className="w-full bg-surface border border-line rounded-lg pl-8 pr-3 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"/>
                   </div>
                   <select value={usersFilterGroup} onChange={(e) => setUsersFilterGroup(e.target.value)}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="all">All groups</option>
                     {ALL_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                   <select value={usersFilterStatus} onChange={(e) => setUsersFilterStatus(e.target.value)}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="all">All status</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:brightness-95 rounded-lg text-xs font-medium text-ink transition-colors">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                     Add user
                   </button>
@@ -2810,40 +2745,40 @@ export default function MetricTree() {
               </div>
 
               {/* Table — PSVPortal layout */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="bg-base border border-line rounded-xl overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/80">
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-20 uppercase tracking-wide text-[10px]">Action</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-44 uppercase tracking-wide text-[10px]">Name</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-56 uppercase tracking-wide text-[10px]">Email</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-24 uppercase tracking-wide text-[10px]">Permissions</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium uppercase tracking-wide text-[10px]">Groups</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-40 uppercase tracking-wide text-[10px]">Last Login</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-16 uppercase tracking-wide text-[10px]">Active</th>
+                    <tr className="border-b border-line bg-base">
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-20 uppercase tracking-wide text-[10px]">Action</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-44 uppercase tracking-wide text-[10px]">Name</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-56 uppercase tracking-wide text-[10px]">Email</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-24 uppercase tracking-wide text-[10px]">Permissions</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium uppercase tracking-wide text-[10px]">Groups</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-40 uppercase tracking-wide text-[10px]">Last Login</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-16 uppercase tracking-wide text-[10px]">Active</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map(u => (
-                      <tr key={u.id} className="border-b border-slate-700/30 hover:bg-slate-700/15 transition-colors">
+                      <tr key={u.id} className="border-b border-line hover:bg-surface-2 transition-colors">
                         {/* Action */}
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-1.5">
-                            <button className="w-7 h-7 rounded-full bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-400 flex items-center justify-center transition-colors" title="Edit">
+                            <button className="w-7 h-7 rounded-full bg-accent-12 hover:brightness-95-12 border border-accent-line text-accent-deep flex items-center justify-center transition-colors" title="Edit">
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             </button>
-                            <button className="w-7 h-7 rounded-full bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 flex items-center justify-center transition-colors" title="Delete">
+                            <button className="w-7 h-7 rounded-full bg-error-subtle hover:bg-error-subtle border border-error text-error flex items-center justify-center transition-colors" title="Delete">
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                             </button>
                           </div>
                         </td>
                         {/* Name */}
-                        <td className="py-2.5 px-3 text-slate-200">{u.name}</td>
+                        <td className="py-2.5 px-3 text-ink">{u.name}</td>
                         {/* Email */}
-                        <td className="py-2.5 px-3 text-slate-400">{u.email}</td>
+                        <td className="py-2.5 px-3 text-ink-2">{u.email}</td>
                         {/* Permissions — SHOW button */}
                         <td className="py-2.5 px-3">
-                          <button onClick={() => setUsersShowPermissions(u.id)} className="px-3 py-1 bg-slate-800 border border-slate-600 hover:bg-slate-700 rounded text-[10px] font-medium text-slate-300 uppercase tracking-wide transition-colors">
+                          <button onClick={() => setUsersShowPermissions(u.id)} className="px-3 py-1 bg-base border border-line hover:bg-surface-2 rounded text-[10px] font-medium text-ink uppercase tracking-wide transition-colors">
                             Show
                           </button>
                         </td>
@@ -2856,7 +2791,7 @@ export default function MetricTree() {
                           </div>
                         </td>
                         {/* Last Login */}
-                        <td className="py-2.5 px-3 text-slate-500 text-[11px] font-mono">{u.lastLogin}</td>
+                        <td className="py-2.5 px-3 text-ink-3 text-[11px] font-mono">{u.lastLogin}</td>
                         {/* Active — green check */}
                         <td className="py-2.5 px-3 text-center">
                           {u.active ? (
@@ -2864,7 +2799,7 @@ export default function MetricTree() {
                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                             </div>
                           ) : (
-                            <div className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-700">
+                            <div className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-surface-2">
                               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </div>
                           )}
@@ -2872,7 +2807,7 @@ export default function MetricTree() {
                       </tr>
                     ))}
                     {filtered.length === 0 && (
-                      <tr><td colSpan={7} className="py-12 text-center text-slate-500 text-xs">No users matching filters</td></tr>
+                      <tr><td colSpan={7} className="py-12 text-center text-ink-3 text-xs">No users matching filters</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -2882,18 +2817,18 @@ export default function MetricTree() {
               {selectedUserPerms && (
                 <>
                   <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setUsersShowPermissions(null)} />
-                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] max-h-[80vh] bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl z-50 flex flex-col">
-                    <div className="shrink-0 px-5 py-3 border-b border-slate-700 flex items-center justify-between rounded-t-2xl">
+                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[560px] max-h-[80vh] bg-surface border border-line rounded-2xl shadow-pop z-50 flex flex-col">
+                    <div className="shrink-0 px-5 py-3 border-b border-line flex items-center justify-between rounded-t-2xl">
                       <div>
-                        <div className="text-sm text-slate-100 font-semibold">{selectedUserPerms.name}</div>
-                        <div className="text-[10px] text-slate-500">{selectedUserPerms.email} · permissions</div>
+                        <div className="text-sm text-ink font-semibold">{selectedUserPerms.name}</div>
+                        <div className="text-[10px] text-ink-3">{selectedUserPerms.email} · permissions</div>
                       </div>
-                      <button onClick={() => setUsersShowPermissions(null)} className="text-slate-500 hover:text-slate-200 p-1">
+                      <button onClick={() => setUsersShowPermissions(null)} className="text-ink-3 hover:text-ink p-1">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                       </button>
                     </div>
                     <div className="overflow-y-auto p-5">
-                      <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Effective permissions (from groups)</div>
+                      <div className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold mb-2">Effective permissions (from groups)</div>
                       <div className="space-y-1">
                         {(() => {
                           const allPerms = {
@@ -2915,16 +2850,16 @@ export default function MetricTree() {
                           const perms = new Set();
                           selectedUserPerms.groups.forEach(g => (allPerms[g] || []).forEach(p => perms.add(p)));
                           return Array.from(perms).sort().map(p => (
-                            <div key={p} className="flex items-center justify-between px-3 py-1.5 bg-slate-800/50 border border-slate-700/50 rounded">
-                              <span className="text-[11px] font-mono text-slate-300">{p}</span>
-                              <span className="text-emerald-400 text-[10px]">✓</span>
+                            <div key={p} className="flex items-center justify-between px-3 py-1.5 bg-base border border-line rounded">
+                              <span className="text-[11px] font-mono text-ink">{p}</span>
+                              <span className="text-success text-[10px]">✓</span>
                             </div>
                           ));
                         })()}
                       </div>
                     </div>
-                    <div className="shrink-0 px-5 py-3 border-t border-slate-700 flex justify-end">
-                      <button onClick={() => setUsersShowPermissions(null)} className="px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200">Close</button>
+                    <div className="shrink-0 px-5 py-3 border-t border-line flex justify-end">
+                      <button onClick={() => setUsersShowPermissions(null)} className="px-3 py-1.5 text-xs text-ink-2 hover:text-ink">Close</button>
                     </div>
                   </div>
                 </>
@@ -2981,9 +2916,9 @@ export default function MetricTree() {
           const safePage = Math.min(orgsPage, totalPages || 1);
           const paged = filtered.slice((safePage - 1) * PAGE, safePage * PAGE);
           const tierColors = {
-            standard: 'bg-slate-500/15 text-slate-300 border-slate-500/25',
-            analytics: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
-            full: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+            standard: 'bg-surface-3 text-ink border-line',
+            analytics: 'bg-accent-12 text-accent-deep border-accent-line',
+            full: 'bg-success-subtle text-success border-success',
           };
           const studioCount = allOrgs.filter(o => o.type === 'studio').length;
           const publisherCount = allOrgs.filter(o => o.type === 'publisher').length;
@@ -2992,39 +2927,39 @@ export default function MetricTree() {
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Organizations & Assignments</span>
-                  <span className="text-[10px] text-slate-500 ml-2">{filtered.length.toLocaleString()} of {allOrgs.length.toLocaleString()} tenants</span>
+                  <span className="text-sm font-semibold text-ink leading-tight tracking-tight">Organizations & Assignments</span>
+                  <span className="text-[10px] text-ink-3 ml-2">{filtered.length.toLocaleString()} of {allOrgs.length.toLocaleString()} tenants</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400">
+                <div className="flex items-center gap-3 text-xs text-ink-2">
                   <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>{studioCount} studios</span>
-                  <span className="text-slate-600">|</span>
+                  <span className="text-ink-3">|</span>
                   <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>{publisherCount.toLocaleString()} publishers</span>
                 </div>
               </div>
 
               {/* Filters */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 mb-3">
+              <div className="bg-base border border-line rounded-xl p-3 mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 min-w-[200px]">
-                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <input type="text" placeholder="Search organizations..." value={orgsSearch} onChange={(e) => { setOrgsSearch(e.target.value); setOrgsPage(1); }}
-                      className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"/>
+                      className="w-full bg-surface border border-line rounded-lg pl-8 pr-3 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"/>
                   </div>
                   <select value={orgsFilterType} onChange={(e) => { setOrgsFilterType(e.target.value); setOrgsPage(1); }}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="all">All types</option>
                     <option value="studio">Studios</option>
                     <option value="publisher">Publishers</option>
                   </select>
                   <select value={orgsFilterTier} onChange={(e) => { setOrgsFilterTier(e.target.value); setOrgsPage(1); }}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="all">All tiers</option>
                     <option value="standard">standard</option>
                     <option value="analytics">analytics</option>
                     <option value="full">full</option>
                   </select>
                   <select value={orgsFilterMgr} onChange={(e) => { setOrgsFilterMgr(e.target.value); setOrgsPage(1); }}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="all">All managers</option>
                     {adminManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
@@ -3032,54 +2967,54 @@ export default function MetricTree() {
               </div>
 
               {/* Table */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="bg-base border border-line rounded-xl overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/80">
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Organization</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-24">Type</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-28">Tier</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Account Manager</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-16">Users</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-16">Items</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-24">Onboarded</th>
+                    <tr className="border-b border-line bg-base">
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium">Organization</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-24">Type</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-28">Tier</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium">Account Manager</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-16">Users</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-16">Items</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-24">Onboarded</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paged.map(o => {
                       const mgr = adminManagers.find(m => m.id === o.managerId);
                       return (
-                        <tr key={o.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 cursor-pointer transition-colors">
+                        <tr key={o.id} className="border-b border-line hover:bg-surface-2 cursor-pointer transition-colors">
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-2">
-                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold shrink-0 ${o.type === 'studio' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold shrink-0 ${o.type === 'studio' ? 'bg-cyan-100 text-cyan-700' : 'bg-success-subtle text-success'}`}>
                                 {o.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
                               </div>
-                              <div className="text-slate-200 font-medium truncate">{o.name}</div>
+                              <div className="text-ink font-medium truncate">{o.name}</div>
                             </div>
                           </td>
                           <td className="py-2 px-3">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${o.type === 'studio' ? 'text-cyan-400' : 'text-emerald-400'}`}>{o.type}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${o.type === 'studio' ? 'text-cyan-600' : 'text-success'}`}>{o.type}</span>
                           </td>
                           <td className="py-2 px-3">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${tierColors[o.tier]}`}>{o.tier}</span>
                           </td>
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-1.5">
-                              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                              <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center text-[7px] font-bold text-ink shrink-0">
                                 {mgr ? mgr.name.split(' ').map(n => n[0]).join('') : '?'}
                               </div>
-                              <span className="text-slate-400">{mgr ? mgr.name : '—'}</span>
+                              <span className="text-ink-2">{mgr ? mgr.name : '—'}</span>
                             </div>
                           </td>
-                          <td className="py-2 px-3 text-center text-slate-300">{o.users}</td>
-                          <td className="py-2 px-3 text-center text-slate-300">{o.items}</td>
-                          <td className="py-2 px-3 text-slate-500">{o.onboardingDate}</td>
+                          <td className="py-2 px-3 text-center text-ink">{o.users}</td>
+                          <td className="py-2 px-3 text-center text-ink">{o.items}</td>
+                          <td className="py-2 px-3 text-ink-3">{o.onboardingDate}</td>
                         </tr>
                       );
                     })}
                     {paged.length === 0 && (
-                      <tr><td colSpan={7} className="py-12 text-center text-slate-500 text-xs">No organizations matching filters</td></tr>
+                      <tr><td colSpan={7} className="py-12 text-center text-ink-3 text-xs">No organizations matching filters</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -3088,15 +3023,15 @@ export default function MetricTree() {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-3">
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-[10px] text-ink-3">
                     {((safePage - 1) * PAGE + 1).toLocaleString()}–{Math.min(safePage * PAGE, filtered.length).toLocaleString()} of {filtered.length.toLocaleString()}
                   </span>
                   <div className="flex items-center gap-0.5">
                     <button disabled={safePage <= 1} onClick={() => setOrgsPage(p => p - 1)}
-                      className="px-2 py-1 rounded text-xs text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Prev</button>
-                    <span className="px-3 text-xs text-slate-400">{safePage} / {totalPages}</span>
+                      className="px-2 py-1 rounded text-xs text-ink-2 hover:bg-surface-2 disabled:opacity-30 disabled:cursor-not-allowed">Prev</button>
+                    <span className="px-3 text-xs text-ink-2">{safePage} / {totalPages}</span>
                     <button disabled={safePage >= totalPages} onClick={() => setOrgsPage(p => p + 1)}
-                      className="px-2 py-1 rounded text-xs text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Next</button>
+                      className="px-2 py-1 rounded text-xs text-ink-2 hover:bg-surface-2 disabled:opacity-30 disabled:cursor-not-allowed">Next</button>
                   </div>
                 </div>
               )}
@@ -3128,39 +3063,39 @@ export default function MetricTree() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Impersonation</span>
-                  <span className="text-[10px] text-slate-500 ml-2">Sign in as a client · 30 min idle timeout</span>
+                  <span className="text-sm font-semibold text-ink leading-tight tracking-tight">Impersonation</span>
+                  <span className="text-[10px] text-ink-3 ml-2">Sign in as a client · 30 min idle timeout</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400">
+                <div className="flex items-center gap-3 text-xs text-ink-2">
                   <span className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                     {activeSessions.length} active
                   </span>
-                  <span className="text-slate-600">|</span>
+                  <span className="text-ink-3">|</span>
                   <span>{recent.length} past (today)</span>
                 </div>
               </div>
 
               {/* Start new impersonation */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-4">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Start new session</div>
+              <div className="bg-base border border-line rounded-xl p-4 mb-4">
+                <div className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold mb-2">Start new session</div>
                 <div className="relative">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                   <input type="text" placeholder="Search organization to sign in as..." value={impSearch} onChange={(e) => setImpSearch(e.target.value)}
-                    className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"/>
+                    className="w-full bg-surface border border-line rounded-lg pl-9 pr-3 py-2 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"/>
                 </div>
                 {matchedOrgs.length > 0 && (
-                  <div className="mt-2 border border-slate-700 rounded-lg overflow-hidden">
+                  <div className="mt-2 border border-line rounded-lg overflow-hidden">
                     {matchedOrgs.map(org => (
-                      <div key={org.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-700/30 border-b border-slate-700/50 last:border-b-0">
+                      <div key={org.id} className="flex items-center justify-between px-3 py-2 hover:bg-surface-2 border-b border-line last:border-b-0">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[9px] font-bold">{org.name.split(' ').map(n => n[0]).slice(0, 2).join('')}</div>
+                          <div className="w-6 h-6 rounded bg-success-subtle text-success flex items-center justify-center text-[9px] font-bold">{org.name.split(' ').map(n => n[0]).slice(0, 2).join('')}</div>
                           <div>
-                            <div className="text-xs text-slate-200">{org.name}</div>
-                            <div className="text-[9px] text-slate-500">publisher · {org.bundles.length} apps</div>
+                            <div className="text-xs text-ink">{org.name}</div>
+                            <div className="text-[9px] text-ink-3">publisher · {org.bundles.length} apps</div>
                           </div>
                         </div>
-                        <button className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-medium rounded transition-colors">
+                        <button className="px-3 py-1 bg-accent hover:brightness-95 text-ink text-[10px] font-medium rounded transition-colors">
                           Sign in as
                         </button>
                       </div>
@@ -3170,49 +3105,49 @@ export default function MetricTree() {
               </div>
 
               {/* Active sessions */}
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Active sessions</div>
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden mb-4">
+              <div className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold mb-2">Active sessions</div>
+              <div className="bg-base border border-line rounded-xl overflow-hidden mb-4">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/80">
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Operator</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Acting as</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-32">Started</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">Idle</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-24">Expires in</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">Actions</th>
-                      <th className="text-right py-2.5 px-3 text-slate-400 font-medium w-28">Control</th>
+                    <tr className="border-b border-line bg-base">
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium">Operator</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium">Acting as</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-32">Started</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-20">Idle</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-24">Expires in</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-20">Actions</th>
+                      <th className="text-right py-2.5 px-3 text-ink-2 font-medium w-28">Control</th>
                     </tr>
                   </thead>
                   <tbody>
                     {activeSessions.map(s => (
-                      <tr key={s.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
+                      <tr key={s.id} className="border-b border-line hover:bg-surface-2 transition-colors">
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[8px] font-bold text-white">{s.op.split(' ').map(n => n[0]).join('')}</div>
+                            <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-[8px] font-bold text-ink">{s.op.split(' ').map(n => n[0]).join('')}</div>
                             <div>
-                              <div className="text-slate-200 text-xs">{s.op}</div>
-                              <div className="text-[9px] text-slate-500">{s.opRole}</div>
+                              <div className="text-ink text-xs">{s.op}</div>
+                              <div className="text-[9px] text-ink-3">{s.opRole}</div>
                             </div>
                           </div>
                         </td>
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-2">
-                            <div className={`w-6 h-6 rounded flex items-center justify-center text-[8px] font-bold ${s.orgType === 'studio' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'}`}>{s.org.split(' ').map(n => n[0]).slice(0, 2).join('')}</div>
+                            <div className={`w-6 h-6 rounded flex items-center justify-center text-[8px] font-bold ${s.orgType === 'studio' ? 'bg-cyan-100 text-cyan-700' : 'bg-success-subtle text-success'}`}>{s.org.split(' ').map(n => n[0]).slice(0, 2).join('')}</div>
                             <div>
-                              <div className="text-slate-200 text-xs">{s.org}</div>
-                              <div className="text-[9px] text-slate-500">{s.orgType}</div>
+                              <div className="text-ink text-xs">{s.org}</div>
+                              <div className="text-[9px] text-ink-3">{s.orgType}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="py-2 px-3 text-slate-400 text-[11px] font-mono">{s.startedAt}</td>
-                        <td className="py-2 px-3 text-center text-slate-400 text-[11px]">{s.idleMin}m</td>
+                        <td className="py-2 px-3 text-ink-2 text-[11px] font-mono">{s.startedAt}</td>
+                        <td className="py-2 px-3 text-center text-ink-2 text-[11px]">{s.idleMin}m</td>
                         <td className="py-2 px-3 text-center">
-                          <span className={`text-[11px] font-medium ${s.expiresMin < 5 ? 'text-amber-400' : 'text-slate-400'}`}>{s.expiresMin}m</span>
+                          <span className={`text-[11px] font-medium ${s.expiresMin < 5 ? 'text-warning' : 'text-ink-2'}`}>{s.expiresMin}m</span>
                         </td>
-                        <td className="py-2 px-3 text-center text-slate-300 text-[11px]">{s.actions}</td>
+                        <td className="py-2 px-3 text-center text-ink text-[11px]">{s.actions}</td>
                         <td className="py-2 px-3 text-right">
-                          <button className="px-2.5 py-1 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-400 text-[10px] font-medium rounded transition-colors">
+                          <button className="px-2.5 py-1 bg-error-subtle hover:bg-error-subtle border border-error text-error text-[10px] font-medium rounded transition-colors">
                             Force end
                           </button>
                         </td>
@@ -3223,37 +3158,37 @@ export default function MetricTree() {
               </div>
 
               {/* Recent sessions */}
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2">Recent sessions (last 48h)</div>
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold mb-2">Recent sessions (last 48h)</div>
+              <div className="bg-base border border-line rounded-xl overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/80">
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Operator</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Acted as</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-32">Started</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-32">Ended</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">Duration</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">Actions</th>
-                      <th className="text-center py-2.5 px-3 text-slate-400 font-medium w-20">End</th>
+                    <tr className="border-b border-line bg-base">
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium">Operator</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium">Acted as</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-32">Started</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-32">Ended</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-20">Duration</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-20">Actions</th>
+                      <th className="text-center py-2.5 px-3 text-ink-2 font-medium w-20">End</th>
                       <th className="w-16"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {recent.map(s => (
-                      <tr key={s.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
-                        <td className="py-2 px-3 text-slate-200 text-[11px]">{s.op}</td>
+                      <tr key={s.id} className="border-b border-line hover:bg-surface-2 transition-colors">
+                        <td className="py-2 px-3 text-ink text-[11px]">{s.op}</td>
                         <td className="py-2 px-3">
-                          <span className={`text-[11px] ${s.orgType === 'studio' ? 'text-cyan-400' : 'text-emerald-400'}`}>{s.org}</span>
+                          <span className={`text-[11px] ${s.orgType === 'studio' ? 'text-cyan-600' : 'text-success'}`}>{s.org}</span>
                         </td>
-                        <td className="py-2 px-3 text-slate-500 text-[10px] font-mono">{s.startedAt}</td>
-                        <td className="py-2 px-3 text-slate-500 text-[10px] font-mono">{s.endedAt}</td>
-                        <td className="py-2 px-3 text-center text-slate-300 text-[11px]">{s.duration}</td>
-                        <td className="py-2 px-3 text-center text-slate-300 text-[11px]">{s.actions}</td>
+                        <td className="py-2 px-3 text-ink-3 text-[10px] font-mono">{s.startedAt}</td>
+                        <td className="py-2 px-3 text-ink-3 text-[10px] font-mono">{s.endedAt}</td>
+                        <td className="py-2 px-3 text-center text-ink text-[11px]">{s.duration}</td>
+                        <td className="py-2 px-3 text-center text-ink text-[11px]">{s.actions}</td>
                         <td className="py-2 px-3 text-center">
-                          <span className={`text-[10px] ${s.endReason === 'timeout' ? 'text-amber-400' : 'text-slate-500'}`}>{s.endReason}</span>
+                          <span className={`text-[10px] ${s.endReason === 'timeout' ? 'text-warning' : 'text-ink-3'}`}>{s.endReason}</span>
                         </td>
                         <td className="py-2 px-3 text-right">
-                          <button className="text-[10px] text-blue-400 hover:text-blue-300">View log →</button>
+                          <button className="text-[10px] text-accent-deep hover:text-accent-deep">View log →</button>
                         </td>
                       </tr>
                     ))}
@@ -3287,16 +3222,16 @@ export default function MetricTree() {
             { id: 'e18', ts: '2026-04-21 10:38:12', actor: 'Serhii Shcherbyna', actorRole: 'account_manager', type: 'impersonation_end', target: 'Plarium Indie', details: 'Session timed out · 6 actions' },
           ];
           const typeColors = {
-            impersonation_start: 'bg-purple-500/15 text-purple-300 border-purple-500/25',
-            impersonation_end: 'bg-purple-500/10 text-purple-400/70 border-purple-500/20',
-            payout_approve: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
-            payout_execute: 'bg-emerald-600/20 text-emerald-200 border-emerald-500/30',
-            role_change: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
-            sdk_key_regen: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
-            user_invite: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/25',
-            org_create: 'bg-pink-500/15 text-pink-300 border-pink-500/25',
-            invoice_generate: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
-            template_update: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25',
+            impersonation_start: 'bg-purple-100 text-purple-700 border-purple-300',
+            impersonation_end: 'bg-purple-100 text-purple-600 border-purple-300',
+            payout_approve: 'bg-success-subtle text-success border-success',
+            payout_execute: 'bg-success-subtle text-success border-success',
+            role_change: 'bg-accent-12 text-accent-deep border-accent-line',
+            sdk_key_regen: 'bg-warning-subtle text-warning border-warning',
+            user_invite: 'bg-cyan-100 text-cyan-700 border-cyan-300',
+            org_create: 'bg-pink-100 text-pink-700 border-pink-300',
+            invoice_generate: 'bg-success-subtle text-success border-success',
+            template_update: 'bg-indigo-100 text-indigo-700 border-indigo-300',
           };
           const allTypes = Array.from(new Set(events.map(e => e.type)));
           const allActors = Array.from(new Set(events.map(e => e.actor))).sort();
@@ -3308,34 +3243,34 @@ export default function MetricTree() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Audit Log</span>
-                  <span className="text-[10px] text-slate-500 ml-2">{filtered.length} of {events.length} events · last 48h</span>
+                  <span className="text-sm font-semibold text-ink leading-tight tracking-tight">Audit Log</span>
+                  <span className="text-[10px] text-ink-3 ml-2">{filtered.length} of {events.length} events · last 48h</span>
                 </div>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs text-slate-300 transition-colors">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-base border border-line hover:bg-surface-2 rounded-lg text-xs text-ink transition-colors">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                   Export CSV
                 </button>
               </div>
 
               {/* Filters */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 mb-3">
+              <div className="bg-base border border-line rounded-xl p-3 mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative flex-1 min-w-[200px]">
-                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <input type="text" placeholder="Search target or details..." value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)}
-                      className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"/>
+                      className="w-full bg-surface border border-line rounded-lg pl-8 pr-3 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"/>
                   </div>
                   <select value={auditFilterType} onChange={(e) => setAuditFilterType(e.target.value)}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="all">All event types</option>
                     {allTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                   <select value={auditFilterActor} onChange={(e) => setAuditFilterActor(e.target.value)}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="all">All actors</option>
                     {allActors.map(a => <option key={a} value={a}>{a}</option>)}
                   </select>
-                  <select className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer" defaultValue="48h">
+                  <select className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer" defaultValue="48h">
                     <option value="1h">Last hour</option>
                     <option value="24h">Last 24h</option>
                     <option value="48h">Last 48h</option>
@@ -3346,39 +3281,39 @@ export default function MetricTree() {
               </div>
 
               {/* Event feed */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="bg-base border border-line rounded-xl overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/80">
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-40">Timestamp</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-44">Actor</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-44">Event</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium w-44">Target</th>
-                      <th className="text-left py-2.5 px-3 text-slate-400 font-medium">Details</th>
+                    <tr className="border-b border-line bg-base">
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-40">Timestamp</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-44">Actor</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-44">Event</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium w-44">Target</th>
+                      <th className="text-left py-2.5 px-3 text-ink-2 font-medium">Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map(e => (
-                      <tr key={e.id} className="border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors">
-                        <td className="py-2 px-3 text-slate-500 text-[10px] font-mono">{e.ts}</td>
+                      <tr key={e.id} className="border-b border-line hover:bg-surface-2 transition-colors">
+                        <td className="py-2 px-3 text-ink-3 text-[10px] font-mono">{e.ts}</td>
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white">{e.actor.split(' ').map(n => n[0]).join('')}</div>
+                            <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-[7px] font-bold text-ink">{e.actor.split(' ').map(n => n[0]).join('')}</div>
                             <div>
-                              <div className="text-slate-200 text-[11px]">{e.actor}</div>
-                              <div className="text-[9px] text-slate-500">{e.actorRole}</div>
+                              <div className="text-ink text-[11px]">{e.actor}</div>
+                              <div className="text-[9px] text-ink-3">{e.actorRole}</div>
                             </div>
                           </div>
                         </td>
                         <td className="py-2 px-3">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${typeColors[e.type] || 'bg-slate-500/15 text-slate-300 border-slate-500/25'}`}>{e.type}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${typeColors[e.type] || 'bg-surface-3 text-ink border-line'}`}>{e.type}</span>
                         </td>
-                        <td className="py-2 px-3 text-slate-300 text-[11px]">{e.target}</td>
-                        <td className="py-2 px-3 text-slate-400 text-[11px]">{e.details}</td>
+                        <td className="py-2 px-3 text-ink text-[11px]">{e.target}</td>
+                        <td className="py-2 px-3 text-ink-2 text-[11px]">{e.details}</td>
                       </tr>
                     ))}
                     {filtered.length === 0 && (
-                      <tr><td colSpan={5} className="py-12 text-center text-slate-500 text-xs">No events matching filters</td></tr>
+                      <tr><td colSpan={5} className="py-12 text-center text-ink-3 text-xs">No events matching filters</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -3427,10 +3362,10 @@ export default function MetricTree() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Role Templates</span>
-                  <span className="text-[10px] text-slate-500 ml-2">Tier templates layered on top of base roles</span>
+                  <span className="text-sm font-semibold text-ink leading-tight tracking-tight">Role Templates</span>
+                  <span className="text-[10px] text-ink-3 ml-2">Tier templates layered on top of base roles</span>
                 </div>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:brightness-95 rounded-lg text-xs font-medium text-ink transition-colors">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                   New template
                 </button>
@@ -3439,69 +3374,69 @@ export default function MetricTree() {
               <div className="grid grid-cols-12 gap-3">
                 {/* Left: list of templates */}
                 <div className="col-span-4 flex flex-col gap-2">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Publisher templates</div>
+                  <div className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold mb-1">Publisher templates</div>
                   {templates.filter(t => t.for === 'publisher').map(t => (
                     <button key={t.id} onClick={() => setSelectedTemplate(t.id)}
                       className={`text-left p-3 rounded-xl border transition-colors ${
                         selectedTemplate === t.id
-                          ? 'bg-blue-500/10 border-blue-500/40'
-                          : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800'
+                          ? 'bg-accent-12 border-accent-line'
+                          : 'bg-base border-line hover:bg-base'
                       }`}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-mono ${selectedTemplate === t.id ? 'text-blue-300' : 'text-slate-200'}`}>{t.name}</span>
-                        <span className="text-[10px] text-slate-500">{t.orgs.toLocaleString()} orgs</span>
+                        <span className={`text-xs font-mono ${selectedTemplate === t.id ? 'text-accent-deep' : 'text-ink'}`}>{t.name}</span>
+                        <span className="text-[10px] text-ink-3">{t.orgs.toLocaleString()} orgs</span>
                       </div>
-                      <div className="text-[10px] text-slate-500 leading-snug">{t.desc}</div>
+                      <div className="text-[10px] text-ink-3 leading-snug">{t.desc}</div>
                     </button>
                   ))}
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1 mt-3">Studio templates</div>
+                  <div className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold mb-1 mt-3">Studio templates</div>
                   {templates.filter(t => t.for === 'studio').map(t => (
                     <button key={t.id} onClick={() => setSelectedTemplate(t.id)}
                       className={`text-left p-3 rounded-xl border transition-colors ${
                         selectedTemplate === t.id
-                          ? 'bg-cyan-500/10 border-cyan-500/40'
-                          : 'bg-slate-800/40 border-slate-700 hover:bg-slate-800'
+                          ? 'bg-cyan-100 border-cyan-300'
+                          : 'bg-base border-line hover:bg-base'
                       }`}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-mono ${selectedTemplate === t.id ? 'text-cyan-300' : 'text-slate-200'}`}>{t.name}</span>
-                        <span className="text-[10px] text-slate-500">{t.orgs} orgs</span>
+                        <span className={`text-xs font-mono ${selectedTemplate === t.id ? 'text-cyan-700' : 'text-ink'}`}>{t.name}</span>
+                        <span className="text-[10px] text-ink-3">{t.orgs} orgs</span>
                       </div>
-                      <div className="text-[10px] text-slate-500 leading-snug">{t.desc}</div>
+                      <div className="text-[10px] text-ink-3 leading-snug">{t.desc}</div>
                     </button>
                   ))}
                 </div>
 
                 {/* Right: editor */}
                 <div className="col-span-8">
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                  <div className="bg-base border border-line rounded-xl p-4">
                     {/* Template header */}
-                    <div className="flex items-start justify-between mb-4 pb-3 border-b border-slate-700">
+                    <div className="flex items-start justify-between mb-4 pb-3 border-b border-line">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-base font-semibold text-slate-100 font-mono">{sel.name}</span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${sel.for === 'studio' ? 'bg-cyan-500/15 text-cyan-300' : 'bg-emerald-500/15 text-emerald-300'}`}>{sel.for}</span>
+                          <span className="text-base font-semibold text-ink font-mono">{sel.name}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${sel.for === 'studio' ? 'bg-cyan-100 text-cyan-700' : 'bg-success-subtle text-success'}`}>{sel.for}</span>
                         </div>
-                        <div className="text-[11px] text-slate-400">{sel.desc}</div>
+                        <div className="text-[11px] text-ink-2">{sel.desc}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-base font-semibold text-slate-100">{enabledCount}<span className="text-slate-500 text-xs"> / {totalCount}</span></div>
-                        <div className="text-[10px] text-slate-500">features enabled</div>
+                        <div className="text-base font-semibold text-ink">{enabledCount}<span className="text-ink-3 text-xs"> / {totalCount}</span></div>
+                        <div className="text-[10px] text-ink-3">features enabled</div>
                       </div>
                     </div>
 
                     {/* Stats row */}
                     <div className="grid grid-cols-3 gap-2 mb-4">
-                      <div className="p-2.5 bg-slate-900/40 rounded-lg border border-slate-700 text-center">
-                        <div className="text-sm font-semibold text-slate-100">{sel.orgs.toLocaleString()}</div>
-                        <div className="text-[10px] text-slate-500">Organizations</div>
+                      <div className="p-2.5 bg-surface rounded-lg border border-line text-center">
+                        <div className="text-sm font-semibold text-ink">{sel.orgs.toLocaleString()}</div>
+                        <div className="text-[10px] text-ink-3">Organizations</div>
                       </div>
-                      <div className="p-2.5 bg-slate-900/40 rounded-lg border border-slate-700 text-center">
-                        <div className="text-sm font-semibold text-emerald-400">{enabledCount}</div>
-                        <div className="text-[10px] text-slate-500">Enabled</div>
+                      <div className="p-2.5 bg-surface rounded-lg border border-line text-center">
+                        <div className="text-sm font-semibold text-success">{enabledCount}</div>
+                        <div className="text-[10px] text-ink-3">Enabled</div>
                       </div>
-                      <div className="p-2.5 bg-slate-900/40 rounded-lg border border-slate-700 text-center">
-                        <div className="text-sm font-semibold text-slate-500">{totalCount - enabledCount}</div>
-                        <div className="text-[10px] text-slate-500">Disabled</div>
+                      <div className="p-2.5 bg-surface rounded-lg border border-line text-center">
+                        <div className="text-sm font-semibold text-ink-3">{totalCount - enabledCount}</div>
+                        <div className="text-[10px] text-ink-3">Disabled</div>
                       </div>
                     </div>
 
@@ -3509,14 +3444,14 @@ export default function MetricTree() {
                     <div className="space-y-3">
                       {groups.map(g => (
                         <div key={g.group}>
-                          <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1.5">{g.group}</div>
+                          <div className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold mb-1.5">{g.group}</div>
                           <div className="grid grid-cols-2 gap-1.5">
                             {g.items.map(item => {
                               const enabled = features[item];
                               return (
-                                <div key={item} className={`flex items-center justify-between px-3 py-2 rounded-lg border ${enabled ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-slate-900/30 border-slate-700/50'}`}>
-                                  <span className={`text-[11px] font-mono ${enabled ? 'text-slate-200' : 'text-slate-500'}`}>{item}</span>
-                                  <button className={`w-8 h-4 rounded-full relative transition-colors ${enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}>
+                                <div key={item} className={`flex items-center justify-between px-3 py-2 rounded-lg border ${enabled ? 'bg-success-subtle border-success' : 'bg-surface border-line'}`}>
+                                  <span className={`text-[11px] font-mono ${enabled ? 'text-ink' : 'text-ink-3'}`}>{item}</span>
+                                  <button className={`w-8 h-4 rounded-full relative transition-colors ${enabled ? 'bg-emerald-500' : 'bg-surface-2'}`}>
                                     <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`}></span>
                                   </button>
                                 </div>
@@ -3528,11 +3463,11 @@ export default function MetricTree() {
                     </div>
 
                     {/* Footer actions */}
-                    <div className="mt-4 pt-3 border-t border-slate-700 flex items-center justify-between">
-                      <div className="text-[10px] text-slate-500 italic">Changes apply to all {sel.orgs.toLocaleString()} organizations on this template</div>
+                    <div className="mt-4 pt-3 border-t border-line flex items-center justify-between">
+                      <div className="text-[10px] text-ink-3 italic">Changes apply to all {sel.orgs.toLocaleString()} organizations on this template</div>
                       <div className="flex items-center gap-2">
-                        <button className="px-3 py-1.5 text-[11px] text-slate-400 hover:text-slate-200">Cancel</button>
-                        <button className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium rounded transition-colors">Save changes</button>
+                        <button className="px-3 py-1.5 text-[11px] text-ink-2 hover:text-ink">Cancel</button>
+                        <button className="px-3 py-1.5 bg-accent hover:brightness-95 text-ink text-[11px] font-medium rounded transition-colors">Save changes</button>
                       </div>
                     </div>
                   </div>
@@ -3546,13 +3481,13 @@ export default function MetricTree() {
         {activeNavItem === 'tools' && adminSection && !['apps'].includes(adminSection) && (() => {
           const labels = { mediation: 'Default Mediation Setup', aso: 'ASO', creatives: 'Creatives', networks: 'Networks Management' };
           return (
-            <div className="bg-slate-800/30 border border-slate-800 rounded-xl p-12 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-xl bg-slate-700/30 flex items-center justify-center text-slate-500 mb-3">
+            <div className="bg-base border border-line rounded-xl p-12 flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 rounded-xl bg-surface-2 flex items-center justify-center text-ink-3 mb-3">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
               </div>
-              <div className="text-sm font-medium text-slate-200 mb-1">{labels[adminSection]}</div>
-              <div className="text-[11px] text-slate-500 mb-4">In development</div>
-              <button onClick={() => setAdminSection(null)} className="text-[11px] text-blue-400 hover:text-blue-300">← Back to Admin</button>
+              <div className="text-sm font-medium text-ink mb-1">{labels[adminSection]}</div>
+              <div className="text-[11px] text-ink-3 mb-4">In development</div>
+              <button onClick={() => setAdminSection(null)} className="text-[11px] text-accent-deep hover:text-accent-deep">← Back to Admin</button>
             </div>
           );
         })()}
@@ -3615,17 +3550,17 @@ export default function MetricTree() {
           const PlatformIcon = ({ platform, size }) => {
             const s = size || 14;
             return platform === 'ios' ? (
-              <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" className="text-slate-400 shrink-0"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+              <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" className="text-ink-2 shrink-0"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
             ) : (
-              <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" className="text-emerald-500/70 shrink-0"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.27-.86-.31-.16-.69-.04-.86.27l-1.86 3.22c-1.44-.65-3.02-1.01-4.65-1.01s-3.21.36-4.65 1.01L5.29 5.71c-.16-.31-.54-.43-.86-.27-.31.16-.43.54-.27.86l1.84 3.18C2.86 11.58.83 14.94 0 18h24c-.83-3.06-2.86-6.42-6.4-8.52zM7 15.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm10 0a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z"/></svg>
+              <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" className="text-success shrink-0"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.27-.86-.31-.16-.69-.04-.86.27l-1.86 3.22c-1.44-.65-3.02-1.01-4.65-1.01s-3.21.36-4.65 1.01L5.29 5.71c-.16-.31-.54-.43-.86-.27-.31.16-.43.54-.27.86l1.84 3.18C2.86 11.58.83 14.94 0 18h24c-.83-3.06-2.86-6.42-6.4-8.52zM7 15.25a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5zm10 0a1.25 1.25 0 110-2.5 1.25 1.25 0 010 2.5z"/></svg>
             );
           };
 
           const statusColors = {
-            active: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-            paused: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-            pending: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-            review: 'bg-purple-500/15 text-purple-400 border-purple-500/20',
+            active: 'bg-success-subtle text-success border-success',
+            paused: 'bg-warning-subtle text-warning border-warning',
+            pending: 'bg-accent-12 text-accent-deep border-accent-line',
+            review: 'bg-purple-100 text-purple-600 border-purple-300',
           };
 
           const selectedAppData = adminSelectedApp ? appsWithOverrides.find(a => a.bundleId === adminSelectedApp) : null;
@@ -3636,33 +3571,33 @@ export default function MetricTree() {
               {/* Admin Header */}
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Admin</span>
-                  <span className="text-[10px] text-slate-500 ml-2">Apps Management</span>
+                  <span className="text-sm font-semibold text-ink leading-tight tracking-tight">Admin</span>
+                  <span className="text-[10px] text-ink-3 ml-2">Apps Management</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400">
+                <div className="flex items-center gap-3 text-xs text-ink-2">
                   <span>{filteredApps.length.toLocaleString()} apps</span>
-                  <span className="text-slate-600">|</span>
+                  <span className="text-ink-3">|</span>
                   <span>{uniqueCustomerIds.size.toLocaleString()} customers</span>
-                  <span className="text-slate-600">|</span>
+                  <span className="text-ink-3">|</span>
                   <span>{adminManagers.length} managers</span>
                 </div>
               </div>
 
               {/* Filters bar */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 mb-3">
+              <div className="bg-base border border-line rounded-xl p-3 mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   {/* Search */}
                   <div className="relative flex-1 min-w-[200px]">
-                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                     <input
                       type="text"
                       placeholder="Search bundle, app name, customer..."
                       value={adminSearch}
                       onChange={(e) => { setAdminSearch(e.target.value); setAdminPage(1); }}
-                      className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-surface border border-line rounded-lg pl-8 pr-7 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"
                     />
                     {adminSearch && (
-                      <button onClick={() => { setAdminSearch(''); setAdminPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                      <button onClick={() => { setAdminSearch(''); setAdminPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
                       </button>
                     )}
@@ -3670,14 +3605,14 @@ export default function MetricTree() {
 
                   {/* Manager filter */}
                   <select value={adminSelectedManager || ''} onChange={(e) => { setAdminSelectedManager(e.target.value || null); setAdminPage(1); }}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="">All managers</option>
                     {adminManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
 
                   {/* Platform filter */}
                   <select value={adminFilterPlatform} onChange={(e) => { setAdminFilterPlatform(e.target.value); setAdminPage(1); }}
-                    className="bg-slate-900/50 border border-slate-600 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                     <option value="all">All platforms</option>
                     <option value="android">Android</option>
                     <option value="ios">iOS</option>
@@ -3686,21 +3621,21 @@ export default function MetricTree() {
                   {/* Active filter chips */}
                   {(adminSearch || adminSelectedManager || adminFilterPlatform !== 'all') && (
                     <button onClick={() => { setAdminSearch(''); setAdminSelectedManager(null); setAdminFilterPlatform('all'); setAdminPage(1); }}
-                      className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors px-2 py-1">Reset all</button>
+                      className="text-[10px] text-ink-3 hover:text-ink transition-colors px-2 py-1">Reset all</button>
                   )}
                 </div>
               </div>
 
               {/* Apps table */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+              <div className="bg-base border border-line rounded-xl overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-700 bg-slate-800/80">
-                      <th onClick={() => toggleSort('bundleId')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">App{sortIcon('bundleId')}</th>
-                      <th onClick={() => toggleSort('platform')} className="text-center py-2.5 px-2 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none w-10">OS{sortIcon('platform')}</th>
-                      <th onClick={() => toggleSort('customer')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Customer{sortIcon('customer')}</th>
-                      <th onClick={() => toggleSort('manager')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none">Manager{sortIcon('manager')}</th>
-                      <th onClick={() => toggleSort('date')} className="text-left py-2.5 px-3 text-slate-400 font-medium cursor-pointer hover:text-slate-200 select-none w-24">Added{sortIcon('date')}</th>
+                    <tr className="border-b border-line bg-base">
+                      <th onClick={() => toggleSort('bundleId')} className="text-left py-2.5 px-3 text-ink-2 font-medium cursor-pointer hover:text-ink select-none">App{sortIcon('bundleId')}</th>
+                      <th onClick={() => toggleSort('platform')} className="text-center py-2.5 px-2 text-ink-2 font-medium cursor-pointer hover:text-ink select-none w-10">OS{sortIcon('platform')}</th>
+                      <th onClick={() => toggleSort('customer')} className="text-left py-2.5 px-3 text-ink-2 font-medium cursor-pointer hover:text-ink select-none">Customer{sortIcon('customer')}</th>
+                      <th onClick={() => toggleSort('manager')} className="text-left py-2.5 px-3 text-ink-2 font-medium cursor-pointer hover:text-ink select-none">Manager{sortIcon('manager')}</th>
+                      <th onClick={() => toggleSort('date')} className="text-left py-2.5 px-3 text-ink-2 font-medium cursor-pointer hover:text-ink select-none w-24">Added{sortIcon('date')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3710,7 +3645,7 @@ export default function MetricTree() {
                       return (
                         <tr key={app.bundleId}
                           onClick={() => setAdminSelectedApp(app.bundleId)}
-                          className="border-b border-slate-700/30 hover:bg-slate-700/20 cursor-pointer group transition-colors"
+                          className="border-b border-line hover:bg-surface-2 cursor-pointer group transition-colors"
                         >
                           {/* App: icon + name/bundle */}
                           <td className="py-2 px-3">
@@ -3718,16 +3653,16 @@ export default function MetricTree() {
                               {sd?.iconUrl ? (
                                 <img src={sd.iconUrl} alt="" className="w-7 h-7 rounded-lg shrink-0" loading="lazy" />
                               ) : (
-                                <div className="w-7 h-7 rounded-lg bg-slate-700/40 flex items-center justify-center shrink-0"><PlatformIcon platform={app.platform} size={12} /></div>
+                                <div className="w-7 h-7 rounded-lg bg-surface-2 flex items-center justify-center shrink-0"><PlatformIcon platform={app.platform} size={12} /></div>
                               )}
                               <div className="min-w-0">
                                 {sd?.appName ? (
                                   <>
-                                    <div className="text-slate-200 font-medium truncate max-w-[220px] group-hover:text-white">{sd.appName}</div>
-                                    <div className="text-[10px] font-mono text-slate-500 truncate max-w-[220px]">{app.bundleId}</div>
+                                    <div className="text-ink font-medium truncate max-w-[220px] group-hover:text-ink">{sd.appName}</div>
+                                    <div className="text-[10px] font-mono text-ink-3 truncate max-w-[220px]">{app.bundleId}</div>
                                   </>
                                 ) : (
-                                  <div className="text-[10px] font-mono text-slate-400 truncate max-w-[220px] group-hover:text-slate-300">{app.bundleId}</div>
+                                  <div className="text-[10px] font-mono text-ink-2 truncate max-w-[220px] group-hover:text-ink">{app.bundleId}</div>
                                 )}
                               </div>
                             </div>
@@ -3737,27 +3672,27 @@ export default function MetricTree() {
                           {/* Customer */}
                           <td className="py-2 px-3">
                             <button onClick={(e) => { e.stopPropagation(); setAdminSelectedCustomerId(app.userId); }}
-                              className="text-left hover:text-blue-400 transition-colors group/cust">
-                              <div className="text-slate-300 truncate max-w-[140px] group-hover/cust:text-blue-400">{app.customerName}</div>
-                              <div className="text-[10px] text-slate-600">#{app.userId}</div>
+                              className="text-left hover:text-accent-deep transition-colors group/cust">
+                              <div className="text-ink truncate max-w-[140px] group-hover/cust:text-accent-deep">{app.customerName}</div>
+                              <div className="text-[10px] text-ink-3">#{app.userId}</div>
                             </button>
                           </td>
                           {/* Manager */}
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-1.5">
-                              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                              <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center text-[7px] font-bold text-ink shrink-0">
                                 {mgr ? mgr.name.split(' ').map(n => n[0]).join('') : '?'}
                               </div>
-                              <span className="text-slate-400 truncate">{mgr ? mgr.name.split(' ')[0] : '—'}</span>
+                              <span className="text-ink-2 truncate">{mgr ? mgr.name.split(' ')[0] : '—'}</span>
                             </div>
                           </td>
                           {/* Date */}
-                          <td className="py-2 px-3 text-slate-500">{app.dateAdded}</td>
+                          <td className="py-2 px-3 text-ink-3">{app.dateAdded}</td>
                         </tr>
                       );
                     })}
                     {sortedApps.length === 0 && (
-                      <tr><td colSpan={5} className="py-12 text-center text-slate-500 text-xs">No apps found matching your filters</td></tr>
+                      <tr><td colSpan={5} className="py-12 text-center text-ink-3 text-xs">No apps found matching your filters</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -3766,20 +3701,20 @@ export default function MetricTree() {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-3">
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-[10px] text-ink-3">
                     {((safePage - 1) * PAGE_SIZE + 1).toLocaleString()}–{Math.min(safePage * PAGE_SIZE, filteredApps.length).toLocaleString()} of {filteredApps.length.toLocaleString()}
                   </span>
                   <div className="flex items-center gap-0.5">
                     <button disabled={safePage <= 1} onClick={() => setAdminPage(p => p - 1)}
-                      className="px-2 py-1 rounded text-xs text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Prev</button>
+                      className="px-2 py-1 rounded text-xs text-ink-2 hover:bg-surface-2 disabled:opacity-30 disabled:cursor-not-allowed">Prev</button>
                     {pageNumbers.map((p, i) =>
                       p === '...'
-                        ? <span key={'e' + i} className="px-1.5 text-slate-600 text-xs">...</span>
+                        ? <span key={'e' + i} className="px-1.5 text-ink-3 text-xs">...</span>
                         : <button key={p} onClick={() => setAdminPage(p)}
-                            className={`w-7 h-7 rounded text-xs ${p === safePage ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700'}`}>{p}</button>
+                            className={`w-7 h-7 rounded text-xs ${p === safePage ? 'bg-accent text-ink' : 'text-ink-2 hover:bg-surface-2'}`}>{p}</button>
                     )}
                     <button disabled={safePage >= totalPages} onClick={() => setAdminPage(p => p + 1)}
-                      className="px-2 py-1 rounded text-xs text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Next</button>
+                      className="px-2 py-1 rounded text-xs text-ink-2 hover:bg-surface-2 disabled:opacity-30 disabled:cursor-not-allowed">Next</button>
                   </div>
                 </div>
               )}
@@ -3822,13 +3757,13 @@ export default function MetricTree() {
                 // Form field component
                 const F = ({ label, val, w, mono }) => (
                   <div className={`${w || ''}`}>
-                    <div className="text-[10px] text-slate-500 mb-0.5">{label}</div>
-                    <div className={`bg-slate-800 border border-slate-700 rounded px-2 py-1 text-[11px] ${mono ? 'font-mono' : ''} text-slate-300 truncate min-h-[26px]`}>{val || ''}</div>
+                    <div className="text-[10px] text-ink-3 mb-0.5">{label}</div>
+                    <div className={`bg-base border border-line rounded px-2 py-1 text-[11px] ${mono ? 'font-mono' : ''} text-ink truncate min-h-[26px]`}>{val || ''}</div>
                   </div>
                 );
                 const Chk = ({ label, checked }) => (
-                  <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-default">
-                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${checked ? 'bg-blue-600 border-blue-500' : 'border-slate-600 bg-slate-800'}`}>
+                  <label className="flex items-center gap-1.5 text-[11px] text-ink-2 cursor-default">
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${checked ? 'bg-accent border-accent-line' : 'border-line bg-base'}`}>
                       {checked && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>}
                     </div>
                     {label}
@@ -3888,55 +3823,55 @@ export default function MetricTree() {
                 return (
                   <>
                     <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setAdminSelectedApp(null)} />
-                    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-h-[90vh] bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl z-50 flex flex-col">
+                    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] max-h-[90vh] bg-surface border border-line rounded-2xl shadow-pop z-50 flex flex-col">
 
                       {/* Title bar */}
-                      <div className="shrink-0 px-5 py-3 border-b border-slate-700 flex items-center justify-between rounded-t-2xl">
+                      <div className="shrink-0 px-5 py-3 border-b border-line flex items-center justify-between rounded-t-2xl">
                         <div className="flex items-center gap-3">
                           {sd?.iconUrl ? (
                             <img src={sd.iconUrl} alt="" className="w-8 h-8 rounded-lg shrink-0" />
                           ) : (
-                            <div className="w-8 h-8 rounded-lg bg-slate-700/50 flex items-center justify-center shrink-0"><PlatformIcon platform={selectedAppData.platform} size={16} /></div>
+                            <div className="w-8 h-8 rounded-lg bg-surface-2 flex items-center justify-center shrink-0"><PlatformIcon platform={selectedAppData.platform} size={16} /></div>
                           )}
                           <div>
-                            <div className="text-sm text-slate-100 font-semibold">{sd?.appName || selectedAppData.bundleId} <span className="text-slate-500 font-normal">(Приложения)</span></div>
+                            <div className="text-sm text-ink font-semibold">{sd?.appName || selectedAppData.bundleId} <span className="text-ink-3 font-normal">(Приложения)</span></div>
                           </div>
                         </div>
-                        <button onClick={() => setAdminSelectedApp(null)} className="text-slate-500 hover:text-slate-200 transition-colors p-1">
+                        <button onClick={() => setAdminSelectedApp(null)} className="text-ink-3 hover:text-ink transition-colors p-1">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>
                       </div>
 
                       {/* Action buttons row */}
-                      <div className="shrink-0 px-5 py-2 border-b border-slate-700/50 flex items-center gap-1.5 flex-wrap">
+                      <div className="shrink-0 px-5 py-2 border-b border-line flex items-center gap-1.5 flex-wrap">
                         <a href={storeUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                          className="px-3 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-[11px] text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-1.5">
+                          className="px-3 py-1.5 bg-surface-2 border border-line rounded-lg text-[11px] text-ink hover:bg-surface-2 hover:text-ink transition-colors flex items-center gap-1.5">
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
                           Перейти на маркет
                         </a>
                         <button onClick={() => { setAdminSelectedApp(null); setAdminSelectedCustomerId(selectedAppData.userId); }}
-                          className="px-3 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg text-[11px] text-slate-300 hover:bg-slate-700 hover:text-white transition-colors">
+                          className="px-3 py-1.5 bg-surface-2 border border-line rounded-lg text-[11px] text-ink hover:bg-surface-2 hover:text-ink transition-colors">
                           Клиент
                         </button>
                         <div className="ml-auto flex items-center gap-2">
-                          <span className="text-[10px] text-slate-500">Менеджер:</span>
+                          <span className="text-[10px] text-ink-3">Менеджер:</span>
                           <div className="relative">
                             <select value={selectedAppData.managerId}
                               onChange={(e) => updateAppOverride(selectedAppData.bundleId, { managerId: e.target.value })}
-                              className="bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer appearance-none pr-7">
+                              className="bg-base border border-line rounded-lg px-2.5 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent-line cursor-pointer appearance-none pr-7">
                               {adminManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
-                            <svg className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+                            <svg className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
                           </div>
                         </div>
                       </div>
 
                       {/* Tabs */}
-                      <div className="shrink-0 px-5 border-b border-slate-700/50 flex gap-0">
+                      <div className="shrink-0 px-5 border-b border-line flex gap-0">
                         {[['main', 'Основная'], ['networks', 'Рекламные сети'], ['mediation', 'Mediation'], ['history', 'History']].map(([id, label]) => (
                           <button key={id} onClick={() => setAdminAppTab(id)}
                             className={`px-4 py-2 text-[11px] font-medium border-b-2 transition-colors ${
-                              adminAppTab === id ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-300'
+                              adminAppTab === id ? 'border-accent-line text-accent-deep' : 'border-transparent text-ink-3 hover:text-ink'
                             }`}>{label}</button>
                         ))}
                       </div>
@@ -3990,28 +3925,28 @@ export default function MetricTree() {
 
                         {adminAppTab === 'networks' && (
                           <div className="space-y-3">
-                            <div className="text-xs text-slate-400 mb-3">Рекламные сети, подключённые к приложению</div>
-                            <div className="bg-slate-800/40 border border-slate-700 rounded-lg overflow-hidden">
+                            <div className="text-xs text-ink-2 mb-3">Рекламные сети, подключённые к приложению</div>
+                            <div className="bg-base border border-line rounded-lg overflow-hidden">
                               <table className="w-full text-xs">
                                 <thead>
-                                  <tr className="border-b border-slate-700 bg-slate-800/60">
-                                    <th className="text-left py-2 px-3 text-slate-500 font-medium">Сеть</th>
-                                    <th className="text-center py-2 px-3 text-slate-500 font-medium w-20">Активна</th>
-                                    <th className="text-left py-2 px-3 text-slate-500 font-medium">App Key</th>
-                                    <th className="text-left py-2 px-3 text-slate-500 font-medium w-28">Формат</th>
+                                  <tr className="border-b border-line bg-base">
+                                    <th className="text-left py-2 px-3 text-ink-3 font-medium">Сеть</th>
+                                    <th className="text-center py-2 px-3 text-ink-3 font-medium w-20">Активна</th>
+                                    <th className="text-left py-2 px-3 text-ink-3 font-medium">App Key</th>
+                                    <th className="text-left py-2 px-3 text-ink-3 font-medium w-28">Формат</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {networks.map((net, i) => {
                                     const active = activeNets.includes(net);
                                     return (
-                                      <tr key={net} className="border-b border-slate-700/20">
-                                        <td className="py-1.5 px-3 text-slate-300">{net}</td>
+                                      <tr key={net} className="border-b border-line">
+                                        <td className="py-1.5 px-3 text-ink">{net}</td>
                                         <td className="py-1.5 px-3 text-center">
-                                          <div className={`w-3 h-3 rounded-full mx-auto ${active ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+                                          <div className={`w-3 h-3 rounded-full mx-auto ${active ? 'bg-emerald-500' : 'bg-surface-2'}`} />
                                         </td>
-                                        <td className="py-1.5 px-3 text-slate-500 font-mono text-[10px]">{active ? `${(h * (i + 1) * 17) % 9000000 + 1000000}` : '—'}</td>
-                                        <td className="py-1.5 px-3 text-slate-500 text-[10px]">{active ? ['Banner, Inter', 'Inter, Reward', 'Banner', 'Inter', 'Reward, Inter', 'Banner, Inter, Reward'][i % 6] : '—'}</td>
+                                        <td className="py-1.5 px-3 text-ink-3 font-mono text-[10px]">{active ? `${(h * (i + 1) * 17) % 9000000 + 1000000}` : '—'}</td>
+                                        <td className="py-1.5 px-3 text-ink-3 text-[10px]">{active ? ['Banner, Inter', 'Inter, Reward', 'Banner', 'Inter', 'Reward, Inter', 'Banner, Inter, Reward'][i % 6] : '—'}</td>
                                       </tr>
                                     );
                                   })}
@@ -4028,7 +3963,7 @@ export default function MetricTree() {
                           const cfg = casApps[selectedAppData.bundleId]
                             || seedAppConfig({ bundle: selectedAppData.bundleId, platform: selectedAppData.platform, appName: sd?.appName });
                           return (
-                            <div className="dark rounded-lg bg-neutral-950 text-neutral-100 p-4 border border-slate-700/40">
+                            <div className="rounded-card bg-base text-ink p-4 border border-line">
                               <MediationEditor
                                 app={cfg}
                                 onChange={(next) => setCasApps(prev => ({ ...prev, [selectedAppData.bundleId]: next }))}
@@ -4036,7 +3971,6 @@ export default function MetricTree() {
                             </div>
                           );
                         })()}
-
                         {adminAppTab === 'history' && (() => {
                           // Generate deterministic history events across app's entire lifetime
                           const mgrNames = adminManagers.map(m => m.name);
@@ -4215,13 +4149,13 @@ export default function MetricTree() {
 
                           // Event type styles
                           const typeStyles = {
-                            lifecycle: { color: 'text-blue-400', bg: 'bg-blue-500/15 border-blue-500/25', icon: '●' },
-                            integration: { color: 'text-purple-400', bg: 'bg-purple-500/15 border-purple-500/25', icon: '⚡' },
-                            monetization: { color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-500/25', icon: '💰' },
-                            ab_test: { color: 'text-cyan-400', bg: 'bg-cyan-500/15 border-cyan-500/25', icon: '⚗' },
-                            people: { color: 'text-indigo-400', bg: 'bg-indigo-500/15 border-indigo-500/25', icon: '👤' },
-                            finance: { color: 'text-amber-400', bg: 'bg-amber-500/15 border-amber-500/25', icon: '₿' },
-                            alert: { color: 'text-red-400', bg: 'bg-red-500/15 border-red-500/25', icon: '⚠' },
+                            lifecycle: { color: 'text-accent-deep', bg: 'bg-accent-12 border-accent-line', icon: '●' },
+                            integration: { color: 'text-purple-600', bg: 'bg-purple-100 border-purple-300', icon: '⚡' },
+                            monetization: { color: 'text-success', bg: 'bg-success-subtle border-success', icon: '💰' },
+                            ab_test: { color: 'text-cyan-600', bg: 'bg-cyan-100 border-cyan-300', icon: '⚗' },
+                            people: { color: 'text-indigo-600', bg: 'bg-indigo-100 border-indigo-300', icon: '👤' },
+                            finance: { color: 'text-warning', bg: 'bg-warning-subtle border-warning', icon: '₿' },
+                            alert: { color: 'text-error', bg: 'bg-error-subtle border-error', icon: '⚠' },
                           };
 
                           const typeLabels = {
@@ -4234,65 +4168,65 @@ export default function MetricTree() {
                               {/* Filters */}
                               <div className="flex items-center gap-2 flex-wrap">
                                 <select value={historyEventFilter} onChange={(e) => setHistoryEventFilter(e.target.value)}
-                                  className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                                  className="bg-base border border-line rounded-lg px-2.5 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                                   <option value="all">All events</option>
                                   {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                                 </select>
                                 <select value={historyAuthorFilter} onChange={(e) => setHistoryAuthorFilter(e.target.value)}
-                                  className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                                  className="bg-base border border-line rounded-lg px-2.5 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                                   <option value="all">All authors</option>
                                   {allAuthors.map(a => <option key={a} value={a}>{a}</option>)}
                                 </select>
                                 <select value={historyPeriodFilter} onChange={(e) => setHistoryPeriodFilter(e.target.value)}
-                                  className="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300 focus:outline-none focus:border-blue-500 cursor-pointer">
+                                  className="bg-base border border-line rounded-lg px-2.5 py-1.5 text-[11px] text-ink focus:outline-none focus:border-accent-line cursor-pointer">
                                   <option value="30d">Last 30 days</option>
                                   <option value="90d">Last 90 days</option>
                                   <option value="1y">Last year</option>
                                   <option value="all">All time</option>
                                 </select>
-                                <span className="text-[10px] text-slate-600 ml-auto">{filtered.length} events</span>
+                                <span className="text-[10px] text-ink-3 ml-auto">{filtered.length} events</span>
                               </div>
 
                               {/* Timeline */}
                               {groups.length === 0 && (
-                                <div className="py-12 text-center text-slate-500 text-xs">No events match your filters</div>
+                                <div className="py-12 text-center text-ink-3 text-xs">No events match your filters</div>
                               )}
                               {groups.map(group => (
                                 <div key={group.key}>
                                   {/* Month separator */}
                                   <div className="flex items-center gap-3 mb-3">
-                                    <div className="h-px flex-1 bg-slate-700/50" />
-                                    <span className="text-[10px] font-semibold text-slate-500 tracking-wider">{group.key}</span>
-                                    <div className="h-px flex-1 bg-slate-700/50" />
+                                    <div className="h-px flex-1 bg-surface-2" />
+                                    <span className="text-[10px] font-semibold text-ink-3 tracking-wider">{group.key}</span>
+                                    <div className="h-px flex-1 bg-surface-2" />
                                   </div>
                                   {/* Events */}
                                   <div className="space-y-0">
                                     {group.events.map((ev, idx) => {
                                       const st = ev.isResolved
-                                        ? { color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-500/25', icon: '✓' }
+                                        ? { color: 'text-success', bg: 'bg-success-subtle border-success', icon: '✓' }
                                         : ev.isWarning
-                                          ? { color: 'text-orange-400', bg: 'bg-orange-500/15 border-orange-500/25', icon: '⚠' }
+                                          ? { color: 'text-orange-600', bg: 'bg-orange-100 border-orange-300', icon: '⚠' }
                                           : typeStyles[ev.type] || typeStyles.lifecycle;
                                       const dayStr = ev.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
                                       return (
-                                        <div key={idx} className="flex items-start gap-3 py-2 group/evt hover:bg-slate-800/30 rounded-lg px-2 -mx-2 transition-colors">
+                                        <div key={idx} className="flex items-start gap-3 py-2 group/evt hover:bg-base rounded-lg px-2 -mx-2 transition-colors">
                                           {/* Date */}
-                                          <div className="w-14 shrink-0 text-[11px] text-slate-500 pt-0.5 text-right">{dayStr}</div>
+                                          <div className="w-14 shrink-0 text-[11px] text-ink-3 pt-0.5 text-right">{dayStr}</div>
                                           {/* Timeline dot + line */}
                                           <div className="flex flex-col items-center shrink-0 pt-1">
                                             <div className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] ${st.bg}`}>
                                               <span className={st.color}>{st.icon}</span>
                                             </div>
-                                            {idx < group.events.length - 1 && <div className="w-px h-full min-h-[12px] bg-slate-700/40 mt-1" />}
+                                            {idx < group.events.length - 1 && <div className="w-px h-full min-h-[12px] bg-surface-2 mt-1" />}
                                           </div>
                                           {/* Content */}
                                           <div className="flex-1 min-w-0 pt-0.5">
-                                            <div className="text-[11px] text-slate-200">{ev.title}</div>
-                                            {ev.detail && <div className="text-[10px] text-slate-500 mt-0.5">{ev.detail}</div>}
+                                            <div className="text-[11px] text-ink">{ev.title}</div>
+                                            {ev.detail && <div className="text-[10px] text-ink-3 mt-0.5">{ev.detail}</div>}
                                           </div>
                                           {/* Author */}
                                           <div className="shrink-0 pt-0.5">
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${ev.author === 'auto' ? 'bg-slate-700/50 text-slate-500' : 'bg-slate-700/30 text-slate-400'}`}>
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${ev.author === 'auto' ? 'bg-surface-2 text-ink-3' : 'bg-surface-2 text-ink-2'}`}>
                                               {ev.author === 'auto' ? 'auto' : ev.author.split(' ')[0]}
                                             </span>
                                           </div>
@@ -4304,17 +4238,17 @@ export default function MetricTree() {
                               ))}
 
                               {/* Summary */}
-                              <div className="mt-4 pt-3 border-t border-slate-700/50">
-                                <div className="text-[10px] text-slate-500 flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium text-slate-400">Summary:</span>
+                              <div className="mt-4 pt-3 border-t border-line">
+                                <div className="text-[10px] text-ink-3 flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-ink-2">Summary:</span>
                                   <span>{totalDays} days</span>
-                                  <span className="text-slate-700">·</span>
+                                  <span className="text-ink-2">·</span>
                                   <span>{configChanges} config changes</span>
-                                  <span className="text-slate-700">·</span>
+                                  <span className="text-ink-2">·</span>
                                   <span>{abTests} A/B tests</span>
-                                  <span className="text-slate-700">·</span>
+                                  <span className="text-ink-2">·</span>
                                   <span>{mgrChanges} manager changes</span>
-                                  <span className="text-slate-700">·</span>
+                                  <span className="text-ink-2">·</span>
                                   <span>{incidents} incidents</span>
                                 </div>
                               </div>
@@ -4343,19 +4277,19 @@ export default function MetricTree() {
                 return (
                   <>
                     <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setAdminSelectedCustomerId(null)} />
-                    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] max-h-[85vh] bg-slate-900 border border-slate-600 rounded-2xl shadow-2xl z-50 flex flex-col">
+                    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] max-h-[85vh] bg-surface border border-line rounded-2xl shadow-pop z-50 flex flex-col">
                       {/* Header */}
-                      <div className="shrink-0 border-b border-slate-700 px-5 py-4 flex items-center justify-between rounded-t-2xl">
+                      <div className="shrink-0 border-b border-line px-5 py-4 flex items-center justify-between rounded-t-2xl">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-sm font-bold text-ink shrink-0">
                             {cust.name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
-                            <div className="text-sm text-slate-100 font-semibold">{cust.name}</div>
-                            <div className="text-[10px] text-slate-500">ID #{cust.id} · {custApps.length} apps · since {cust.onboardingDate}</div>
+                            <div className="text-sm text-ink font-semibold">{cust.name}</div>
+                            <div className="text-[10px] text-ink-3">ID #{cust.id} · {custApps.length} apps · since {cust.onboardingDate}</div>
                           </div>
                         </div>
-                        <button onClick={() => setAdminSelectedCustomerId(null)} className="text-slate-500 hover:text-slate-200 transition-colors p-1">
+                        <button onClick={() => setAdminSelectedCustomerId(null)} className="text-ink-3 hover:text-ink transition-colors p-1">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>
                       </div>
@@ -4364,41 +4298,41 @@ export default function MetricTree() {
                       <div className="overflow-y-auto p-5 space-y-4">
                         {/* Stats row */}
                         <div className="grid grid-cols-4 gap-2">
-                          <div className="p-2.5 bg-slate-800/60 rounded-lg border border-slate-700 text-center">
-                            <div className="text-lg font-semibold text-slate-100">{custApps.length}</div>
-                            <div className="text-[10px] text-slate-500">Total Apps</div>
+                          <div className="p-2.5 bg-base rounded-lg border border-line text-center">
+                            <div className="text-lg font-semibold text-ink">{custApps.length}</div>
+                            <div className="text-[10px] text-ink-3">Total Apps</div>
                           </div>
-                          <div className="p-2.5 bg-slate-800/60 rounded-lg border border-slate-700 text-center">
-                            <div className="text-lg font-semibold text-emerald-400">{androidCount}</div>
-                            <div className="text-[10px] text-slate-500">Android</div>
+                          <div className="p-2.5 bg-base rounded-lg border border-line text-center">
+                            <div className="text-lg font-semibold text-success">{androidCount}</div>
+                            <div className="text-[10px] text-ink-3">Android</div>
                           </div>
-                          <div className="p-2.5 bg-slate-800/60 rounded-lg border border-slate-700 text-center">
-                            <div className="text-lg font-semibold text-slate-300">{iosCount}</div>
-                            <div className="text-[10px] text-slate-500">iOS</div>
+                          <div className="p-2.5 bg-base rounded-lg border border-line text-center">
+                            <div className="text-lg font-semibold text-ink">{iosCount}</div>
+                            <div className="text-[10px] text-ink-3">iOS</div>
                           </div>
-                          <div className="p-2.5 bg-slate-800/60 rounded-lg border border-slate-700 text-center">
-                            <div className="text-lg font-semibold text-emerald-400">{activeCount}</div>
-                            <div className="text-[10px] text-slate-500">Active</div>
+                          <div className="p-2.5 bg-base rounded-lg border border-line text-center">
+                            <div className="text-lg font-semibold text-success">{activeCount}</div>
+                            <div className="text-[10px] text-ink-3">Active</div>
                           </div>
                         </div>
 
                         {/* Manager assignment (bulk) */}
-                        <div className="p-3 bg-slate-800/60 rounded-lg border border-slate-700">
-                          <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-2">Account Manager <span className="normal-case text-slate-600">(applies to all apps)</span></div>
+                        <div className="p-3 bg-base rounded-lg border border-line">
+                          <div className="text-[10px] uppercase text-ink-3 font-semibold tracking-wider mb-2">Account Manager <span className="normal-case text-ink-3">(applies to all apps)</span></div>
                           <div className="grid grid-cols-2 gap-1">
                             {adminManagers.map(m => (
                               <button
                                 key={m.id}
                                 onClick={() => reassignCustomerManager(cust.id, m.id)}
                                 className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-colors ${
-                                  m.id === cust.managerId ? 'bg-blue-600/15 text-blue-400 ring-1 ring-blue-500/30' : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
+                                  m.id === cust.managerId ? 'bg-accent-12 text-accent-deep ring-1 ring-accent' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
                                 }`}
                               >
-                                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                                <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-[7px] font-bold text-ink shrink-0">
                                   {m.name.split(' ').map(n => n[0]).join('')}
                                 </div>
                                 <span className="truncate">{m.name}</span>
-                                {m.id === cust.managerId && <span className="text-blue-400 ml-auto">&#10003;</span>}
+                                {m.id === cust.managerId && <span className="text-accent-deep ml-auto">&#10003;</span>}
                               </button>
                             ))}
                           </div>
@@ -4407,24 +4341,24 @@ export default function MetricTree() {
                         {/* Status summary */}
                         {(pausedCount > 0 || pendingCount > 0 || reviewCount > 0) && (
                           <div className="flex gap-2 text-[10px]">
-                            {activeCount > 0 && <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">{activeCount} active</span>}
-                            {pausedCount > 0 && <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20">{pausedCount} paused</span>}
-                            {pendingCount > 0 && <span className="px-2 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/20">{pendingCount} pending</span>}
-                            {reviewCount > 0 && <span className="px-2 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/20">{reviewCount} review</span>}
+                            {activeCount > 0 && <span className="px-2 py-0.5 rounded bg-success-subtle text-success border border-success">{activeCount} active</span>}
+                            {pausedCount > 0 && <span className="px-2 py-0.5 rounded bg-warning-subtle text-warning border border-warning">{pausedCount} paused</span>}
+                            {pendingCount > 0 && <span className="px-2 py-0.5 rounded bg-accent-12 text-accent-deep border border-accent-line">{pendingCount} pending</span>}
+                            {reviewCount > 0 && <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-600 border border-purple-300">{reviewCount} review</span>}
                           </div>
                         )}
 
                         {/* Apps list */}
                         <div>
-                          <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-2">Apps ({custApps.length})</div>
-                          <div className="bg-slate-800/40 border border-slate-700 rounded-lg overflow-hidden">
+                          <div className="text-[10px] uppercase text-ink-3 font-semibold tracking-wider mb-2">Apps ({custApps.length})</div>
+                          <div className="bg-base border border-line rounded-lg overflow-hidden">
                             <table className="w-full text-xs">
                               <thead>
-                                <tr className="border-b border-slate-700 bg-slate-800/60">
-                                  <th className="text-left py-2 px-3 text-slate-500 font-medium">App</th>
-                                  <th className="text-center py-2 px-2 text-slate-500 font-medium w-8">OS</th>
-                                  <th className="text-left py-2 px-3 text-slate-500 font-medium w-16">Status</th>
-                                  <th className="text-left py-2 px-3 text-slate-500 font-medium w-20">Added</th>
+                                <tr className="border-b border-line bg-base">
+                                  <th className="text-left py-2 px-3 text-ink-3 font-medium">App</th>
+                                  <th className="text-center py-2 px-2 text-ink-3 font-medium w-8">OS</th>
+                                  <th className="text-left py-2 px-3 text-ink-3 font-medium w-16">Status</th>
+                                  <th className="text-left py-2 px-3 text-ink-3 font-medium w-20">Added</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -4433,27 +4367,27 @@ export default function MetricTree() {
                                   return (
                                     <tr key={app.bundleId}
                                       onClick={() => { setAdminSelectedCustomerId(null); setAdminSelectedApp(app.bundleId); }}
-                                      className="border-b border-slate-700/20 hover:bg-slate-700/20 cursor-pointer transition-colors">
+                                      className="border-b border-line hover:bg-surface-2 cursor-pointer transition-colors">
                                       <td className="py-1.5 px-3">
                                         <div className="flex items-center gap-2">
                                           {sd?.iconUrl ? (
                                             <img src={sd.iconUrl} alt="" className="w-5 h-5 rounded shrink-0" loading="lazy" />
                                           ) : (
-                                            <div className="w-5 h-5 rounded bg-slate-700/40 flex items-center justify-center shrink-0"><PlatformIcon platform={app.platform} size={10} /></div>
+                                            <div className="w-5 h-5 rounded bg-surface-2 flex items-center justify-center shrink-0"><PlatformIcon platform={app.platform} size={10} /></div>
                                           )}
                                           <div className="min-w-0">
                                             {sd?.appName ? (
-                                              <div className="text-slate-300 truncate max-w-[250px]">{sd.appName}</div>
+                                              <div className="text-ink truncate max-w-[250px]">{sd.appName}</div>
                                             ) : null}
-                                            <div className="text-[10px] font-mono text-slate-500 truncate max-w-[250px]">{app.bundleId}</div>
+                                            <div className="text-[10px] font-mono text-ink-3 truncate max-w-[250px]">{app.bundleId}</div>
                                           </div>
                                         </div>
                                       </td>
                                       <td className="py-1.5 px-2 text-center"><PlatformIcon platform={app.platform} size={10} /></td>
                                       <td className="py-1.5 px-3">
-                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium border ${statusColors[app.status] || 'text-slate-400'}`}>{app.status}</span>
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium border ${statusColors[app.status] || 'text-ink-2'}`}>{app.status}</span>
                                       </td>
-                                      <td className="py-1.5 px-3 text-slate-500 text-[10px]">{app.dateAdded}</td>
+                                      <td className="py-1.5 px-3 text-ink-3 text-[10px]">{app.dateAdded}</td>
                                     </tr>
                                   );
                                 })}
@@ -4471,57 +4405,57 @@ export default function MetricTree() {
         })()}
 
         {activeNavItem === 'analytics' && <>
-        {/* ===== Header: Title + Nav ===== */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <span className="text-sm font-semibold text-slate-100 leading-tight tracking-tight">Analytics</span>
-            <span className="text-[10px] text-slate-500 ml-2">v2.4.1</span>
-          </div>
-          <div className="bg-slate-800 rounded-xl p-1 flex gap-1">
-            <button onClick={() => setActiveScreen('quickview')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeScreen === 'quickview' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              Quick View
-            </button>
-            <button onClick={() => setActiveScreen('reports')} className={`px-4 py-2 rounded-lg text-sm font-medium ${activeScreen === 'reports' ? 'bg-blue-600' : 'hover:bg-slate-700'}`}>
-              Reports
-            </button>
-            {/* Glossary hidden */}
-          </div>
-        </div>
-
         {activeScreen === 'quickview' && (
           <>
-            {/* Quick View Header: App chip selector + Period Bar */}
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-              {/* Left: App chip selector */}
+            {/* ===== Alert banners ===== */}
+            <div className="-mx-6 -mt-6 mb-5">
+              {qvAlerts.filter(a => !dismissedAlerts.includes(a.id)).map(a => (
+                <div key={a.id} className="flex items-center gap-3 px-6 py-2.5 border-b border-line" style={{ background: a.tone.bg }}>
+                  <span className={`text-[13px] font-semibold ${a.tone.text}`}>{a.title}</span>
+                  <div className="flex-1"></div>
+                  <button className="text-[13px] text-ink-2 hover:text-ink transition-colors">Show more</button>
+                  {a.action && (
+                    <button className={`px-4 py-1 rounded-lg border text-[13px] font-medium transition-colors ${a.tone.btn}`}>{a.action}</button>
+                  )}
+                  <button onClick={() => setDismissedAlerts([...dismissedAlerts, a.id])} className={`w-6 h-6 flex items-center justify-center rounded ${a.tone.text} hover:bg-black/5`}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* ===== Controls row ===== */}
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              {/* App selector */}
               <div className="relative">
                 <button
                   onClick={() => setShowAppSelector(!showAppSelector)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 cursor-pointer"
+                  className="w-[240px] h-11 px-4 flex items-center justify-between gap-2 rounded-xl bg-base border border-line text-sm font-medium text-ink hover:border-ink-3 transition-colors"
                 >
-                  App: {selectedApp === 'all' ? 'All Apps' : apps.find(a => a.id === selectedApp)?.name}
-                  <span className="text-blue-500">▾</span>
+                  <span className="truncate">{selectedApp === 'all' ? 'All Apps' : apps.find(a => a.id === selectedApp)?.name}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-ink-2 shrink-0"><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 {showAppSelector && (
-                  <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px]">
-                    <div className="p-2 border-b border-slate-700">
+                  <div className="absolute left-0 top-full mt-1.5 w-[240px] bg-base border border-line rounded-xl shadow-pop z-50 overflow-hidden">
+                    <div className="p-2 border-b border-line">
                       <input
                         type="text"
                         placeholder="Search apps..."
                         value={appSelectorSearch}
                         onChange={(e) => setAppSelectorSearch(e.target.value)}
-                        className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                        className="w-full bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"
                         autoFocus
                       />
                     </div>
-                    <div className="max-h-48 overflow-y-auto">
+                    <div className="max-h-56 overflow-y-auto py-1">
                       {apps.filter(a => !appSelectorSearch || a.name.toLowerCase().includes(appSelectorSearch.toLowerCase())).map(app => (
                         <button
                           key={app.id}
                           onClick={() => { setSelectedApp(app.id); setShowAppSelector(false); setAppSelectorSearch(''); }}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${selectedApp === app.id ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[13px] hover:bg-surface-2 ${selectedApp === app.id ? 'text-ink font-medium' : 'text-ink-2'}`}
                         >
                           {app.name}
-                          {selectedApp === app.id && <span className="ml-auto text-blue-500">✓</span>}
+                          {selectedApp === app.id && <span className="ml-auto text-accent-deep">✓</span>}
                         </button>
                       ))}
                     </div>
@@ -4529,337 +4463,439 @@ export default function MetricTree() {
                 )}
               </div>
 
-              {/* Right: Period Bar — inline buttons */}
-              <div className="flex bg-slate-800 rounded-lg p-0.5 gap-0.5">
+              {/* Country selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowQvCountry(!showQvCountry)}
+                  className="w-[200px] h-11 px-4 flex items-center justify-between gap-2 rounded-xl bg-base border border-line text-sm font-medium text-ink hover:border-ink-3 transition-colors"
+                >
+                  <span className="truncate">{qvCountry === 'all' ? 'Country' : qvCountry}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-ink-2 shrink-0"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                {showQvCountry && (
+                  <div className="absolute left-0 top-full mt-1.5 w-[200px] bg-base border border-line rounded-xl shadow-pop z-50 overflow-hidden py-1">
+                    {['all', 'US', 'DE', 'UK', 'JP', 'Other'].map(c => (
+                      <button
+                        key={c}
+                        onClick={() => { setQvCountry(c); setShowQvCountry(false); }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[13px] hover:bg-surface-2 ${qvCountry === c ? 'text-ink font-medium' : 'text-ink-2'}`}
+                      >
+                        {c === 'all' ? 'All countries' : c}
+                        {qvCountry === c && <span className="ml-auto text-accent-deep">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Period segmented control */}
+              <div className="h-11 flex items-center gap-1 p-1 rounded-xl bg-base border border-line">
                 {qvPeriodOptions.map(p => (
                   <button
                     key={p.id}
                     onClick={() => setQvPeriod(p.id)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium ${qvPeriod === p.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                    className={`h-9 px-4 rounded-lg text-[13px] font-medium transition-colors ${
+                      qvPeriod === p.id ? 'bg-accent text-accent-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+                    }`}
                   >
                     {p.label}
                   </button>
                 ))}
               </div>
+
+              <div className="flex-1"></div>
+
+              {/* Edit mode */}
+              <div className="flex items-center gap-2.5">
+                <span className="text-[13px] text-ink-2">Edit Mode</span>
+                <button
+                  onClick={() => setEditMode(!editMode)}
+                  className={`w-10 h-6 rounded-full relative transition-colors ${editMode ? 'bg-accent' : 'bg-surface-3'}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 rounded-full bg-ink transition-all ${editMode ? 'right-1' : 'left-1'}`}></span>
+                </button>
+              </div>
             </div>
 
-            {/* B1: Metric Cards — L1: 4 cards */}
-            {(() => {
-              const cards = qvCardDefs['L1'] || [];
-              const vals = getQvCardValues(selectedApp);
-              return (
-                <div className="grid gap-3 mb-6 grid-cols-5">
-                  {cards.map(card => {
-                    const cur = vals.current[card.key];
-                    const prev = vals.previous[card.key];
-                    const hasCur = cur != null && cur !== undefined;
-                    const hasPrev = prev != null && prev !== undefined;
-                    const delta = hasCur && hasPrev && prev !== 0 ? ((cur - prev) / prev * 100) : 0;
-                    const isUp = delta >= 0;
-                    return (
-                      <div
-                        key={card.id}
-                        className="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-slate-600 transition"
-                      >
-                        <div className="text-slate-400 text-xs uppercase tracking-wider" title={metricTooltips[card.id] ? `${metricTooltips[card.id].desc}\n= ${metricTooltips[card.id].formula}` : undefined}>{card.label}</div>
-                        <div className="text-xl font-bold text-white mt-1">{hasCur ? card.format(cur) : '--'}</div>
-                        <div className="flex items-center gap-1 mt-1">
-                          <span className={`text-xs font-medium ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {isUp ? '+' : ''}{delta.toFixed(1)}%
-                          </span>
-                          <span className={`text-[10px] ${isUp ? 'text-emerald-500' : 'text-red-500'}`}>{isUp ? '▲' : '▼'}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-            {/* B2: Trend Chart + Revenue by Network */}
+            {/* ===== Chart + KPI grid ===== */}
             {(() => {
               const trend = getQvTrendData(selectedApp);
-              const numDays = qvTrendDays[qvPeriod] || 7;
-              // Network breakdown
-              const netAppIds = selectedApp === 'all' ? realAppIds : [selectedApp];
-              const netMap = {};
-              netAppIds.forEach(id => {
-                (dashboardData[id]?.networksTable || []).forEach(n => {
-                  if (!netMap[n.network]) netMap[n.network] = { network: n.network, revenue: 0, ecpm: 0, fillRate: 0, impressions: 0, _count: 0 };
-                  netMap[n.network].revenue += n.revenue;
-                  netMap[n.network].ecpm += n.ecpm;
-                  netMap[n.network].fillRate += n.fillRate;
-                  netMap[n.network].impressions += (n.impressions || Math.round(n.revenue / (n.ecpm || 5) * 1000));
-                  netMap[n.network]._count += 1;
-                });
-              });
-              const panelNets = Object.values(netMap).map(n => ({ ...n, ecpm: n.ecpm / n._count, fillRate: n.fillRate / n._count })).sort((a, b) => b.revenue - a.revenue);
-              const panelActive = panelNets.filter(n => n.revenue > 0);
-              const panelDead = panelNets.filter(n => n.revenue === 0);
-              const panelTotal = panelActive.reduce((s, n) => s + n.revenue, 0);
+              const vals = getQvCardValues(selectedApp);
+              const cards = qvCardDefs['L1'] || [];
+              const total = trend.reduce((s, d) => s + d.value, 0);
+
               return (
-                <div className="space-y-4 mb-6">
-                  {/* Revenue Trend (Daily) — single line */}
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-5">
-                      <h4 className="text-sm font-medium text-slate-300">Revenue Trend (Daily)</h4>
-                      <div className="text-[10px] text-slate-500">{numDays} days · {selectedApp === 'all' ? 'All Apps' : apps.find(a => a.id === selectedApp)?.name}</div>
+                <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-4 mb-4">
+                  {/* — Revenue chart — */}
+                  <div className="bg-base border border-line rounded-card p-5">
+                    <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink">Revenue</h3>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-ink-3"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+                        <span className="px-2.5 py-1 rounded-md bg-accent-12 text-[11px] font-medium text-ink-2">
+                          {trend.length ? `${trend[0].label} — ${trend[trend.length - 1].label}` : '—'}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-md text-[11px] font-medium" style={{ background: 'var(--warning-subtle)', color: 'var(--warning)' }}>Not yet reconciled</span>
+                      </div>
+                      <div className="flex items-center gap-1 p-1 rounded-lg bg-surface border border-line">
+                        {[['area', 'Area'], ['bar', 'Bar']].map(([id, label]) => (
+                          <button
+                            key={id}
+                            onClick={() => setQvChartType(id)}
+                            className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-colors ${
+                              qvChartType === id ? 'bg-base text-ink shadow-card border border-line' : 'text-ink-2 hover:text-ink'
+                            }`}
+                          >
+                            {id === 'area'
+                              ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg>
+                              : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>}
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
                     {(() => {
-                      const lineColor = '#3b82f6';
-                      const lineName = selectedApp === 'all' ? 'All Apps' : apps.find(a => a.id === selectedApp)?.name || selectedApp;
                       const allVals = trend.map(d => d.value);
-                      const gMin = Math.min(...allVals);
                       const gMax = Math.max(...allVals, 1);
-                      const gFloor = Math.floor(gMin * 0.85);
-                      const gRange = gMax - gFloor || 1;
-                      const gLines = 4;
-                      const gVals = Array.from({ length: gLines + 1 }, (_, i) => gFloor + (gRange * i / gLines));
-
-                      const W = 900, H = 200, padL = 52, padR = 12, padT = 16, padB = 20;
+                      const step = Math.pow(10, Math.floor(Math.log10(gMax / 4))) * 5;
+                      const top = Math.ceil(gMax / step) * step;
+                      const gLines = 5;
+                      const W = 900, H = 250, padL = 78, padR = 20, padT = 14, padB = 34;
                       const cW = W - padL - padR, cH = H - padT - padB;
-
-                      const pts = trend.map((d, i) => ({
-                        x: padL + (trend.length > 1 ? (i / (trend.length - 1)) * cW : cW / 2),
-                        y: padT + cH - ((d.value - gFloor) / gRange) * cH,
-                        value: d.value,
-                        label: d.label,
-                      }));
-                      const areaPath = pts.length > 0 ? `M${pts.map(p => `${p.x},${p.y}`).join(' L')} L${pts[pts.length - 1].x},${padT + cH} L${pts[0].x},${padT + cH} Z` : '';
+                      const x = (i) => padL + (trend.length > 1 ? (i / (trend.length - 1)) * cW : cW / 2);
+                      const y = (v) => padT + cH - (v / top) * cH;
+                      const pts = trend.map((d, i) => ({ x: x(i), y: y(d.value), ...d }));
+                      // хвост, который ещё не сверен с сетями — пунктиром
+                      const splitAt = Math.max(0, pts.length - 3);
+                      const solid = pts.slice(0, splitAt + 1);
+                      const dashed = pts.slice(splitAt);
+                      const areaPath = pts.length
+                        ? `M${pts.map(p => `${p.x},${p.y}`).join(' L')} L${pts[pts.length - 1].x},${padT + cH} L${pts[0].x},${padT + cH} Z`
+                        : '';
+                      const barW = trend.length ? Math.min(38, (cW / trend.length) * 0.6) : 10;
 
                       return (
                         <>
-                          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: '220px' }}>
-                            {/* Grid */}
-                            {gVals.map((gv, gi) => {
-                              const y = padT + cH - (gi / gLines) * cH;
+                          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: '260px' }}>
+                            {/* сетка + подписи оси Y */}
+                            {Array.from({ length: gLines + 1 }, (_, gi) => {
+                              const gv = (top / gLines) * gi;
+                              const gy = y(gv);
                               return (
                                 <g key={gi}>
-                                  <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#334155" strokeWidth="0.5" />
-                                  <text x={padL - 6} y={y + 3} fill="#475569" fontSize="8" textAnchor="end">${Math.round(gv).toLocaleString()}</text>
+                                  <line x1={padL} y1={gy} x2={W - padR} y2={gy} stroke="var(--bg-surface-3)" strokeWidth="1" strokeDasharray="3 4" />
+                                  <text x={padL - 10} y={gy + 4} fill="var(--text-muted)" fontSize="11" textAnchor="end" fontFamily="Geist">
+                                    ${Math.round(gv).toLocaleString()}
+                                  </text>
                                 </g>
                               );
                             })}
-                            {/* Line + area */}
-                            <path d={areaPath} fill={lineColor} fillOpacity="0.06" />
-                            <polyline fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={pts.map(p => `${p.x},${p.y}`).join(' ')} />
+                            {/* вертикальные направляющие */}
                             {pts.map((p, i) => (
-                              <g key={i}>
-                                <circle cx={p.x} cy={p.y} r="3.5" fill="#1e293b" stroke={lineColor} strokeWidth="1.5" />
-                                <title>{`${lineName} · ${p.label}: $${p.value.toLocaleString()}`}</title>
-                              </g>
+                              <line key={'v' + i} x1={p.x} y1={padT} x2={p.x} y2={padT + cH} stroke="var(--bg-surface-3)" strokeWidth="1" strokeDasharray="3 4" opacity="0.6" />
                             ))}
-                            {/* X-axis */}
-                            {trend.map((d, i) => {
-                              const x = padL + (trend.length > 1 ? (i / (trend.length - 1)) * cW : cW / 2);
-                              return <text key={i} x={x} y={H - 3} fill="#64748b" fontSize="9" textAnchor="middle">{d.label}</text>;
+
+                            {qvChartType === 'area' ? (
+                              <>
+                                <path d={areaPath} fill="var(--accent)" fillOpacity="0.18" />
+                                <polyline fill="none" stroke="var(--accent-deep)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
+                                  points={solid.map(p => `${p.x},${p.y}`).join(' ')} />
+                                <polyline fill="none" stroke="var(--accent-deep)" strokeWidth="2" strokeDasharray="6 5" strokeLinejoin="round" strokeLinecap="round"
+                                  points={dashed.map(p => `${p.x},${p.y}`).join(' ')} />
+                                {pts.map((p, i) => (
+                                  <g key={i}>
+                                    <circle cx={p.x} cy={p.y} r="4.5"
+                                      fill={i >= splitAt + 1 ? 'var(--bg-base)' : 'var(--text-primary)'}
+                                      stroke={i >= splitAt + 1 ? 'var(--accent-deep)' : 'var(--text-primary)'} strokeWidth="2" />
+                                    <title>{`${p.label}: $${Math.round(p.value).toLocaleString()}`}</title>
+                                  </g>
+                                ))}
+                              </>
+                            ) : (
+                              pts.map((p, i) => (
+                                <g key={i}>
+                                  <rect x={p.x - barW / 2} y={p.y} width={barW} height={padT + cH - p.y} rx="3"
+                                    fill={i >= splitAt + 1 ? 'var(--accent-12)' : 'var(--accent)'}
+                                    stroke={i >= splitAt + 1 ? 'var(--accent-deep)' : 'none'}
+                                    strokeDasharray={i >= splitAt + 1 ? '4 3' : undefined} />
+                                  <title>{`${p.label}: $${Math.round(p.value).toLocaleString()}`}</title>
+                                </g>
+                              ))
+                            )}
+
+                            {/* ось X */}
+                            {pts.map((p, i) => {
+                              const every = Math.ceil(pts.length / 12);
+                              if (i % every !== 0 && i !== pts.length - 1) return null;
+                              return <text key={'x' + i} x={p.x} y={H - 12} fill="var(--text-muted)" fontSize="11" textAnchor="middle" fontFamily="Geist">{p.label}</text>;
                             })}
                           </svg>
-                          {/* Legend */}
-                          <div className="flex items-center gap-5 mt-3 pt-3 border-t border-slate-700/50">
-                            <div className="flex items-center gap-2">
-                              <span className="w-3 h-0.5 rounded" style={{ backgroundColor: lineColor }} />
-                              <span className="text-[11px] text-slate-400">{lineName}</span>
-                              <span className="text-[11px] text-slate-300 font-medium">${trend.reduce((s, d) => s + d.value, 0).toLocaleString()}</span>
-                            </div>
+
+                          <div className="flex items-center justify-between pt-3 mt-1 border-t border-line">
+                            <span className="text-[11px] text-ink-3">
+                              {selectedApp === 'all' ? 'All Apps' : apps.find(a => a.id === selectedApp)?.name} · {trend.length} points
+                            </span>
+                            <span className="text-[13px] font-semibold text-ink tabular">${Math.round(total).toLocaleString()}</span>
                           </div>
                         </>
                       );
                     })()}
                   </div>
 
-                  {/* Revenue by Network — full width, horizontal */}
-                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-slate-300">Revenue by Network</h4>
-                      <span className="text-[10px] text-slate-500">{panelActive.length} active · {panelDead.length} inactive</span>
-                    </div>
-                    {/* Stacked bar */}
-                    <div className="flex rounded-lg overflow-hidden h-6 mb-4">
-                      {panelActive.map((n, i) => {
-                        const pct = panelTotal ? (n.revenue / panelTotal * 100) : 0;
-                        const lightness = 85 - (i / panelActive.length) * 45;
-                        return (
-                          <div
-                            key={n.network}
-                            className="h-full relative group transition-opacity hover:opacity-80"
-                            style={{ width: `${pct}%`, backgroundColor: `hsl(215, 15%, ${lightness}%)`, minWidth: pct > 0 ? '2px' : '0' }}
-                          >
-                            <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-600 px-2 py-1 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10">
-                              {n.network}: ${n.revenue.toLocaleString()} ({pct.toFixed(1)}%)
+                  {/* — KPI cards — */}
+                  <div className="grid grid-cols-2 gap-3 content-start">
+                    {cards.map(card => {
+                      const cur = vals.current[card.key];
+                      const prev = vals.previous[card.key];
+                      const has = cur != null;
+                      const delta = has && prev != null && prev !== 0 ? ((cur - prev) / prev * 100) : null;
+                      const isUp = (delta || 0) >= 0;
+                      const featured = card.id === 'revenue';
+                      const formatted = has ? card.format(cur) : '--';
+                      // дробную часть у денег показываем мельче — как в макете
+                      const m = featured && typeof formatted === 'string' ? formatted.match(/^(\$[\d,]+)(\.\d+)?$/) : null;
+                      return (
+                        <div
+                          key={card.id}
+                          className={`rounded-card border p-4 transition-colors ${
+                            featured ? 'border-accent-line bg-accent-12' : 'border-line bg-base hover:border-ink-3'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-2">{card.label}</span>
+                            <span title={metricTooltips[card.id] ? `${metricTooltips[card.id].desc}\n= ${metricTooltips[card.id].formula}` : card.label}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-ink-3"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+                            </span>
+                          </div>
+                          <div className="font-display text-[26px] leading-8 font-bold tracking-[-0.03em] text-ink tabular truncate">
+                            {m ? (<>{m[1]}<span className="text-[17px] text-ink-2">{m[2]}</span></>) : formatted}
+                          </div>
+                          {delta != null && (
+                            <div className="mt-2">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                                isUp ? 'text-success' : 'text-error'
+                              }`} style={{ background: isUp ? 'var(--success-subtle)' : 'var(--error-subtle)' }}>
+                                {isUp ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
+                              </span>
+                              <span className="ml-2 text-[11px] text-ink-3">{qvPeriodOptions.find(p => p.id === qvPeriod)?.label}</span>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Network grid — 5 columns */}
-                    <div className="grid grid-cols-5 gap-x-4 gap-y-2.5">
-                      {panelActive.map((n, i) => {
-                        const pct = panelTotal ? (n.revenue / panelTotal * 100) : 0;
-                        const lightness = 85 - (i / panelActive.length) * 45;
-                        return (
-                          <div key={n.network} className="flex items-start gap-2">
-                            <span className="w-2 h-2 rounded mt-0.5 shrink-0" style={{ backgroundColor: `hsl(215, 15%, ${lightness}%)` }} />
-                            <div className="min-w-0">
-                              <div className="text-[11px] font-medium text-slate-200 truncate">{n.network}</div>
-                              <div className="text-xs font-bold text-white">${n.revenue.toLocaleString()}</div>
-                              <div className="text-[10px] text-slate-500">{pct.toFixed(1)}% · ${n.ecpm.toFixed(2)} eCPM</div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {panelDead.map(n => (
-                        <div key={n.network} className="flex items-start gap-2 opacity-60">
-                          <span className="w-2 h-2 rounded mt-0.5 shrink-0 bg-red-500/50" />
-                          <div className="min-w-0">
-                            <div className="text-[11px] font-medium text-red-400/70 truncate">{n.network}</div>
-                            <div className="text-[10px] text-red-400/50">No data · 0 impr</div>
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
             })()}
 
-            {/* H2: Data Freshness */}
-            <div className="flex items-center justify-between text-[10px] text-slate-600 mt-2">
-              <span>Data updated: 3 min ago</span>
-              <span>Source: CAS Analytics Pipeline v2.4</span>
-            </div>
+            {/* ===== Revenue by Network + Apps Performance ===== */}
+            {(() => {
+              const netAppIds = selectedApp === 'all' ? realAppIds : [selectedApp];
+              const netMap = {};
+              netAppIds.forEach(id => {
+                (dashboardData[id]?.networksTable || []).forEach(n => {
+                  if (!netMap[n.network]) netMap[n.network] = { network: n.network, revenue: 0, ecpm: 0, _count: 0 };
+                  netMap[n.network].revenue += n.revenue;
+                  netMap[n.network].ecpm += n.ecpm;
+                  netMap[n.network]._count += 1;
+                });
+              });
+              const nets = Object.values(netMap).map(n => ({ ...n, ecpm: n.ecpm / n._count })).sort((a, b) => b.revenue - a.revenue);
+              const active = nets.filter(n => n.revenue > 0);
+              const dead = nets.filter(n => n.revenue === 0);
+              const netTotal = active.reduce((s, n) => s + n.revenue, 0) || 1;
 
+              return (
+                <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+                  {/* — Revenue by Network — */}
+                  <div className="bg-base border border-line rounded-card p-5">
+                    <div className="flex items-center gap-2.5 mb-5">
+                      <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink">Revenue by Network</h3>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-ink-3"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+                      <span className="px-2.5 py-1 rounded-md text-[11px] font-medium" style={{ background: 'var(--warning-subtle)', color: 'var(--warning)' }}>Not yet reconciled</span>
+                      <div className="flex-1"></div>
+                      <button className="flex items-center gap-1.5 text-[13px] font-medium text-accent-deep hover:underline">
+                        View All <span aria-hidden>→</span>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-4 max-h-[260px] overflow-y-auto pr-1">
+                      {active.map((n, i) => {
+                        const pct = (n.revenue / netTotal) * 100;
+                        return (
+                          <div key={n.network} title={`${n.network} · $${n.revenue.toLocaleString()} · ${pct.toFixed(1)}% · $${n.ecpm.toFixed(2)} eCPM`}>
+                            <div className="flex items-baseline justify-between gap-2 mb-1.5">
+                              <span className="text-[13px] font-medium text-ink truncate">{n.network}</span>
+                              <span className="text-[13px] font-semibold text-ink tabular shrink-0">${n.revenue.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 1.5)}%`, background: networkColors[i % networkColors.length] }}></div>
+                              </div>
+                              <span className="text-[11px] text-ink-3 tabular w-8 text-right">{pct.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {dead.map(n => (
+                        <div key={n.network} className="opacity-60">
+                          <div className="flex items-baseline justify-between gap-2 mb-1.5">
+                            <span className="text-[13px] font-medium text-ink-3 truncate">{n.network}</span>
+                            <span className="text-[11px] text-error shrink-0">No data</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-surface-2"></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* — Apps Performance — */}
+                  <div className="bg-base border border-line rounded-card p-5">
+                    <div className="flex items-center gap-2.5 mb-4">
+                      <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink">Apps Performance</h3>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-ink-3"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+                      <div className="flex-1"></div>
+                      <button onClick={() => setActiveNavItem('apps')} className="flex items-center gap-1.5 text-[13px] font-medium text-accent-deep hover:underline">
+                        View All <span aria-hidden>→</span>
+                      </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-line">
+                            <th className="py-2 pr-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3">App</th>
+                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">Revenue</th>
+                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">eCPM</th>
+                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">DAU</th>
+                            <th className="py-2 pl-3"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {qvTopApps.map(app => (
+                            <tr key={app.id} className="border-b border-line last:border-0 hover:bg-surface transition-colors">
+                              <td className="py-2.5 pr-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <button className={`shrink-0 ${app.starred ? 'text-accent-deep' : 'text-ink-3'} hover:text-accent-deep`}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill={app.starred ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z"/></svg>
+                                  </button>
+                                  {app.icon
+                                    ? <img src={app.icon} alt="" className="w-7 h-7 rounded-lg shrink-0 object-cover border border-line" />
+                                    : <span className="w-7 h-7 rounded-lg shrink-0 bg-surface-2 border border-line flex items-center justify-center text-[10px] font-bold text-ink-2">{app.name.slice(0, 2).toUpperCase()}</span>}
+                                  <span className="text-[13px] text-ink truncate max-w-[190px]" title={app.name}>{app.name}</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-[13px] font-semibold text-ink text-right tabular">${app.revenue.toLocaleString()}</td>
+                              <td className="py-2.5 px-3 text-[13px] text-ink text-right tabular">${app.ecpm.toFixed(2)}</td>
+                              <td className="py-2.5 px-3 text-[13px] text-ink text-right tabular">{formatNum(app.dau)}</td>
+                              <td className="py-2.5 pl-3 text-right">
+                                <button
+                                  onClick={() => { setActiveScreen('reports'); }}
+                                  className="text-[13px] font-medium text-accent-deep hover:underline whitespace-nowrap"
+                                >Analyse →</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
 
         {activeScreen === 'reports' && (
-          <div className="flex gap-4">
-            {/* Sidebar — Dimensions & Measures */}
-            <div className={`shrink-0 transition-all duration-200 relative ${sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-56'}`}>
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 sticky top-6 w-56">
-                <input
-                  type="text"
-                  placeholder="Search metrics..."
-                  value={sidebarSearch}
-                  onChange={(e) => setSidebarSearch(e.target.value)}
-                  className="w-full bg-slate-900/50 border border-slate-600 rounded-md px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 mb-3"
-                />
+          <div>
+            <div className="min-w-0">
+              {/* Chip Rows: Presets / Filters / Splits / Measures */}
+              <div className="bg-base border border-line rounded-card mb-4 divide-y divide-line overflow-visible">
 
-                {/* DIMENSIONS */}
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider">Split</div>
+                {/* Row 0: Presets & actions */}
+                <div className="flex items-center gap-2 px-4 py-2.5 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3 shrink-0 w-[104px]">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z"/></svg>
+                    Presets
+                  </span>
+                  <div className="relative">
+                    <button
+                      onClick={() => { setShowSavedViewsDD(!showSavedViewsDD); setShowExportDD(false); }}
+                      className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
+                    >
+                      {savedViews.length ? 'Presets (' + savedViews.length + ')' : 'No preset'}
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-3"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    {showSavedViewsDD && (
+                      <div className="absolute left-0 top-full mt-1.5 bg-base border border-line rounded-xl shadow-pop z-50 min-w-[220px] overflow-hidden">
+                        {savedViews.length === 0 && (
+                          <div className="px-3 py-2.5 text-xs text-ink-3">No saved presets</div>
+                        )}
+                        {savedViews.map((view, i) => (
+                          <div key={i} className="flex items-center gap-2 px-3 py-2 hover:bg-surface-2 group">
+                            <button onClick={() => loadSavedView(view)} className="flex-1 text-left text-xs text-ink">{view.name}</button>
+                            <button onClick={(e) => { e.stopPropagation(); deleteSavedView(i); }} className="text-[11px] text-ink-3 hover:text-error opacity-0 group-hover:opacity-100">×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
-                    onClick={() => setSidebarCollapsed(true)}
-                    className="w-5 h-5 flex items-center justify-center rounded bg-slate-700/50 border border-slate-600/50 hover:bg-slate-600 hover:border-blue-500/50 transition-colors group"
-                    title="Collapse sidebar"
+                    onClick={() => { const name = prompt('Preset name:'); if (name) saveCurrentView(name); }}
+                    className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
                   >
-                    <svg width="8" height="10" viewBox="0 0 8 10" className="text-slate-400 group-hover:text-blue-400 transition-colors">
-                      <path d="M6 1 L1.5 5 L6 9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+                    Save preset
+                  </button>
+                  <button
+                    onClick={() => { pushStateToUrl(); navigator.clipboard.writeText(window.location.href); }}
+                    className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
+                    title="Copy shareable URL"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+                    Share
+                  </button>
+
+                  <span className="w-px h-6 bg-line mx-1"></span>
+
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">Compare</span>
+                  <button
+                    onClick={() => setReportsCompare(!reportsCompare)}
+                    className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
+                  >
+                    {reportsCompare ? 'Previous period' : 'Off'}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-3"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+
+                  <span className="px-2.5 py-1 rounded-md text-[11px] font-medium" style={{ background: 'var(--warning-subtle)', color: 'var(--warning)' }}>
+                    Not yet reconciled from 09.09
+                  </span>
+
+                  <div className="flex-1"></div>
+
+                  <button
+                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); }}
+                    className="h-8 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                    Reset
+                  </button>
+                  <button className="h-8 px-5 rounded-lg bg-accent text-xs font-semibold text-accent-ink hover:brightness-95 transition-all">
+                    Apply
                   </button>
                 </div>
-                {sidebarDimensions.map(group => {
-                  const filtered = group.items.filter(i => !sidebarSearch || i.label.toLowerCase().includes(sidebarSearch.toLowerCase()));
-                  if (filtered.length === 0) return null;
-                  const key = 'dim_' + group.group;
-                  return (
-                    <div key={key} className="mb-1">
-                      <button
-                        onClick={() => toggleSidebarSection(key)}
-                        className="w-full flex items-center gap-1 px-1 py-1 text-xs text-slate-400 hover:text-slate-200 font-medium"
-                      >
-                        <span className="text-[10px]">{collapsedSections.has(key) ? '▸' : '▾'}</span>
-                        {group.group}
-                      </button>
-                      {!collapsedSections.has(key) && (
-                        <div className="ml-3">
-                          {filtered.map(item => (
-                            <button
-                              key={item.id}
-                              onClick={() => reportsSplits.includes(item.id) ? removeSplit(item.id) : addSplit(item.id)}
-                              className={`w-full text-left px-2 py-1 text-xs rounded hover:bg-slate-700/50 ${
-                                reportsSplits.includes(item.id) ? 'text-blue-400' : 'text-slate-400'
-                              }`}
-                            >
-                              {item.label}
-                              {reportsSplits.includes(item.id) && <span className="ml-1 text-[10px] text-blue-500">✓</span>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                <div className="border-t border-slate-700 my-2" />
-
-                {/* MEASURES */}
-                <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-1.5">Measures</div>
-                {sidebarMeasures.map(group => {
-                  const filtered = group.items.filter(i => !sidebarSearch || i.label.toLowerCase().includes(sidebarSearch.toLowerCase()));
-                  if (filtered.length === 0) return null;
-                  const key = 'meas_' + group.group;
-                  return (
-                    <div key={key} className="mb-1">
-                      <button
-                        onClick={() => toggleSidebarSection(key)}
-                        className="w-full flex items-center gap-1 px-1 py-1 text-xs text-slate-400 hover:text-slate-200 font-medium"
-                      >
-                        <span className="text-[10px]">{collapsedSections.has(key) ? '▸' : '▾'}</span>
-                        {group.group}
-                      </button>
-                      {!collapsedSections.has(key) && (
-                        <div className="ml-3">
-                          {filtered.map(item => {
-                            const tip = metricTooltips[item.id];
-                            return (
-                            <button
-                              key={item.id}
-                              onClick={() => addMeasure(item.id)}
-                              className={`w-full text-left px-2 py-1 text-xs rounded hover:bg-slate-700/50 ${
-                                selectedMetrics.includes(item.id) ? 'text-blue-400' : 'text-slate-400'
-                              }`}
-                              title={tip ? `${tip.desc}\n= ${tip.formula}` : undefined}
-                            >
-                              {item.label}
-                              {selectedMetrics.includes(item.id) && <span className="ml-1 text-[10px] text-blue-500">+</span>}
-                            </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Sidebar expand button (visible when collapsed) */}
-            {sidebarCollapsed && (
-              <button
-                onClick={() => setSidebarCollapsed(false)}
-                className="shrink-0 w-6 h-6 mt-1 flex items-center justify-center rounded bg-slate-700/60 border border-slate-600/50 hover:bg-slate-600 hover:border-blue-500/50 transition-colors group cursor-pointer"
-                title="Expand sidebar"
-              >
-                <svg width="8" height="10" viewBox="0 0 8 10" className="text-slate-400 group-hover:text-blue-400 transition-colors">
-                  <path d="M2 1 L6.5 5 L2 9" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            )}
-
-            {/* Main Content */}
-            <div className="flex-1 min-w-0">
-              {/* Chip Rows: Filters / Splits / Measures */}
-              <div className="bg-slate-800/50 border border-slate-700 rounded-xl mb-4 divide-y divide-slate-700/50">
 
                 {/* Row 1: Filters */}
                 <div className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
-                    <span className="text-slate-500 text-xs font-medium uppercase tracking-wider shrink-0 w-16">Filters</span>
+                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3 shrink-0 w-[104px]">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+                      Filters
+                    </span>
                     <div className="flex flex-wrap gap-2 flex-1">
                       {/* Period — always visible */}
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25">
-                        Period: {filterDateFrom} — {filterDateTo}
+                      <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-accent-12 text-ink border border-accent-line">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                        {filterDateFrom} — {filterDateTo}
                       </span>
 
                       {/* App filter chip */}
@@ -4867,21 +4903,21 @@ export default function MetricTree() {
                         <div className="relative">
                           <button
                             onClick={() => { setShowAppSelector(!showAppSelector); setAppSelectorSearch(''); }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-accent-12 text-accent-deep border border-accent-line hover:brightness-95-12 cursor-pointer"
                           >
                             App: {apps.find(a => a.id === selectedApp)?.name || selectedApp}
-                            <span className="text-blue-500">▾</span>
-                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'app')); setSelectedApp('all'); }} className="hover:text-blue-200 ml-0.5">×</button>
+                            <span className="text-accent-deep">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'app')); setSelectedApp('all'); }} className="hover:text-accent-deep ml-0.5">×</button>
                           </button>
                           {showAppSelector && (
-                            <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px]">
-                              <div className="p-2 border-b border-slate-700">
+                            <div className="absolute left-0 top-full mt-1 bg-surface border border-line rounded-lg shadow-pop z-50 min-w-[220px]">
+                              <div className="p-2 border-b border-line">
                                 <input
                                   type="text"
                                   placeholder="Search apps..."
                                   value={appSelectorSearch}
                                   onChange={(e) => setAppSelectorSearch(e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                  className="w-full bg-base border border-line rounded px-2 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"
                                   autoFocus
                                 />
                               </div>
@@ -4890,10 +4926,10 @@ export default function MetricTree() {
                                   <button
                                     key={app.id}
                                     onClick={() => { setSelectedApp(app.id); setShowAppSelector(false); }}
-                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${selectedApp === app.id ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-base ${selectedApp === app.id ? 'text-accent-deep bg-base' : 'text-ink'}`}
                                   >
                                     {app.name}
-                                    {selectedApp === app.id && <span className="ml-auto text-blue-500">✓</span>}
+                                    {selectedApp === app.id && <span className="ml-auto text-accent-deep">✓</span>}
                                   </button>
                                 ))}
                               </div>
@@ -4907,22 +4943,22 @@ export default function MetricTree() {
                         <div className="relative">
                           <button
                             onClick={() => setOpenFilterValue(openFilterValue === 'country' ? null : 'country')}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/25 hover:bg-blue-500/25 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-accent-12 text-accent-deep border border-accent-line hover:brightness-95-12 cursor-pointer"
                           >
                             Country: {filterCountry === 'all' ? 'All' : filterCountry}
-                            <span className="text-blue-500">▾</span>
-                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'country')); setFilterCountry('all'); }} className="hover:text-blue-200 ml-0.5">×</button>
+                            <span className="text-accent-deep">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'country')); setFilterCountry('all'); }} className="hover:text-accent-deep ml-0.5">×</button>
                           </button>
                           {openFilterValue === 'country' && (
-                            <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[160px] max-h-48 overflow-y-auto">
+                            <div className="absolute left-0 top-full mt-1 bg-surface border border-line rounded-lg shadow-pop z-50 min-w-[160px] max-h-48 overflow-y-auto">
                               {countries.map(c => (
                                 <button
                                   key={c}
                                   onClick={() => { setFilterCountry(c); setOpenFilterValue(null); }}
-                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterCountry === c ? 'text-blue-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-base ${filterCountry === c ? 'text-accent-deep bg-base' : 'text-ink'}`}
                                 >
                                   {c === 'all' ? 'All countries' : c}
-                                  {filterCountry === c && <span className="ml-auto text-blue-500">✓</span>}
+                                  {filterCountry === c && <span className="ml-auto text-accent-deep">✓</span>}
                                 </button>
                               ))}
                             </div>
@@ -4935,31 +4971,31 @@ export default function MetricTree() {
                         <div className="relative">
                           <button
                             onClick={() => { setShowManagerDropdown(!showManagerDropdown); setManagerDropdownSearch(''); setShowCustomerDropdown(false); setShowDateCreatedDropdown(false); }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/25 hover:bg-amber-500/25 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-warning-subtle text-warning border border-warning hover:bg-warning-subtle cursor-pointer"
                           >
                             Manager: {filterManager !== 'all' ? adminManagers.find(m => m.id === filterManager)?.name || filterManager : 'All'}
-                            <span className="text-amber-500">▾</span>
-                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'manager')); setFilterManager('all'); }} className="hover:text-amber-200 ml-0.5">×</button>
+                            <span className="text-warning">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'manager')); setFilterManager('all'); }} className="hover:text-warning ml-0.5">×</button>
                           </button>
                           {showManagerDropdown && (
-                            <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[220px]">
-                              <div className="p-2 border-b border-slate-700">
+                            <div className="absolute left-0 top-full mt-1 bg-surface border border-line rounded-lg shadow-pop z-50 min-w-[220px]">
+                              <div className="p-2 border-b border-line">
                                 <input
                                   type="text"
                                   placeholder="Search managers..."
                                   value={managerDropdownSearch}
                                   onChange={(e) => setManagerDropdownSearch(e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                  className="w-full bg-base border border-line rounded px-2 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"
                                   autoFocus
                                 />
                               </div>
                               <div className="max-h-48 overflow-y-auto">
                                 <button
                                   onClick={() => { setFilterManager('all'); setShowManagerDropdown(false); }}
-                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterManager === 'all' ? 'text-amber-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-base ${filterManager === 'all' ? 'text-warning bg-base' : 'text-ink'}`}
                                 >
                                   All managers
-                                  {filterManager === 'all' && <span className="ml-auto text-amber-500">✓</span>}
+                                  {filterManager === 'all' && <span className="ml-auto text-warning">✓</span>}
                                 </button>
                                 {adminManagers.filter(m => !managerDropdownSearch || m.name.toLowerCase().includes(managerDropdownSearch.toLowerCase())).map(mgr => {
                                   const mgrCustCount = adminCustomers.filter(c => c.managerId === mgr.id).length;
@@ -4968,16 +5004,16 @@ export default function MetricTree() {
                                     <button
                                       key={mgr.id}
                                       onClick={() => { setFilterManager(mgr.id); setFilterCustomer('all'); setShowManagerDropdown(false); }}
-                                      className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterManager === mgr.id ? 'text-amber-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                      className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-base ${filterManager === mgr.id ? 'text-warning bg-base' : 'text-ink'}`}
                                     >
-                                      <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-[7px] font-bold text-white shrink-0">
+                                      <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center text-[7px] font-bold text-ink shrink-0">
                                         {mgr.name.split(' ').map(n => n[0]).join('')}
                                       </div>
                                       <div>
                                         <div>{mgr.name}</div>
-                                        <div className="text-[10px] text-slate-500">{mgrCustCount} customers · {mgrBundleCount} bundles</div>
+                                        <div className="text-[10px] text-ink-3">{mgrCustCount} customers · {mgrBundleCount} bundles</div>
                                       </div>
-                                      {filterManager === mgr.id && <span className="ml-auto text-amber-500">✓</span>}
+                                      {filterManager === mgr.id && <span className="ml-auto text-warning">✓</span>}
                                     </button>
                                   );
                                 })}
@@ -4992,11 +5028,11 @@ export default function MetricTree() {
                         <div className="relative">
                           <button
                             onClick={() => { setShowCustomerDropdown(!showCustomerDropdown); setCustomerDropdownSearch(''); setShowManagerDropdown(false); setShowDateCreatedDropdown(false); }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-success-subtle text-success border border-success hover:bg-success-subtle cursor-pointer"
                           >
                             Customer: {filterCustomer !== 'all' ? adminCustomers.find(c => c.id === Number(filterCustomer))?.name || filterCustomer : 'All'}
-                            <span className="text-emerald-500">▾</span>
-                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'customer')); setFilterCustomer('all'); }} className="hover:text-emerald-200 ml-0.5">×</button>
+                            <span className="text-success">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'customer')); setFilterCustomer('all'); }} className="hover:text-success ml-0.5">×</button>
                           </button>
                           {showCustomerDropdown && (() => {
                             const visibleCustomers = adminCustomers
@@ -5004,24 +5040,24 @@ export default function MetricTree() {
                               .filter(c => !customerDropdownSearch || c.name.toLowerCase().includes(customerDropdownSearch.toLowerCase()) || String(c.id).includes(customerDropdownSearch));
                             const shownCustomers = visibleCustomers.slice(0, 50);
                             return (
-                              <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 w-[320px]">
-                                <div className="p-2 border-b border-slate-700">
+                              <div className="absolute left-0 top-full mt-1 bg-surface border border-line rounded-lg shadow-pop z-50 w-[320px]">
+                                <div className="p-2 border-b border-line">
                                   <input
                                     type="text"
                                     placeholder="Search by name or ID..."
                                     value={customerDropdownSearch}
                                     onChange={(e) => setCustomerDropdownSearch(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                    className="w-full bg-base border border-line rounded px-2 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"
                                     autoFocus
                                   />
                                 </div>
                                 <div className="max-h-[280px] overflow-y-auto">
                                   <button
                                     onClick={() => { setFilterCustomer('all'); setShowCustomerDropdown(false); }}
-                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterCustomer === 'all' ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-base ${filterCustomer === 'all' ? 'text-success bg-base' : 'text-ink'}`}
                                   >
                                     All customers
-                                    {filterCustomer === 'all' && <span className="ml-auto text-emerald-500">✓</span>}
+                                    {filterCustomer === 'all' && <span className="ml-auto text-success">✓</span>}
                                   </button>
                                   {shownCustomers.map(cust => {
                                     const mgr = adminManagers.find(m => m.id === cust.managerId);
@@ -5029,21 +5065,21 @@ export default function MetricTree() {
                                       <button
                                         key={cust.id}
                                         onClick={() => { setFilterCustomer(String(cust.id)); setShowCustomerDropdown(false); }}
-                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-slate-800 ${filterCustomer === String(cust.id) ? 'text-emerald-400 bg-slate-800/50' : 'text-slate-300'}`}
+                                        className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs hover:bg-base ${filterCustomer === String(cust.id) ? 'text-success bg-base' : 'text-ink'}`}
                                       >
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-1.5">
-                                            <span className="font-mono text-slate-500 text-[10px]">#{cust.id}</span>
+                                            <span className="font-mono text-ink-3 text-[10px]">#{cust.id}</span>
                                             <span>{cust.name}</span>
                                           </div>
-                                          <div className="text-[10px] text-slate-500 truncate">{mgr?.name} · {cust.bundles.length} bundles · {cust.bundles[0]}{cust.bundles.length > 1 ? `, +${cust.bundles.length - 1}` : ''}</div>
+                                          <div className="text-[10px] text-ink-3 truncate">{mgr?.name} · {cust.bundles.length} bundles · {cust.bundles[0]}{cust.bundles.length > 1 ? `, +${cust.bundles.length - 1}` : ''}</div>
                                         </div>
-                                        {filterCustomer === String(cust.id) && <span className="ml-auto text-emerald-500 shrink-0">✓</span>}
+                                        {filterCustomer === String(cust.id) && <span className="ml-auto text-success shrink-0">✓</span>}
                                       </button>
                                     );
                                   })}
                                 </div>
-                                <div className="px-3 py-1.5 border-t border-slate-700 text-[10px] text-slate-500">
+                                <div className="px-3 py-1.5 border-t border-line text-[10px] text-ink-3">
                                   {visibleCustomers.length > 50 ? `Showing 50 of ${visibleCustomers.length} — type to search` : `${visibleCustomers.length} customers`}{filterManager !== 'all' ? ` (filtered by ${adminManagers.find(m => m.id === filterManager)?.name})` : ''}
                                 </div>
                               </div>
@@ -5057,44 +5093,44 @@ export default function MetricTree() {
                         <div className="relative">
                           <button
                             onClick={() => { setShowDateCreatedDropdown(!showDateCreatedDropdown); setShowManagerDropdown(false); setShowCustomerDropdown(false); }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/25 hover:bg-purple-500/25 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-600 border border-purple-300 hover:bg-purple-100 cursor-pointer"
                           >
                             Date Created{filterDateCreatedFrom || filterDateCreatedTo ? `: ${filterDateCreatedFrom || '...'} — ${filterDateCreatedTo || '...'}` : ': All'}
-                            <span className="text-purple-500">▾</span>
-                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'dateCreated')); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); }} className="hover:text-purple-200 ml-0.5">×</button>
+                            <span className="text-purple-600">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'dateCreated')); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); }} className="hover:text-purple-700 ml-0.5">×</button>
                           </button>
                           {showDateCreatedDropdown && (
-                            <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 p-3 min-w-[260px]">
-                              <div className="text-[10px] uppercase text-slate-500 font-semibold tracking-wider mb-2">Date Created Range</div>
+                            <div className="absolute left-0 top-full mt-1 bg-surface border border-line rounded-lg shadow-pop z-50 p-3 min-w-[260px]">
+                              <div className="text-[10px] uppercase text-ink-3 font-semibold tracking-wider mb-2">Date Created Range</div>
                               <div className="flex items-center gap-2 mb-2">
                                 <div className="flex-1">
-                                  <label className="text-[10px] text-slate-500 mb-0.5 block">From</label>
+                                  <label className="text-[10px] text-ink-3 mb-0.5 block">From</label>
                                   <input
                                     type="date"
                                     value={filterDateCreatedFrom}
                                     onChange={(e) => setFilterDateCreatedFrom(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full bg-base border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line"
                                   />
                                 </div>
                                 <div className="flex-1">
-                                  <label className="text-[10px] text-slate-500 mb-0.5 block">To</label>
+                                  <label className="text-[10px] text-ink-3 mb-0.5 block">To</label>
                                   <input
                                     type="date"
                                     value={filterDateCreatedTo}
                                     onChange={(e) => setFilterDateCreatedTo(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full bg-base border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line"
                                   />
                                 </div>
                               </div>
                               <div className="flex gap-1.5 mb-2">
-                                <button onClick={() => { setFilterDateCreatedFrom('2026-01-01'); setFilterDateCreatedTo('2026-12-31'); }} className="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[10px] text-slate-300 hover:bg-slate-700">2026</button>
-                                <button onClick={() => { setFilterDateCreatedFrom('2025-01-01'); setFilterDateCreatedTo('2025-12-31'); }} className="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[10px] text-slate-300 hover:bg-slate-700">2025</button>
-                                <button onClick={() => { setFilterDateCreatedFrom('2024-01-01'); setFilterDateCreatedTo('2024-12-31'); }} className="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[10px] text-slate-300 hover:bg-slate-700">2024</button>
-                                <button onClick={() => { setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); }} className="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[10px] text-slate-400 hover:bg-slate-700">Clear</button>
+                                <button onClick={() => { setFilterDateCreatedFrom('2026-01-01'); setFilterDateCreatedTo('2026-12-31'); }} className="px-2 py-1 rounded bg-base border border-line text-[10px] text-ink hover:bg-surface-2">2026</button>
+                                <button onClick={() => { setFilterDateCreatedFrom('2025-01-01'); setFilterDateCreatedTo('2025-12-31'); }} className="px-2 py-1 rounded bg-base border border-line text-[10px] text-ink hover:bg-surface-2">2025</button>
+                                <button onClick={() => { setFilterDateCreatedFrom('2024-01-01'); setFilterDateCreatedTo('2024-12-31'); }} className="px-2 py-1 rounded bg-base border border-line text-[10px] text-ink hover:bg-surface-2">2024</button>
+                                <button onClick={() => { setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); }} className="px-2 py-1 rounded bg-base border border-line text-[10px] text-ink-2 hover:bg-surface-2">Clear</button>
                               </div>
                               <button
                                 onClick={() => setShowDateCreatedDropdown(false)}
-                                className="w-full px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-xs text-white font-medium"
+                                className="w-full px-3 py-1.5 rounded bg-accent hover:brightness-95 text-xs text-ink font-medium"
                               >
                                 Apply
                               </button>
@@ -5104,7 +5140,7 @@ export default function MetricTree() {
                                   if (filterDateCreatedTo && c.onboardingDate > filterDateCreatedTo) return false;
                                   return true;
                                 });
-                                return <div className="mt-2 text-[10px] text-slate-500">{matched.length} customers matched · {matched.reduce((s, c) => s + c.bundles.length, 0)} bundles</div>;
+                                return <div className="mt-2 text-[10px] text-ink-3">{matched.length} customers matched · {matched.reduce((s, c) => s + c.bundles.length, 0)} bundles</div>;
                               })()}
                             </div>
                           )}
@@ -5115,12 +5151,12 @@ export default function MetricTree() {
                       <div className="relative">
                         <button
                           onClick={() => setShowFilterPickerDropdown(!showFilterPickerDropdown)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 border border-slate-600/50"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-surface-2 text-ink-2 hover:bg-surface-2 border border-line"
                         >
                           + Filter
                         </button>
                         {showFilterPickerDropdown && (
-                          <div className="absolute left-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px] py-1">
+                          <div className="absolute left-0 top-full mt-1 bg-surface border border-line rounded-lg shadow-pop z-50 min-w-[200px] py-1">
                             {[
                               { id: 'app', label: 'App' },
                               { id: 'country', label: 'Country' },
@@ -5131,13 +5167,13 @@ export default function MetricTree() {
                               <button
                                 key={f.id}
                                 onClick={() => { setActiveReportFilters([...activeReportFilters, f.id]); setShowFilterPickerDropdown(false); }}
-                                className="w-full text-left px-3 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+                                className="w-full text-left px-3 py-2 text-xs text-ink hover:bg-base hover:text-ink"
                               >
                                 {f.label}
                               </button>
                             ))}
                             {activeReportFilters.length >= 5 && (
-                              <div className="px-3 py-2 text-[10px] text-slate-500">All filters added</div>
+                              <div className="px-3 py-2 text-[10px] text-ink-3">All filters added</div>
                             )}
                           </div>
                         )}
@@ -5149,21 +5185,53 @@ export default function MetricTree() {
                 {/* Row 2: Splits */}
                 <div className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
-                    <span className="text-slate-500 text-xs font-medium uppercase tracking-wider shrink-0 w-16">Split</span>
+                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3 shrink-0 w-[104px]">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                      Split
+                    </span>
                     <div className="flex flex-wrap gap-2 flex-1">
                       {reportsSplits.map(splitId => {
                         const allDims = sidebarDimensions.flatMap(g => g.items);
                         const dim = allDims.find(d => d.id === splitId);
                         return (
-                          <span key={splitId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-500/15 text-cyan-400 border border-cyan-500/25">
+                          <span key={splitId} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-success border border-success" style={{ background: 'var(--success-subtle)' }}>
                             {dim?.label || splitId}
-                            <button onClick={() => removeSplit(splitId)} className="hover:text-cyan-200 ml-0.5">×</button>
+                            <button onClick={() => removeSplit(splitId)} className="opacity-60 hover:opacity-100 ml-0.5">×</button>
                           </span>
                         );
                       })}
-                      <button className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 border border-slate-600/50">
-                        + Add Split
-                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={() => { setShowBreakdownDropdown(!showBreakdownDropdown); setShowMetricAddDropdown(false); }}
+                          className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-medium text-ink-2 hover:text-ink hover:bg-surface-2 border border-dashed border-line transition-colors"
+                        >
+                          + Add split
+                        </button>
+                        {showBreakdownDropdown && (
+                          <div className="absolute left-0 top-full mt-1.5 w-[240px] bg-base border border-line rounded-xl shadow-pop z-50 overflow-hidden">
+                            <div className="max-h-72 overflow-y-auto py-1">
+                              {sidebarDimensions.map(group => (
+                                <div key={group.group}>
+                                  <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-ink-3 font-semibold">{group.group}</div>
+                                  {group.items.map(item => {
+                                    const on = reportsSplits.includes(item.id);
+                                    return (
+                                      <button
+                                        key={item.id}
+                                        onClick={() => { on ? removeSplit(item.id) : addSplit(item.id); setShowBreakdownDropdown(false); }}
+                                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-surface-2 ${on ? 'text-ink font-medium' : 'text-ink-2'}`}
+                                      >
+                                        {item.label}
+                                        {on && <span className="ml-auto text-success">✓</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -5171,99 +5239,147 @@ export default function MetricTree() {
                 {/* Row 3: Measures */}
                 <div className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
-                    <span className="text-slate-500 text-xs font-medium uppercase tracking-wider shrink-0 w-16">Measures</span>
+                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3 shrink-0 w-[104px]">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 20V10M10 20V4M16 20v-6M22 20H2"/></svg>
+                      Measures
+                    </span>
                     <div className="flex flex-wrap gap-2 flex-1">
                       {selectedMetrics.map(metricId => {
                         const metric = allMetricsOptions.find(m => m.id === metricId);
                         return (
-                          <span key={metricId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-violet-500/15 text-violet-400 border border-violet-500/25">
+                          <span key={metricId} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-accent-12 text-ink border border-accent-line">
                             {metric?.name || metricId}
-                            <button onClick={() => setSelectedMetrics(selectedMetrics.filter(m => m !== metricId))} className="hover:text-violet-200 ml-0.5">×</button>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="text-ink-3"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+                            <button onClick={() => setSelectedMetrics(selectedMetrics.filter(m => m !== metricId))} className="text-ink-3 hover:text-ink ml-0.5">×</button>
                           </span>
                         );
                       })}
-                      <button
-                        onClick={() => setShowMetricAddDropdown(!showMetricAddDropdown)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-700/50 text-slate-400 hover:bg-slate-700 border border-slate-600/50"
-                      >
-                        + Measure
-                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={() => { setShowMetricAddDropdown(!showMetricAddDropdown); setShowBreakdownDropdown(false); setMeasureSearch(''); }}
+                          className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-medium text-ink-2 hover:text-ink hover:bg-surface-2 border border-dashed border-line transition-colors"
+                        >
+                          + Add measure
+                        </button>
+                        {showMetricAddDropdown && (
+                          <div className="absolute left-0 top-full mt-1.5 w-[260px] bg-base border border-line rounded-xl shadow-pop z-50 overflow-hidden">
+                            <div className="p-2 border-b border-line">
+                              <input
+                                type="text"
+                                placeholder="Search measures..."
+                                value={measureSearch}
+                                onChange={(e) => setMeasureSearch(e.target.value)}
+                                className="w-full bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"
+                                autoFocus
+                              />
+                            </div>
+                            <div className="max-h-72 overflow-y-auto py-1">
+                              {allMetricsOptions
+                                .filter(m => !measureSearch || m.name.toLowerCase().includes(measureSearch.toLowerCase()))
+                                .map(m => {
+                                  const on = selectedMetrics.includes(m.id);
+                                  const tip = metricTooltips[m.id];
+                                  return (
+                                    <button
+                                      key={m.id}
+                                      onClick={() => { on ? setSelectedMetrics(selectedMetrics.filter(x => x !== m.id)) : addMeasure(m.id); }}
+                                      title={tip ? `${tip.desc}\n= ${tip.formula}` : undefined}
+                                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-surface-2 ${on ? 'text-ink font-medium' : 'text-ink-2'}`}
+                                    >
+                                      {m.name}
+                                      <span className="ml-auto text-[10px] uppercase tracking-wider text-ink-3">{m.section}</span>
+                                      {on && <span className="text-accent-deep">✓</span>}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Controls Row */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <button className="px-4 py-1.5 rounded-md text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white">
-                    Apply
-                  </button>
-                  <button
-                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); }}
-                    className="px-4 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    onClick={() => { pushStateToUrl(); navigator.clipboard.writeText(window.location.href); }}
-                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    title="Copy shareable URL"
-                  >
-                    Share
-                  </button>
+              {/* Results bar — заголовок, счётчик строк, режимы, экспорт */}
+              <div className="flex items-center gap-3 flex-wrap bg-base border border-line rounded-t-card px-4 py-3">
+                <span className="flex items-center gap-2.5">
+                  <span className="w-1 h-4 rounded-full bg-accent"></span>
+                  <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink">Results</span>
+                  <span className="px-2 py-0.5 rounded-md bg-accent-12 border border-accent-line font-mono text-[11px] text-ink tabular">
+                    {buildReportsRows().filter(r => r._type === 'data').length} rows
+                  </span>
+                </span>
+
+                <div className="relative">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="text-ink-3 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                  <input
+                    type="text"
+                    placeholder="Search in table..."
+                    value={reportsSearch}
+                    onChange={(e) => setReportsSearch(e.target.value)}
+                    className="w-56 h-8 bg-base border border-line rounded-lg pl-8 pr-3 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"
+                  />
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* C6: Density toggle */}
-                  <div className="flex bg-slate-800 rounded-lg p-0.5">
+
+                <div className="flex-1"></div>
+
+                {/* Режим отображения */}
+                <div className="flex items-center gap-1 p-1 rounded-lg bg-surface border border-line">
+                  {[
+                    ['table', 'Table', <svg key="t" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>],
+                    ['line', 'Lines', <svg key="l" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg>],
+                    ['bar', 'Bars', <svg key="b" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>],
+                  ].map(([id, label, icon]) => (
                     <button
-                      onClick={() => setReportsDensity('compact')}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${reportsDensity === 'compact' ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-white'}`}
+                      key={id}
+                      onClick={() => setViewType(id)}
+                      className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-colors ${
+                        viewType === id ? 'bg-base text-ink border border-line shadow-card' : 'text-ink-2 hover:text-ink'
+                      }`}
                     >
-                      Compact
+                      {icon}{label}
                     </button>
-                    <button
-                      onClick={() => setReportsDensity('comfortable')}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${reportsDensity === 'comfortable' ? 'bg-slate-600 text-white' : 'text-slate-500 hover:text-white'}`}
-                    >
-                      Comfortable
-                    </button>
-                  </div>
-                  {/* View toggle */}
-                  <div className="flex bg-slate-800 rounded-lg p-0.5">
-                    <button
-                      onClick={() => setViewType('table')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium ${viewType === 'table' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      Table
-                    </button>
-                    <button
-                      onClick={() => setViewType('bar')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium ${viewType === 'bar' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      Chart
-                    </button>
-                    <button
-                      onClick={() => setViewType('line')}
-                      className={`px-3 py-1 rounded-md text-xs font-medium ${viewType === 'line' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      Line
-                    </button>
-                  </div>
-                  {/* Export dropdown */}
-                  <div className="relative">
-                    <button
-                      onClick={() => { setShowExportDD(!showExportDD); setShowSavedViewsDD(false); }}
-                      className="px-3 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    >
-                      Export ▾
-                    </button>
-                    {showExportDD && (
-                      <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[140px]">
-                        {['CSV', 'Excel', 'Copy to Clipboard'].map(opt => (
-                          <button
-                            key={opt}
-                            onClick={() => {
+                  ))}
+                </div>
+
+                {/* Плотность строк */}
+                <button
+                  onClick={() => setReportsDensity(reportsDensity === 'compact' ? 'comfortable' : 'compact')}
+                  className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
+                  title="Row density"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                  {reportsDensity === 'compact' ? 'Compact' : 'Comfortable'}
+                </button>
+
+                {/* Fit columns */}
+                <button
+                  onClick={() => setFitColumns(!fitColumns)}
+                  className={`h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                    fitColumns ? 'bg-accent-12 border-accent-line text-ink' : 'bg-base border-line text-ink hover:border-ink-3'
+                  }`}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 8l4 4-4 4M20 8l-4 4 4 4M12 4v16"/></svg>
+                  Fit columns
+                </button>
+
+                {/* Export */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowExportDD(!showExportDD); setShowSavedViewsDD(false); }}
+                    className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+                    Export
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-3"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                  {showExportDD && (
+                    <div className="absolute right-0 top-full mt-1.5 bg-base border border-line rounded-xl shadow-pop z-50 min-w-[170px] overflow-hidden">
+                      {['CSV', 'Excel', 'Copy to Clipboard'].map(opt => (
+                        <button
+                          key={opt}
+                          onClick={() => {
                               const rows = buildReportsRows().filter(r => r._type === 'data');
                               const metricNames = selectedMetrics.map(mid => allMetricsOptions.find(m => m.id === mid)?.name || mid);
                               const header = ['Period', ...metricNames];
@@ -5286,69 +5402,15 @@ export default function MetricTree() {
                               }
                               setShowExportDD(false);
                             }}
-                            className="w-full px-3 py-2 text-left text-xs text-slate-300 hover:bg-slate-800"
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {/* E3: Saved Views dropdown */}
-                  <div className="relative">
-                    <button
-                      onClick={() => { setShowSavedViewsDD(!showSavedViewsDD); setShowExportDD(false); }}
-                      className="px-3 py-1.5 rounded-md text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    >
-                      Views ▾
-                    </button>
-                    {showSavedViewsDD && (
-                      <div className="absolute right-0 top-full mt-1 bg-slate-900 border border-slate-600 rounded-lg shadow-xl z-50 min-w-[200px]">
-                        {savedViews.length === 0 && (
-                          <div className="px-3 py-2 text-xs text-slate-500">No saved views</div>
-                        )}
-                        {savedViews.map((view, i) => (
-                          <div key={i} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-800 group">
-                            <button
-                              onClick={() => loadSavedView(view)}
-                              className="flex-1 text-left text-xs text-slate-300"
-                            >
-                              {view.name}
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); deleteSavedView(i); }}
-                              className="text-[10px] text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                        <div className="border-t border-slate-700">
-                          <button
-                            onClick={() => {
-                              const name = prompt('View name:');
-                              if (name) { saveCurrentView(name); setShowSavedViewsDD(false); }
-                            }}
-                            className="w-full px-3 py-2 text-left text-xs text-blue-400 hover:bg-slate-800"
-                          >
-                            + Save current view
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
 
-              {/* C4: Search in Table */}
-              <div className="mb-3">
-                <input
-                  type="text"
-                  placeholder="Search in table..."
-                  value={reportsSearch}
-                  onChange={(e) => setReportsSearch(e.target.value)}
-                  className="w-64 bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                />
+                          className="w-full px-3 py-2 text-left text-xs text-ink hover:bg-surface-2"
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Reports Data Table (C1-C5) — only in table mode */}
@@ -5403,16 +5465,16 @@ export default function MetricTree() {
                   const str = String(text);
                   const idx = str.toLowerCase().indexOf(searchLower);
                   if (idx === -1) return str;
-                  return <>{str.slice(0, idx)}<mark className="bg-yellow-500/30 text-yellow-300 rounded px-0.5">{str.slice(idx, idx + searchLower.length)}</mark>{str.slice(idx + searchLower.length)}</>;
+                  return <>{str.slice(0, idx)}<mark className="bg-warning-subtle text-warning rounded px-0.5">{str.slice(idx, idx + searchLower.length)}</mark>{str.slice(idx + searchLower.length)}</>;
                 };
 
                 return (
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                  <div className="bg-base border border-line border-t-0 rounded-b-card overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className={`w-full ${cellText}`}>
+                      <table className={`w-full tabular ${cellText}`}>
                         <thead>
-                          <tr className="border-b border-slate-600 bg-slate-800/80">
-                            <th className={`text-left ${cellPy} px-3 text-slate-400 font-medium sticky left-0 bg-slate-800/80 z-10`}>
+                          <tr className="border-b border-line bg-surface">
+                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold sticky left-0 bg-surface z-10`}>
                               {hasAdTypeSplit ? 'Period / Ad Type' : 'Period'}
                             </th>
                             {selectedMetrics.map(mid => {
@@ -5425,7 +5487,7 @@ export default function MetricTree() {
                                   onDragStart={(e) => handleColumnDragStart(e, mid)}
                                   onDragOver={(e) => handleColumnDragOver(e, mid)}
                                   onDragEnd={handleColumnDragEnd}
-                                  className={`text-right ${cellPy} px-3 text-slate-400 font-medium whitespace-nowrap cursor-grab active:cursor-grabbing select-none ${draggedColumn === mid ? 'opacity-40' : ''} ${tip ? 'cursor-help' : ''}`}
+                                  className={`text-right ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap cursor-grab active:cursor-grabbing select-none ${draggedColumn === mid ? 'opacity-40' : ''} ${tip ? 'cursor-help' : ''}`}
                                   title={tip ? `${tip.desc}\n= ${tip.formula}` : undefined}
                                 >
                                   {metric?.name || mid}
@@ -5442,14 +5504,14 @@ export default function MetricTree() {
                               return (
                                 <tr
                                   key={'g-' + row._label}
-                                  className="bg-slate-700/30 cursor-pointer hover:bg-slate-700/50"
+                                  className="bg-surface-2 cursor-pointer hover:bg-surface-2"
                                   onClick={() => toggleGroup(row._label)}
                                 >
-                                  <td className={`${cellPy} px-3 font-semibold text-slate-200 sticky left-0 bg-slate-700/30 z-10`} colSpan={selectedMetrics.length + 1}>
+                                  <td className={`${cellPy} px-3 font-semibold text-ink sticky left-0 bg-surface-2 z-10`} colSpan={selectedMetrics.length + 1}>
                                     <span className="text-[10px] mr-1.5">{isCollapsed ? '▸' : '▾'}</span>
                                     {highlight(row._label)}
                                     {isCollapsed && (
-                                      <span className="ml-2 text-[10px] text-slate-500 font-normal">
+                                      <span className="ml-2 text-[10px] text-ink-3 font-normal">
                                         ({rows.filter(r => r._group === row._label).length} rows)
                                       </span>
                                     )}
@@ -5461,8 +5523,8 @@ export default function MetricTree() {
                             // C1: Data row (possibly indented)
                             const prevDataRow = visible.slice(0, ri).reverse().find(r => r._type === 'data');
                             return (
-                              <tr key={'d-' + ri} className="border-b border-slate-700/30 hover:bg-slate-700/20 group/row">
-                                <td className={`${cellPy} px-3 text-slate-300 sticky left-0 bg-slate-800/50 z-10 group-hover/row:bg-slate-700/20`}>
+                              <tr key={'d-' + ri} className="border-b border-line hover:bg-surface-2 group/row">
+                                <td className={`${cellPy} px-3 text-ink sticky left-0 bg-base z-10 group-hover/row:bg-surface-2`}>
                                   {row._group && <span className="ml-4" />}
                                   {highlight(row._label)}
                                 </td>
@@ -5479,13 +5541,13 @@ export default function MetricTree() {
                                   return (
                                     <td
                                       key={mid}
-                                      className={`${cellPy} px-3 text-right text-slate-300 whitespace-nowrap relative group/cell ${anomalyCls}`}
+                                      className={`${cellPy} px-3 text-right text-ink whitespace-nowrap relative group/cell ${anomalyCls}`}
                                       title={anomaly ? anomalyTooltip[anomaly] : undefined}
                                     >
                                       {/* C5: Copy button */}
                                       <button
                                         onClick={(e) => { e.stopPropagation(); handleCopyCell(val ?? '', ri, ci); }}
-                                        className="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 text-[9px] text-slate-500 hover:text-slate-300 transition-opacity"
+                                        className="absolute left-0.5 top-1/2 -translate-y-1/2 opacity-0 group-hover/cell:opacity-100 text-[9px] text-ink-3 hover:text-ink transition-opacity"
                                         title="Copy"
                                       >
                                         {isCopied ? '✓' : '⧉'}
@@ -5500,13 +5562,13 @@ export default function MetricTree() {
                         </tbody>
                         {/* C2: Totals row (sticky) */}
                         <tfoot className="sticky bottom-0">
-                          <tr className="bg-slate-800 border-t border-slate-600 font-semibold">
-                            <td className={`${cellPy} px-3 text-slate-400 sticky left-0 bg-slate-800 z-10`}>Total</td>
+                          <tr className="bg-base border-t border-line font-semibold">
+                            <td className={`${cellPy} px-3 text-ink-2 sticky left-0 bg-base z-10`}>Total</td>
                             {selectedMetrics.map(mid => {
                               const mk = metricKeyMap[mid];
                               const val = totals[mid];
                               return (
-                                <td key={mid} className={`${cellPy} px-3 text-right text-slate-200 whitespace-nowrap`}>
+                                <td key={mid} className={`${cellPy} px-3 text-right text-ink whitespace-nowrap`}>
                                   {val != null && mk ? mk.fmt(val) : '—'}
                                 </td>
                               );
@@ -5517,7 +5579,7 @@ export default function MetricTree() {
                     </div>
 
                     {/* C7: Status Bar */}
-                    <div className="flex items-center justify-between px-3 py-2 border-t border-slate-700 text-[10px] text-slate-500">
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-line text-[10px] text-ink-3">
                       <span>Data updated: 3 min ago</span>
                       <span>Rows: {totalDataRows}{totalDataRows !== totalAllRows ? ` of ${totalAllRows}` : ''}</span>
                     </div>
@@ -5533,7 +5595,7 @@ export default function MetricTree() {
                 const periods = [...new Set(rows.map(r => r._group || r._label))];
 
                 return (
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
+                  <div className="bg-base border border-line rounded-xl p-5">
                     {selectedMetrics.filter(mid => !hiddenSeries.has(mid)).map((mid, mi) => {
                       const mk = metricKeyMap[mid];
                       const metric = allMetricsOptions.find(m => m.id === mid);
@@ -5551,12 +5613,12 @@ export default function MetricTree() {
                       }), 1);
 
                       return (
-                        <div key={mid} className={mi > 0 ? 'mt-6 pt-6 border-t border-slate-700' : ''}>
-                          <h4 className="text-sm font-medium text-slate-300 mb-3">{metric?.name}</h4>
+                        <div key={mid} className={mi > 0 ? 'mt-6 pt-6 border-t border-line' : ''}>
+                          <h4 className="text-sm font-medium text-ink mb-3">{metric?.name}</h4>
                           <div className="flex items-end gap-2" style={{ height: '160px' }}>
                             {periodData.map((pd, pi) => (
                               <div key={pi} className="flex-1 flex flex-col items-center gap-1 group relative">
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-600 px-2 py-1 rounded text-[10px] text-white opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10">
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface border border-line px-2 py-1 rounded text-[10px] text-ink opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-10">
                                   {pd.segments.map(s => `${s.label}: ${mk.fmt(s.value)}`).join(' · ')}
                                 </div>
                                 {hasAdTypeSplit ? (
@@ -5575,11 +5637,11 @@ export default function MetricTree() {
                                   </div>
                                 ) : (
                                   <div
-                                    className="w-full bg-blue-500/80 rounded-t hover:bg-blue-400 transition-colors"
+                                    className="w-full bg-accent-12 rounded-t hover:brightness-95 transition-colors"
                                     style={{ height: `${(pd.segments[0].value / maxVal) * 100}%`, minHeight: '4px' }}
                                   />
                                 )}
-                                <span className="text-[9px] text-slate-500 truncate max-w-full">{pd.period.split(' ')[0]?.slice(0, 3)}</span>
+                                <span className="text-[9px] text-ink-3 truncate max-w-full">{pd.period.split(' ')[0]?.slice(0, 3)}</span>
                               </div>
                             ))}
                           </div>
@@ -5588,14 +5650,14 @@ export default function MetricTree() {
                     })}
 
                     {/* D3: Legend */}
-                    <div className="mt-4 pt-3 border-t border-slate-700 flex items-center gap-3 flex-wrap">
+                    <div className="mt-4 pt-3 border-t border-line flex items-center gap-3 flex-wrap">
                       {reportsSplits.includes('adType') && ['Banner', 'Interstitial', 'Rewarded'].map((seg, i) => (
-                        <span key={seg} className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                        <span key={seg} className="flex items-center gap-1.5 text-[10px] text-ink-2">
                           <span className="w-2.5 h-2.5 rounded" style={{ backgroundColor: seriesColors[i] }} />
                           {seg}
                         </span>
                       ))}
-                      <span className="text-slate-600 text-[10px]">|</span>
+                      <span className="text-ink-3 text-[10px]">|</span>
                       {selectedMetrics.map(mid => {
                         const metric = allMetricsOptions.find(m => m.id === mid);
                         const isHidden = hiddenSeries.has(mid);
@@ -5603,15 +5665,15 @@ export default function MetricTree() {
                           <button
                             key={mid}
                             onClick={() => toggleSeries(mid)}
-                            className={`flex items-center gap-1 text-[10px] ${isHidden ? 'text-slate-600 line-through' : 'text-slate-300'}`}
+                            className={`flex items-center gap-1 text-[10px] ${isHidden ? 'text-ink-3 line-through' : 'text-ink'}`}
                           >
-                            <span className={`w-2 h-2 rounded ${isHidden ? 'bg-slate-700' : 'bg-blue-500'}`} />
+                            <span className={`w-2 h-2 rounded ${isHidden ? 'bg-surface-2' : 'bg-accent'}`} />
                             {metric?.name}
                           </button>
                         );
                       })}
-                      <button onClick={() => setHiddenSeries(new Set())} className="text-[10px] text-slate-500 hover:text-slate-300 ml-2">Show All</button>
-                      <button onClick={() => setHiddenSeries(new Set(selectedMetrics))} className="text-[10px] text-slate-500 hover:text-slate-300">Hide All</button>
+                      <button onClick={() => setHiddenSeries(new Set())} className="text-[10px] text-ink-3 hover:text-ink ml-2">Show All</button>
+                      <button onClick={() => setHiddenSeries(new Set(selectedMetrics))} className="text-[10px] text-ink-3 hover:text-ink">Hide All</button>
                     </div>
                   </div>
                 );
@@ -5641,12 +5703,12 @@ export default function MetricTree() {
                 const chartH = svgH - padT - padB;
 
                 return (
-                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-                    <h4 className="text-sm font-medium text-slate-300 mb-3">Metrics Trend</h4>
+                  <div className="bg-base border border-line rounded-xl p-5">
+                    <h4 className="text-sm font-medium text-ink mb-3">Metrics Trend</h4>
                     <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: '220px' }}>
                       {/* Grid lines */}
                       {[0, 0.25, 0.5, 0.75, 1].map(f => (
-                        <line key={f} x1={padL} y1={padT + chartH * (1 - f)} x2={svgW - padR} y2={padT + chartH * (1 - f)} stroke="#334155" strokeWidth="0.5" />
+                        <line key={f} x1={padL} y1={padT + chartH * (1 - f)} x2={svgW - padR} y2={padT + chartH * (1 - f)} stroke="var(--bg-surface-3)" strokeWidth="0.5" />
                       ))}
                       {/* Lines */}
                       {visibleMetrics.map((mid, mi) => {
@@ -5679,7 +5741,7 @@ export default function MetricTree() {
                       {/* X labels */}
                       {periods.map((label, i) => {
                         const x = periods.length > 1 ? padL + (i / (periods.length - 1)) * chartW : svgW / 2;
-                        return <text key={i} x={x} y={svgH - 4} fill="#94a3b8" fontSize="8" textAnchor="middle">{label.split(' ')[0]?.slice(0, 3)}</text>;
+                        return <text key={i} x={x} y={svgH - 4} fill="var(--text-secondary)" fontSize="8" textAnchor="middle">{label.split(' ')[0]?.slice(0, 3)}</text>;
                       })}
                     </svg>
 
@@ -5692,15 +5754,15 @@ export default function MetricTree() {
                           <button
                             key={mid}
                             onClick={() => toggleSeries(mid)}
-                            className={`flex items-center gap-1.5 text-[10px] ${isHidden ? 'text-slate-600 line-through' : 'text-slate-300'}`}
+                            className={`flex items-center gap-1.5 text-[10px] ${isHidden ? 'text-ink-3 line-through' : 'text-ink'}`}
                           >
-                            <span className="w-3 h-0.5 rounded" style={{ backgroundColor: isHidden ? '#475569' : seriesColors[mi % seriesColors.length] }} />
+                            <span className="w-3 h-0.5 rounded" style={{ backgroundColor: isHidden ? 'var(--text-muted)' : seriesColors[mi % seriesColors.length] }} />
                             {metric?.name}
                           </button>
                         );
                       })}
-                      <button onClick={() => setHiddenSeries(new Set())} className="text-[10px] text-slate-500 hover:text-slate-300 ml-2">Show All</button>
-                      <button onClick={() => setHiddenSeries(new Set(selectedMetrics))} className="text-[10px] text-slate-500 hover:text-slate-300">Hide All</button>
+                      <button onClick={() => setHiddenSeries(new Set())} className="text-[10px] text-ink-3 hover:text-ink ml-2">Show All</button>
+                      <button onClick={() => setHiddenSeries(new Set(selectedMetrics))} className="text-[10px] text-ink-3 hover:text-ink">Hide All</button>
                     </div>
                   </div>
                 );
@@ -5710,7 +5772,7 @@ export default function MetricTree() {
         )}
 
         {activeScreen === 'glossary' && (
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+          <div className="bg-base border border-line rounded-xl p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">📖 Глоссарий метрик</h3>
               <div className="flex gap-2">
@@ -5733,7 +5795,7 @@ export default function MetricTree() {
                     a.download = 'metrics.json';
                     a.click();
                   }}
-                  className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-sm"
+                  className="bg-accent hover:brightness-95 px-3 py-1 rounded text-sm"
                 >
                   ↓ Export
                 </button>
@@ -5741,16 +5803,16 @@ export default function MetricTree() {
             </div>
 
             <div className="flex gap-2 mb-4 flex-wrap">
-              <button onClick={() => setFilterSection('all')} className={`px-3 py-1 rounded text-xs ${filterSection === 'all' ? 'bg-white text-slate-900' : 'bg-slate-700'}`}>Все</button>
+              <button onClick={() => setFilterSection('all')} className={`px-3 py-1 rounded text-xs ${filterSection === 'all' ? 'bg-white text-ink-2' : 'bg-surface-2'}`}>Все</button>
               {sections.map(s => (
-                <button key={s.id} onClick={() => setFilterSection(s.id)} className={`px-3 py-1 rounded text-xs ${filterSection === s.id ? 'bg-white text-slate-900' : 'bg-slate-700'}`}>{s.name}</button>
+                <button key={s.id} onClick={() => setFilterSection(s.id)} className={`px-3 py-1 rounded text-xs ${filterSection === s.id ? 'bg-white text-ink-2' : 'bg-surface-2'}`}>{s.name}</button>
               ))}
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-600">
+                  <tr className="border-b border-line">
                     <th className="text-left py-2 px-2">Метрика</th>
                     <th className="text-center py-2 px-2 w-24">Роль</th>
                     <th className="text-left py-2 px-2">Источники</th>
@@ -5769,51 +5831,51 @@ export default function MetricTree() {
                           <td colSpan="6" className={`py-1 px-2 ${section.text} text-xs font-semibold uppercase`}>{section.name}</td>
                         </tr>
                         {sectionMetrics.map(m => (
-                          <tr key={m.id} className="border-b border-slate-700/50 hover:bg-slate-700/30 group">
+                          <tr key={m.id} className="border-b border-line hover:bg-surface-2 group">
                             <td className="py-2 px-2">
                               {editingId === m.id ? (
                                 <div className="space-y-1">
-                                  <input value={m.name} onChange={(e) => updateMetric(m.id, 'name', e.target.value)} className="w-full bg-slate-700 rounded px-2 py-1 text-white text-sm" />
-                                  <input value={m.description} onChange={(e) => updateMetric(m.id, 'description', e.target.value)} className="w-full bg-slate-700 rounded px-2 py-1 text-slate-300 text-xs" placeholder="Описание" />
-                                  <input value={m.formula} onChange={(e) => updateMetric(m.id, 'formula', e.target.value)} className="w-full bg-slate-700 rounded px-2 py-1 text-slate-400 text-xs font-mono" placeholder="Формула" />
+                                  <input value={m.name} onChange={(e) => updateMetric(m.id, 'name', e.target.value)} className="w-full bg-surface-2 rounded px-2 py-1 text-ink text-sm" />
+                                  <input value={m.description} onChange={(e) => updateMetric(m.id, 'description', e.target.value)} className="w-full bg-surface-2 rounded px-2 py-1 text-ink text-xs" placeholder="Описание" />
+                                  <input value={m.formula} onChange={(e) => updateMetric(m.id, 'formula', e.target.value)} className="w-full bg-surface-2 rounded px-2 py-1 text-ink-2 text-xs font-mono" placeholder="Формула" />
                                 </div>
                               ) : (
                                 <>
-                                  <div className="font-medium text-white">{m.name}</div>
-                                  <div className="text-slate-400 text-xs">{m.description}</div>
-                                  {m.formula && <div className="text-slate-500 text-xs font-mono">= {m.formula}</div>}
+                                  <div className="font-medium text-ink">{m.name}</div>
+                                  <div className="text-ink-2 text-xs">{m.description}</div>
+                                  {m.formula && <div className="text-ink-3 text-xs font-mono">= {m.formula}</div>}
                                 </>
                               )}
                             </td>
                             <td className="py-2 px-2 text-center">
                               <span className={`text-xs px-2 py-1 rounded ${
-                                m.role.includes('C-Level') ? 'bg-blue-900/50 text-blue-300' :
-                                m.role.includes('Producer') ? 'bg-purple-900/50 text-purple-300' :
-                                m.role.includes('Monetisation') ? 'bg-green-900/50 text-green-300' :
-                                m.role.includes('UA') ? 'bg-pink-900/50 text-pink-300' :
-                                'bg-slate-700 text-slate-300'
+                                m.role.includes('C-Level') ? 'bg-accent-12 text-accent-deep' :
+                                m.role.includes('Producer') ? 'bg-purple-100 text-purple-700' :
+                                m.role.includes('Monetisation') ? 'bg-success-subtle text-success' :
+                                m.role.includes('UA') ? 'bg-pink-100 text-pink-700' :
+                                'bg-surface-2 text-ink'
                               }`}>{m.role}</span>
                             </td>
                             <td className="py-2 px-2">
                               {editingId === m.id ? (
-                                <input value={m.sources.join(', ')} onChange={(e) => updateMetric(m.id, 'sources', e.target.value.split(',').map(s => s.trim()))} className="w-full bg-slate-700 rounded px-2 py-1 text-xs" />
+                                <input value={m.sources.join(', ')} onChange={(e) => updateMetric(m.id, 'sources', e.target.value.split(',').map(s => s.trim()))} className="w-full bg-surface-2 rounded px-2 py-1 text-xs" />
                               ) : (
                                 <div className="flex flex-wrap gap-1">
-                                  {m.sources.map((s, i) => <span key={i} className="bg-slate-700 px-1.5 py-0.5 rounded text-xs">{s}</span>)}
+                                  {m.sources.map((s, i) => <span key={i} className="bg-surface-2 px-1.5 py-0.5 rounded text-xs">{s}</span>)}
                                 </div>
                               )}
                             </td>
-                            <td className="py-2 px-2 text-slate-300 text-xs">
+                            <td className="py-2 px-2 text-ink text-xs">
                               {editingId === m.id ? (
-                                <input value={m.question} onChange={(e) => updateMetric(m.id, 'question', e.target.value)} className="w-full bg-slate-700 rounded px-2 py-1 text-xs" />
+                                <input value={m.question} onChange={(e) => updateMetric(m.id, 'question', e.target.value)} className="w-full bg-surface-2 rounded px-2 py-1 text-xs" />
                               ) : m.question}
                             </td>
                             <td className="py-2 px-2 text-center">
                               <span className={`text-xs px-2 py-0.5 rounded ${
-                                m.version === 'MVP' ? 'bg-emerald-900/50 text-emerald-300' :
-                                m.version === 'v1.xx' ? 'bg-blue-900/50 text-blue-300' :
-                                m.version === 'v2.xx' ? 'bg-purple-900/50 text-purple-300' :
-                                'bg-slate-700 text-slate-300'
+                                m.version === 'MVP' ? 'bg-success-subtle text-success' :
+                                m.version === 'v1.xx' ? 'bg-accent-12 text-accent-deep' :
+                                m.version === 'v2.xx' ? 'bg-purple-100 text-purple-700' :
+                                'bg-surface-2 text-ink'
                               }`}>{m.version || 'MVP'}</span>
                             </td>
                             <td className="py-2 px-2">
@@ -5821,7 +5883,7 @@ export default function MetricTree() {
                                 {editingId === m.id ? (
                                   <button onClick={() => setEditingId(null)} className="bg-emerald-600 px-2 py-1 rounded text-xs">✓</button>
                                 ) : (
-                                  <button onClick={() => setEditingId(m.id)} className="bg-slate-600 px-2 py-1 rounded text-xs">✎</button>
+                                  <button onClick={() => setEditingId(m.id)} className="bg-surface-3 px-2 py-1 rounded text-xs">✎</button>
                                 )}
                                 <button onClick={() => setMetrics(metrics.filter(x => x.id !== m.id))} className="bg-red-600 px-2 py-1 rounded text-xs">×</button>
                               </div>
@@ -5843,14 +5905,14 @@ export default function MetricTree() {
         {activeNavItem === 'profile' && (
           <div>
             {/* Profile Tabs */}
-            <div className="flex items-center gap-1 mb-6 bg-slate-800 rounded-xl p-1 w-fit">
+            <div className="flex items-center gap-1 mb-6 bg-base rounded-xl p-1 w-fit">
               {[
                 { id: 'personal', label: 'Personal Data' },
                 { id: 'payment', label: 'Payment Details' },
                 { id: 'security', label: 'Security' },
                 { id: 'apikeys', label: 'API Keys' },
               ].map(t => (
-                <button key={t.id} onClick={() => { setProfileTab(t.id); setProfileEditing(false); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${profileTab === t.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'}`}>{t.label}</button>
+                <button key={t.id} onClick={() => { setProfileTab(t.id); setProfileEditing(false); }} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${profileTab === t.id ? 'bg-accent text-ink' : 'text-ink-2 hover:text-ink hover:bg-surface-2'}`}>{t.label}</button>
               ))}
             </div>
 
@@ -5862,22 +5924,22 @@ export default function MetricTree() {
               const messengers = ['Telegram', 'WhatsApp', 'Email'];
 
               const Field = ({ label, value, field, type, options, readOnly }) => (
-                <div className="flex items-start py-3 border-b border-slate-800/50">
-                  <div className="w-40 shrink-0 text-xs text-slate-500 pt-1">{label}</div>
+                <div className="flex items-start py-3 border-b border-line">
+                  <div className="w-40 shrink-0 text-xs text-ink-3 pt-1">{label}</div>
                   <div className="flex-1">
                     {profileEditing && !readOnly ? (
                       type === 'select' ? (
-                        <select value={value} onChange={e => setProfileDraft({ ...profileDraft, [field]: e.target.value })} disabled={profileSaving} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 w-full max-w-xs focus:outline-none focus:border-blue-500">
+                        <select value={value} onChange={e => setProfileDraft({ ...profileDraft, [field]: e.target.value })} disabled={profileSaving} className="bg-surface-2 border border-line rounded-lg px-3 py-1.5 text-sm text-ink w-full max-w-xs focus:outline-none focus:border-accent-line">
                           {options.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                       ) : (
-                        <input type={type || 'text'} value={value} onChange={e => setProfileDraft({ ...profileDraft, [field]: e.target.value })} disabled={profileSaving} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 w-full max-w-xs focus:outline-none focus:border-blue-500" />
+                        <input type={type || 'text'} value={value} onChange={e => setProfileDraft({ ...profileDraft, [field]: e.target.value })} disabled={profileSaving} className="bg-surface-2 border border-line rounded-lg px-3 py-1.5 text-sm text-ink w-full max-w-xs focus:outline-none focus:border-accent-line" />
                       )
                     ) : (
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-200">{value}</span>
-                        {field === 'email' && profileData.emailVerified && <span className="text-emerald-400 text-xs">&#10003;</span>}
-                        {field === 'email' && !profileData.emailVerified && <span className="text-amber-400 text-xs">&#9888;</span>}
+                        <span className="text-sm text-ink">{value}</span>
+                        {field === 'email' && profileData.emailVerified && <span className="text-success text-xs">&#10003;</span>}
+                        {field === 'email' && !profileData.emailVerified && <span className="text-warning text-xs">&#9888;</span>}
                       </div>
                     )}
                   </div>
@@ -5885,19 +5947,19 @@ export default function MetricTree() {
               );
 
               return (
-                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="bg-base border border-line rounded-xl overflow-hidden">
                   {/* Header */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50">
-                    <span className="text-sm font-semibold text-slate-100">Personal Data</span>
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+                    <span className="text-sm font-semibold text-ink">Personal Data</span>
                     {!profileEditing ? (
-                      <button onClick={startProfileEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-400 hover:bg-blue-600/10 transition-colors">
+                      <button onClick={startProfileEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-accent-deep hover:brightness-95-12 transition-colors">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Edit
                       </button>
                     ) : (
                       <div className="flex gap-2">
-                        <button onClick={cancelProfileEdit} disabled={profileSaving} className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
-                        <button onClick={saveProfile} disabled={profileSaving} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50">
+                        <button onClick={cancelProfileEdit} disabled={profileSaving} className="px-3 py-1.5 rounded-lg text-xs font-medium text-ink-2 hover:bg-surface-2 transition-colors">Cancel</button>
+                        <button onClick={saveProfile} disabled={profileSaving} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-accent hover:brightness-95 text-ink transition-colors disabled:opacity-50">
                           {profileSaving ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Saving...</> : 'Save'}
                         </button>
                       </div>
@@ -5907,9 +5969,9 @@ export default function MetricTree() {
                   {/* Content */}
                   <div className="px-6 py-2">
                     {/* Avatar + Name row */}
-                    <div className="flex items-center gap-4 py-4 border-b border-slate-800/50">
+                    <div className="flex items-center gap-4 py-4 border-b border-line">
                       <div className="relative group">
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-xl font-bold text-white">
+                        <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center text-xl font-bold text-ink">
                           {d.firstName[0]}{d.lastName[0]}
                         </div>
                         {profileEditing && (
@@ -5919,8 +5981,8 @@ export default function MetricTree() {
                         )}
                       </div>
                       <div>
-                        <div className="text-base font-semibold text-slate-100">{d.firstName} {d.lastName}</div>
-                        <div className="text-xs text-slate-500">{d.company}</div>
+                        <div className="text-base font-semibold text-ink">{d.firstName} {d.lastName}</div>
+                        <div className="text-xs text-ink-3">{d.company}</div>
                       </div>
                     </div>
 
@@ -5939,10 +6001,10 @@ export default function MetricTree() {
 
                   {/* Email verification warning */}
                   {!profileData.emailVerified && (
-                    <div className="mx-6 mb-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
-                      <span className="text-amber-400 text-sm">&#9888;</span>
-                      <span className="text-xs text-amber-300">Email not verified.</span>
-                      <button className="text-xs text-blue-400 hover:text-blue-300 ml-1">Resend verification &rarr;</button>
+                    <div className="mx-6 mb-4 px-4 py-3 rounded-lg bg-warning-subtle border border-warning flex items-center gap-2">
+                      <span className="text-warning text-sm">&#9888;</span>
+                      <span className="text-xs text-warning">Email not verified.</span>
+                      <button className="text-xs text-accent-deep hover:text-accent-deep ml-1">Resend verification &rarr;</button>
                     </div>
                   )}
                 </div>
@@ -5955,19 +6017,19 @@ export default function MetricTree() {
               const PField = ({ label, value, field, type, options, readOnly, show = true }) => {
                 if (!show) return null;
                 return (
-                  <div className="flex items-start py-3 border-b border-slate-800/50">
-                    <div className="w-40 shrink-0 text-xs text-slate-500 pt-1">{label}</div>
+                  <div className="flex items-start py-3 border-b border-line">
+                    <div className="w-40 shrink-0 text-xs text-ink-3 pt-1">{label}</div>
                     <div className="flex-1">
                       {paymentEditing && !readOnly ? (
                         type === 'select' ? (
-                          <select value={value} onChange={e => setPaymentDraft({ ...paymentDraft, [field]: e.target.value })} disabled={paymentSaving} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 w-full max-w-xs focus:outline-none focus:border-blue-500">
+                          <select value={value} onChange={e => setPaymentDraft({ ...paymentDraft, [field]: e.target.value })} disabled={paymentSaving} className="bg-surface-2 border border-line rounded-lg px-3 py-1.5 text-sm text-ink w-full max-w-xs focus:outline-none focus:border-accent-line">
                             {options.map(o => <option key={o} value={o}>{o}</option>)}
                           </select>
                         ) : (
-                          <input type="text" value={value} onChange={e => setPaymentDraft({ ...paymentDraft, [field]: e.target.value })} disabled={paymentSaving} className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 w-full max-w-xs focus:outline-none focus:border-blue-500" />
+                          <input type="text" value={value} onChange={e => setPaymentDraft({ ...paymentDraft, [field]: e.target.value })} disabled={paymentSaving} className="bg-surface-2 border border-line rounded-lg px-3 py-1.5 text-sm text-ink w-full max-w-xs focus:outline-none focus:border-accent-line" />
                         )
                       ) : (
-                        <span className="text-sm text-slate-200">{value}</span>
+                        <span className="text-sm text-ink">{value}</span>
                       )}
                     </div>
                   </div>
@@ -5975,19 +6037,19 @@ export default function MetricTree() {
               };
 
               return (
-                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="bg-base border border-line rounded-xl overflow-hidden">
                   {/* Header */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50">
-                    <span className="text-sm font-semibold text-slate-100">Payment Details</span>
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+                    <span className="text-sm font-semibold text-ink">Payment Details</span>
                     {!paymentEditing ? (
-                      <button onClick={startPaymentEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-400 hover:bg-blue-600/10 transition-colors">
+                      <button onClick={startPaymentEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-accent-deep hover:brightness-95-12 transition-colors">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         Edit
                       </button>
                     ) : (
                       <div className="flex gap-2">
-                        <button onClick={cancelPaymentEdit} disabled={paymentSaving} className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
-                        <button onClick={savePayment} disabled={paymentSaving} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50">
+                        <button onClick={cancelPaymentEdit} disabled={paymentSaving} className="px-3 py-1.5 rounded-lg text-xs font-medium text-ink-2 hover:bg-surface-2 transition-colors">Cancel</button>
+                        <button onClick={savePayment} disabled={paymentSaving} className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-accent hover:brightness-95 text-ink transition-colors disabled:opacity-50">
                           {paymentSaving ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Saving...</> : 'Save'}
                         </button>
                       </div>
@@ -5996,8 +6058,8 @@ export default function MetricTree() {
 
                   <div className="px-6 py-2">
                     {/* Payment Method selector */}
-                    <div className="py-4 border-b border-slate-800/50">
-                      <div className="text-xs text-slate-500 mb-3">Payment Method</div>
+                    <div className="py-4 border-b border-line">
+                      <div className="text-xs text-ink-3 mb-3">Payment Method</div>
                       <div className="flex gap-3">
                         {[
                           { id: 'bank', label: 'Bank Transfer', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg> },
@@ -6008,14 +6070,14 @@ export default function MetricTree() {
                             onClick={() => paymentEditing && setPaymentDraft({ ...paymentDraft, method: m.id })}
                             className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors ${
                               d.method === m.id
-                                ? 'border-blue-500/50 bg-blue-500/10'
-                                : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                                ? 'border-accent-line bg-accent-12'
+                                : 'border-line bg-base hover:border-line'
                             } ${paymentEditing ? 'cursor-pointer' : 'cursor-default'}`}
                           >
-                            <span className={d.method === m.id ? 'text-blue-400' : 'text-slate-500'}>{m.icon}</span>
+                            <span className={d.method === m.id ? 'text-accent-deep' : 'text-ink-3'}>{m.icon}</span>
                             <div>
-                              <div className="text-sm font-medium text-slate-200">{m.label}</div>
-                              <div className="text-[10px] text-slate-500">{d.method === m.id ? 'Active' : 'Available'}</div>
+                              <div className="text-sm font-medium text-ink">{m.label}</div>
+                              <div className="text-[10px] text-ink-3">{d.method === m.id ? 'Active' : 'Available'}</div>
                             </div>
                           </button>
                         ))}
@@ -6025,7 +6087,7 @@ export default function MetricTree() {
                     {/* Bank Details */}
                     {d.method === 'bank' && (
                       <div className="py-2">
-                        <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pt-3 pb-1">Bank Details</div>
+                        <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider pt-3 pb-1">Bank Details</div>
                         <PField label="Beneficiary" value={d.beneficiary} field="beneficiary" />
                         <PField label="IBAN" value={d.iban} field="iban" />
                         <PField label="SWIFT / BIC" value={d.swift} field="swift" />
@@ -6037,7 +6099,7 @@ export default function MetricTree() {
                     {/* Crypto Details */}
                     {d.method === 'crypto' && (
                       <div className="py-2">
-                        <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pt-3 pb-1">Crypto Wallet</div>
+                        <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider pt-3 pb-1">Crypto Wallet</div>
                         <PField label="Network" value={d.cryptoNetwork} field="cryptoNetwork" type="select" options={['TRC-20', 'ERC-20']} />
                         <PField label="Wallet Address" value={d.cryptoWallet || '—'} field="cryptoWallet" />
                       </div>
@@ -6045,7 +6107,7 @@ export default function MetricTree() {
 
                     {/* Payment Threshold */}
                     <div className="py-2">
-                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pt-3 pb-1">Payment Threshold</div>
+                      <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider pt-3 pb-1">Payment Threshold</div>
                       <PField label="Minimum payout" value={d.threshold} field="threshold" type="select" options={['$100', '$500', '$1,000', '$5,000']} />
                       <PField label="Current balance" value={d.balance} field="balance" readOnly />
                       <PField label="Next payout" value={d.nextPayout} field="nextPayout" readOnly />
@@ -6053,80 +6115,80 @@ export default function MetricTree() {
 
                     {/* Tax Information */}
                     <div className="py-2">
-                      <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider pt-3 pb-1">Tax Information</div>
+                      <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider pt-3 pb-1">Tax Information</div>
                       <PField label="Tax ID" value={d.taxId} field="taxId" />
-                      <div className="flex items-start py-3 border-b border-slate-800/50">
-                        <div className="w-40 shrink-0 text-xs text-slate-500 pt-1">W-8BEN</div>
+                      <div className="flex items-start py-3 border-b border-line">
+                        <div className="w-40 shrink-0 text-xs text-ink-3 pt-1">W-8BEN</div>
                         <div className="flex-1 flex items-center gap-2">
                           {d.w8ben === 'uploaded' && (
                             <>
-                              <span className="text-emerald-400 text-xs">&#10003;</span>
-                              <span className="text-sm text-slate-200">Uploaded</span>
-                              <span className="text-xs text-slate-500">(expires {d.w8benExpiry})</span>
+                              <span className="text-success text-xs">&#10003;</span>
+                              <span className="text-sm text-ink">Uploaded</span>
+                              <span className="text-xs text-ink-3">(expires {d.w8benExpiry})</span>
                             </>
                           )}
                           {d.w8ben === 'expired' && (
                             <>
-                              <span className="text-red-400 text-xs">&#9888;</span>
-                              <span className="text-sm text-red-300">Expired</span>
+                              <span className="text-error text-xs">&#9888;</span>
+                              <span className="text-sm text-error">Expired</span>
                             </>
                           )}
                           {d.w8ben === 'none' && (
-                            <span className="text-sm text-slate-500">Not uploaded</span>
+                            <span className="text-sm text-ink-3">Not uploaded</span>
                           )}
-                          <button className="ml-2 text-xs text-blue-400 hover:text-blue-300">Upload new document</button>
+                          <button className="ml-2 text-xs text-accent-deep hover:text-accent-deep">Upload new document</button>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Info footer */}
-                  <div className="mx-6 mb-4 px-4 py-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                    <span className="text-xs text-blue-300">Changes to payment details require verification and take up to 3 business days to process.</span>
+                  <div className="mx-6 mb-4 px-4 py-3 rounded-lg bg-accent-12 border border-accent-line flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-deep shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                    <span className="text-xs text-accent-deep">Changes to payment details require verification and take up to 3 business days to process.</span>
                   </div>
                 </div>
               );
             })()}
             {profileTab === 'security' && (
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-700/50">
-                  <span className="text-sm font-semibold text-slate-100">Security</span>
+              <div className="bg-base border border-line rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-line">
+                  <span className="text-sm font-semibold text-ink">Security</span>
                 </div>
 
                 <div className="px-6 py-2">
                   {/* Password */}
-                  <div className="py-4 border-b border-slate-800/50">
-                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">Password</div>
+                  <div className="py-4 border-b border-line">
+                    <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-3">Password</div>
                     {!showChangePassword ? (
                       <div className="flex items-center justify-between">
-                        <div className="text-sm text-slate-400">Last changed: <span className="text-slate-300">14 days ago</span></div>
-                        <button onClick={() => setShowChangePassword(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">Change Password</button>
+                        <div className="text-sm text-ink-2">Last changed: <span className="text-ink">14 days ago</span></div>
+                        <button onClick={() => setShowChangePassword(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-ink transition-colors">Change Password</button>
                       </div>
                     ) : (
                       <div className="max-w-xs space-y-3">
                         <div>
-                          <label className="text-xs text-slate-500 block mb-1">Current Password</label>
-                          <input type="password" value={passwordForm.current} onChange={e => setPasswordForm({ ...passwordForm, current: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
+                          <label className="text-xs text-ink-3 block mb-1">Current Password</label>
+                          <input type="password" value={passwordForm.current} onChange={e => setPasswordForm({ ...passwordForm, current: e.target.value })} className="w-full bg-surface-2 border border-line rounded-lg px-3 py-1.5 text-sm text-ink focus:outline-none focus:border-accent-line" />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-500 block mb-1">New Password</label>
-                          <input type="password" value={passwordForm.newPw} onChange={e => setPasswordForm({ ...passwordForm, newPw: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
-                          <div className="text-[10px] text-slate-600 mt-1">Min 8 characters, letters + numbers</div>
+                          <label className="text-xs text-ink-3 block mb-1">New Password</label>
+                          <input type="password" value={passwordForm.newPw} onChange={e => setPasswordForm({ ...passwordForm, newPw: e.target.value })} className="w-full bg-surface-2 border border-line rounded-lg px-3 py-1.5 text-sm text-ink focus:outline-none focus:border-accent-line" />
+                          <div className="text-[10px] text-ink-3 mt-1">Min 8 characters, letters + numbers</div>
                         </div>
                         <div>
-                          <label className="text-xs text-slate-500 block mb-1">Confirm Password</label>
-                          <input type="password" value={passwordForm.confirm} onChange={e => setPasswordForm({ ...passwordForm, confirm: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500" />
+                          <label className="text-xs text-ink-3 block mb-1">Confirm Password</label>
+                          <input type="password" value={passwordForm.confirm} onChange={e => setPasswordForm({ ...passwordForm, confirm: e.target.value })} className="w-full bg-surface-2 border border-line rounded-lg px-3 py-1.5 text-sm text-ink focus:outline-none focus:border-accent-line" />
                           {passwordForm.confirm && passwordForm.newPw !== passwordForm.confirm && (
-                            <div className="text-[10px] text-red-400 mt-1">Passwords do not match</div>
+                            <div className="text-[10px] text-error mt-1">Passwords do not match</div>
                           )}
                         </div>
                         <div className="flex gap-2 pt-1">
-                          <button onClick={() => { setShowChangePassword(false); setPasswordForm({ current: '', newPw: '', confirm: '' }); }} className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
+                          <button onClick={() => { setShowChangePassword(false); setPasswordForm({ current: '', newPw: '', confirm: '' }); }} className="px-3 py-1.5 rounded-lg text-xs font-medium text-ink-2 hover:bg-surface-2 transition-colors">Cancel</button>
                           <button
                             onClick={savePassword}
                             disabled={passwordSaving || !passwordForm.current || !passwordForm.newPw || passwordForm.newPw !== passwordForm.confirm}
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium bg-accent hover:brightness-95 text-ink transition-colors disabled:opacity-50"
                           >
                             {passwordSaving ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> Saving...</> : 'Save'}
                           </button>
@@ -6136,37 +6198,37 @@ export default function MetricTree() {
                   </div>
 
                   {/* Two-Factor Authentication */}
-                  <div className="py-4 border-b border-slate-800/50">
-                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">Two-Factor Authentication</div>
+                  <div className="py-4 border-b border-line">
+                    <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-3">Two-Factor Authentication</div>
                     {!showTwoFaSetup ? (
                       <div>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-slate-400">Status:</span>
+                            <span className="text-sm text-ink-2">Status:</span>
                             {twoFaEnabled ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-medium">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success-subtle text-success text-xs font-medium">
                                 <span>&#10003;</span> Enabled
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning-subtle text-warning text-xs font-medium">
                                 &#9888; Not enabled
                               </span>
                             )}
                           </div>
                           {!twoFaEnabled ? (
-                            <button onClick={() => setShowTwoFaSetup(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors">Enable 2FA</button>
+                            <button onClick={() => setShowTwoFaSetup(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-ink transition-colors">Enable 2FA</button>
                           ) : (
-                            <button onClick={() => { setTwoFaEnabled(false); setProfileToast('2FA disabled'); setTimeout(() => setProfileToast(null), 3000); }} className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors">Disable</button>
+                            <button onClick={() => { setTwoFaEnabled(false); setProfileToast('2FA disabled'); setTimeout(() => setProfileToast(null), 3000); }} className="px-3 py-1.5 rounded-lg text-xs font-medium text-error hover:bg-error-subtle transition-colors">Disable</button>
                           )}
                         </div>
                         {!twoFaEnabled && (
-                          <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center gap-2">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                            <span className="text-[11px] text-blue-300">We recommend enabling 2FA for all accounts with access to payment settings.</span>
+                          <div className="px-3 py-2 rounded-lg bg-accent-12 border border-accent-line flex items-center gap-2">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-deep shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                            <span className="text-[11px] text-accent-deep">We recommend enabling 2FA for all accounts with access to payment settings.</span>
                           </div>
                         )}
                         {twoFaEnabled && (
-                          <div className="text-xs text-slate-500">Connected with authenticator app. <button className="text-blue-400 hover:text-blue-300">View backup codes</button></div>
+                          <div className="text-xs text-ink-3">Connected with authenticator app. <button className="text-accent-deep hover:text-accent-deep">View backup codes</button></div>
                         )}
                       </div>
                     ) : (
@@ -6176,110 +6238,110 @@ export default function MetricTree() {
                         <div className="flex items-center gap-2 mb-4">
                           {[1, 2, 3].map(s => (
                             <div key={s} className="flex items-center gap-2">
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${twoFaStep >= s ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-500'}`}>{s}</div>
-                              {s < 3 && <div className={`w-8 h-0.5 ${twoFaStep > s ? 'bg-blue-600' : 'bg-slate-700'}`}></div>}
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${twoFaStep >= s ? 'bg-accent text-ink' : 'bg-surface-2 text-ink-3'}`}>{s}</div>
+                              {s < 3 && <div className={`w-8 h-0.5 ${twoFaStep > s ? 'bg-accent' : 'bg-surface-2'}`}></div>}
                             </div>
                           ))}
                         </div>
 
                         {twoFaStep === 1 && (
                           <div>
-                            <div className="text-xs text-slate-400 mb-3">Scan this QR code with your authenticator app:</div>
+                            <div className="text-xs text-ink-2 mb-3">Scan this QR code with your authenticator app:</div>
                             <div className="w-36 h-36 bg-white rounded-lg p-2 mb-3 mx-auto flex items-center justify-center">
                               <div className="w-full h-full bg-[repeating-conic-gradient(#000_0%_25%,#fff_0%_50%)] bg-[length:12px_12px] rounded opacity-80"></div>
                             </div>
-                            <div className="text-[10px] text-slate-600 text-center mb-3">Google Authenticator / Authy</div>
-                            <button onClick={() => setTwoFaStep(2)} className="w-full px-4 py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">Next</button>
+                            <div className="text-[10px] text-ink-3 text-center mb-3">Google Authenticator / Authy</div>
+                            <button onClick={() => setTwoFaStep(2)} className="w-full px-4 py-2 rounded-lg text-xs font-medium bg-accent hover:brightness-95 text-ink transition-colors">Next</button>
                           </div>
                         )}
 
                         {twoFaStep === 2 && (
                           <div>
-                            <div className="text-xs text-slate-400 mb-3">Enter the 6-digit code from your app:</div>
+                            <div className="text-xs text-ink-2 mb-3">Enter the 6-digit code from your app:</div>
                             <input
                               type="text" maxLength={6} value={twoFaCode} onChange={e => setTwoFaCode(e.target.value.replace(/\D/g, ''))}
-                              className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-lg text-center text-slate-200 tracking-[0.5em] font-mono focus:outline-none focus:border-blue-500 mb-3"
+                              className="w-full bg-surface-2 border border-line rounded-lg px-3 py-2 text-lg text-center text-ink tracking-[0.5em] font-mono focus:outline-none focus:border-accent-line mb-3"
                               placeholder="000000"
                             />
                             <div className="flex gap-2">
-                              <button onClick={() => setTwoFaStep(1)} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Back</button>
-                              <button onClick={() => setTwoFaStep(3)} disabled={twoFaCode.length !== 6} className="flex-1 px-4 py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50">Verify</button>
+                              <button onClick={() => setTwoFaStep(1)} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium text-ink-2 hover:bg-surface-2 transition-colors">Back</button>
+                              <button onClick={() => setTwoFaStep(3)} disabled={twoFaCode.length !== 6} className="flex-1 px-4 py-2 rounded-lg text-xs font-medium bg-accent hover:brightness-95 text-ink transition-colors disabled:opacity-50">Verify</button>
                             </div>
                           </div>
                         )}
 
                         {twoFaStep === 3 && (
                           <div>
-                            <div className="text-xs text-slate-400 mb-2">Save these backup codes in a safe place:</div>
-                            <div className="bg-slate-700 rounded-lg p-3 mb-3 font-mono text-xs text-slate-300 grid grid-cols-2 gap-1">
+                            <div className="text-xs text-ink-2 mb-2">Save these backup codes in a safe place:</div>
+                            <div className="bg-surface-2 rounded-lg p-3 mb-3 font-mono text-xs text-ink grid grid-cols-2 gap-1">
                               {['a4f2-8b1c', 'k9d3-2e7f', 'p5h1-6j4m', 'r8n2-3c9a', 'w7t5-1b6d', 'x3k8-9f2g', 'z6m4-7h1e', 'c2j9-5a8b', 'v1p7-4d3f', 'y5s6-8k2n'].map(code => (
                                 <div key={code} className="py-0.5">{code}</div>
                               ))}
                             </div>
                             <div className="flex gap-2 mb-3">
-                              <button className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">Copy All</button>
-                              <button className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">Download</button>
+                              <button className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-ink transition-colors">Copy All</button>
+                              <button className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-ink transition-colors">Download</button>
                             </div>
-                            <button onClick={completeTwoFa} className="w-full px-4 py-2 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors">Done — Enable 2FA</button>
+                            <button onClick={completeTwoFa} className="w-full px-4 py-2 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-ink transition-colors">Done — Enable 2FA</button>
                           </div>
                         )}
 
-                        <button onClick={() => { setShowTwoFaSetup(false); setTwoFaStep(1); setTwoFaCode(''); }} className="w-full mt-2 text-xs text-slate-500 hover:text-slate-400 text-center">Cancel setup</button>
+                        <button onClick={() => { setShowTwoFaSetup(false); setTwoFaStep(1); setTwoFaCode(''); }} className="w-full mt-2 text-xs text-ink-3 hover:text-ink-2 text-center">Cancel setup</button>
                       </div>
                     )}
                   </div>
 
                   {/* Active Sessions */}
                   <div className="py-4">
-                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">Active Sessions</div>
+                    <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-3">Active Sessions</div>
                     <div className="space-y-2">
                       {sessions.filter(s => !revokedSessions.has(s.id)).map(s => (
-                        <div key={s.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-800/50">
+                        <div key={s.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-base">
                           <div className="flex items-center gap-3">
-                            <span className="text-slate-400">
+                            <span className="text-ink-2">
                               {s.browser === 'Chrome' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
                               {s.browser === 'Safari' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>}
                               {s.browser === 'Firefox' && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
                             </span>
                             <div>
-                              <div className="text-xs text-slate-200">
+                              <div className="text-xs text-ink">
                                 {s.browser} &middot; {s.location}
-                                {s.current && <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-medium">Current session</span>}
+                                {s.current && <span className="ml-2 px-1.5 py-0.5 rounded bg-success-subtle text-success text-[10px] font-medium">Current session</span>}
                               </div>
-                              <div className="text-[10px] text-slate-500">{s.time}</div>
+                              <div className="text-[10px] text-ink-3">{s.time}</div>
                             </div>
                           </div>
                           {!s.current && (
-                            <button onClick={() => setRevokedSessions(new Set([...revokedSessions, s.id]))} className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-colors">Revoke</button>
+                            <button onClick={() => setRevokedSessions(new Set([...revokedSessions, s.id]))} className="text-xs text-error hover:text-error px-2 py-1 rounded hover:bg-error-subtle transition-colors">Revoke</button>
                           )}
                         </div>
                       ))}
                     </div>
                     <button
                       onClick={() => { setRevokedSessions(new Set(sessions.filter(s => !s.current).map(s => s.id))); setProfileToast('All other sessions revoked'); setTimeout(() => setProfileToast(null), 3000); }}
-                      className="mt-3 text-xs text-slate-500 hover:text-slate-400 transition-colors"
+                      className="mt-3 text-xs text-ink-3 hover:text-ink-2 transition-colors"
                     >Sign out of all other sessions</button>
                   </div>
                 </div>
               </div>
             )}
             {profileTab === 'apikeys' && (
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-700/50">
-                  <span className="text-sm font-semibold text-slate-100">API Keys</span>
+              <div className="bg-base border border-line rounded-xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-line">
+                  <span className="text-sm font-semibold text-ink">API Keys</span>
                 </div>
 
                 <div className="px-6 py-2">
                   {/* Reporting API Key */}
-                  <div className="py-4 border-b border-slate-800/50">
-                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">Reporting API Key</div>
+                  <div className="py-4 border-b border-line">
+                    <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-3">Reporting API Key</div>
                     <div className="flex items-center gap-2 mb-2">
-                      <code className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-300 select-all">
+                      <code className="flex-1 bg-surface-2 rounded-lg px-3 py-2 text-sm font-mono text-ink select-all">
                         {apiKeyVisible ? apiKey : apiKey.substring(0, 8) + '-xxxx-xxxx-xxxx-' + apiKey.slice(-4)}
                       </code>
                       <button
                         onClick={() => setApiKeyVisible(!apiKeyVisible)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-200"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-2 transition-colors text-ink-2 hover:text-ink"
                         title={apiKeyVisible ? 'Hide' : 'Show'}
                       >
                         {apiKeyVisible ? (
@@ -6290,28 +6352,28 @@ export default function MetricTree() {
                       </button>
                       <button
                         onClick={() => { navigator.clipboard.writeText(apiKey); setProfileToast('Copied!'); setTimeout(() => setProfileToast(null), 2000); }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-200"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-2 transition-colors text-ink-2 hover:text-ink"
                         title="Copy"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                       </button>
                     </div>
                     <div className="flex items-center justify-between">
-                      <div className="text-[11px] text-slate-500">Created: {apiKeyCreated}</div>
-                      <button onClick={() => setShowRegenerateConfirm(true)} className="text-xs text-amber-400 hover:text-amber-300 transition-colors">Regenerate</button>
+                      <div className="text-[11px] text-ink-3">Created: {apiKeyCreated}</div>
+                      <button onClick={() => setShowRegenerateConfirm(true)} className="text-xs text-warning hover:text-warning transition-colors">Regenerate</button>
                     </div>
                   </div>
 
                   {/* SDK Key */}
-                  <div className="py-4 border-b border-slate-800/50">
-                    <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-3">SDK Key</div>
+                  <div className="py-4 border-b border-line">
+                    <div className="text-xs text-ink-3 font-semibold uppercase tracking-wider mb-3">SDK Key</div>
                     <div className="flex items-center gap-2 mb-2">
-                      <code className="flex-1 bg-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-300 select-all">
+                      <code className="flex-1 bg-surface-2 rounded-lg px-3 py-2 text-sm font-mono text-ink select-all">
                         {sdkKeyVisible ? sdkKey : sdkKey.substring(0, 12) + '····' + sdkKey.slice(-4)}
                       </code>
                       <button
                         onClick={() => setSdkKeyVisible(!sdkKeyVisible)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-200"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-2 transition-colors text-ink-2 hover:text-ink"
                         title={sdkKeyVisible ? 'Hide' : 'Show'}
                       >
                         {sdkKeyVisible ? (
@@ -6322,22 +6384,22 @@ export default function MetricTree() {
                       </button>
                       <button
                         onClick={() => { navigator.clipboard.writeText(sdkKey); setProfileToast('Copied!'); setTimeout(() => setProfileToast(null), 2000); }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700 transition-colors text-slate-400 hover:text-slate-200"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-2 transition-colors text-ink-2 hover:text-ink"
                         title="Copy"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                       </button>
                     </div>
-                    <div className="text-[11px] text-slate-500">Created: Jun 12, 2024</div>
+                    <div className="text-[11px] text-ink-3">Created: Jun 12, 2024</div>
                   </div>
 
                   {/* Info */}
                   <div className="py-4">
-                    <div className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-start gap-2 mb-4">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                      <span className="text-[11px] text-blue-300">SDK Key is read-only and tied to your account. Reporting API Key can be regenerated — old key will stop working immediately.</span>
+                    <div className="px-3 py-2 rounded-lg bg-accent-12 border border-accent-line flex items-start gap-2 mb-4">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-deep shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                      <span className="text-[11px] text-accent-deep">SDK Key is read-only and tied to your account. Reporting API Key can be regenerated — old key will stop working immediately.</span>
                     </div>
-                    <a href="#" className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                    <a href="#" className="inline-flex items-center gap-1.5 text-xs text-accent-deep hover:text-accent-deep transition-colors">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
                       API Documentation &rarr;
                     </a>
@@ -6347,19 +6409,19 @@ export default function MetricTree() {
                 {/* Regenerate Confirmation Modal */}
                 {showRegenerateConfirm && (
                   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowRegenerateConfirm(false)}>
-                    <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-96 p-6" onClick={e => e.stopPropagation()}>
+                    <div className="bg-base border border-line rounded-xl shadow-pop w-96 p-6" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-400"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <div className="w-10 h-10 rounded-full bg-warning-subtle flex items-center justify-center">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-warning"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-slate-100">Regenerate API Key?</div>
-                          <div className="text-xs text-slate-400">This action cannot be undone</div>
+                          <div className="text-sm font-semibold text-ink">Regenerate API Key?</div>
+                          <div className="text-xs text-ink-2">This action cannot be undone</div>
                         </div>
                       </div>
-                      <div className="text-xs text-slate-400 mb-4">The old key will stop working <strong className="text-slate-300">immediately</strong>. Any integrations using the current key will break until updated.</div>
+                      <div className="text-xs text-ink-2 mb-4">The old key will stop working <strong className="text-ink">immediately</strong>. Any integrations using the current key will break until updated.</div>
                       <div className="flex gap-2 justify-end">
-                        <button onClick={() => setShowRegenerateConfirm(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:bg-slate-700 transition-colors">Cancel</button>
+                        <button onClick={() => setShowRegenerateConfirm(false)} className="px-4 py-2 rounded-lg text-xs font-medium text-ink-2 hover:bg-surface-2 transition-colors">Cancel</button>
                         <button
                           onClick={() => {
                             const newKey = 'r' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 6) + '-' + Math.random().toString(36).substring(2, 6) + '-' + Math.random().toString(36).substring(2, 6) + '-' + Math.random().toString(36).substring(2, 14);
@@ -6370,7 +6432,7 @@ export default function MetricTree() {
                             setProfileToast('New key generated');
                             setTimeout(() => setProfileToast(null), 3000);
                           }}
-                          className="px-4 py-2 rounded-lg text-xs font-medium bg-amber-600 hover:bg-amber-500 text-white transition-colors"
+                          className="px-4 py-2 rounded-lg text-xs font-medium bg-amber-600 hover:bg-amber-500 text-ink transition-colors"
                         >Regenerate</button>
                       </div>
                     </div>
@@ -6397,9 +6459,9 @@ export default function MetricTree() {
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <div className="text-xs text-slate-500">{clientApps.length} applications</div>
+                  <div className="text-xs text-ink-3">{clientApps.length} applications</div>
                 </div>
-                <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors">
+                <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-accent hover:brightness-95 text-ink transition-colors">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add Application
                 </button>
@@ -6413,96 +6475,96 @@ export default function MetricTree() {
                   const iconUrl = store?.iconUrl;
 
                   return (
-                    <div key={i} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 hover:border-slate-600 transition-colors">
+                    <div key={i} className="bg-base border border-line rounded-xl p-4 hover:border-line transition-colors">
                       <div className="flex items-center gap-4">
                         {/* Icon */}
-                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-700 shrink-0 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-surface-2 shrink-0 flex items-center justify-center">
                           {iconUrl ? (
                             <img src={iconUrl} alt={appName} className="w-full h-full object-cover" />
                           ) : (
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-slate-500"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 8h8M8 12h6M8 16h4"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-ink-3"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 8h8M8 12h6M8 16h4"/></svg>
                           )}
                         </div>
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-slate-200 truncate">{appName}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${app.platform === 'ios' ? 'bg-slate-700 text-slate-300' : 'bg-emerald-900/50 text-emerald-400'}`}>
+                            <span className="text-sm font-medium text-ink truncate">{appName}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${app.platform === 'ios' ? 'bg-surface-2 text-ink' : 'bg-success-subtle text-success'}`}>
                               {app.platform === 'ios' ? 'iOS' : 'Android'}
                             </span>
                           </div>
-                          <div className="text-xs text-slate-500 font-mono">{app.bundleId}</div>
+                          <div className="text-xs text-ink-3 font-mono">{app.bundleId}</div>
                         </div>
 
                         {/* SDK Status */}
                         <div className="text-center px-4">
-                          <div className="text-[10px] text-slate-500 mb-1">SDK</div>
+                          <div className="text-[10px] text-ink-3 mb-1">SDK</div>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-slate-300 font-mono">{app.sdkVersion}</span>
+                            <span className="text-xs text-ink font-mono">{app.sdkVersion}</span>
                             <span className={`w-2 h-2 rounded-full ${
                               app.sdkStatus === 'active' ? 'bg-emerald-400' :
                               app.sdkStatus === 'update' ? 'bg-amber-400' :
                               app.sdkStatus === 'outdated' ? 'bg-red-400' :
-                              'bg-slate-500'
+                              'bg-surface-3'
                             }`} title={app.sdkStatus}></span>
                           </div>
                         </div>
 
                         {/* Metrics */}
                         <div className="text-center px-4">
-                          <div className="text-[10px] text-slate-500 mb-1">Revenue 7d</div>
-                          <div className="text-sm font-medium text-slate-200">{app.revenue7d ? '$' + app.revenue7d.toLocaleString() : '—'}</div>
+                          <div className="text-[10px] text-ink-3 mb-1">Revenue 7d</div>
+                          <div className="text-sm font-medium text-ink">{app.revenue7d ? '$' + app.revenue7d.toLocaleString() : '—'}</div>
                         </div>
 
                         <div className="text-center px-4">
-                          <div className="text-[10px] text-slate-500 mb-1">DAU 7d</div>
-                          <div className="text-sm font-medium text-slate-200">{app.dau7d ? app.dau7d.toLocaleString() : '—'}</div>
+                          <div className="text-[10px] text-ink-3 mb-1">DAU 7d</div>
+                          <div className="text-sm font-medium text-ink">{app.dau7d ? app.dau7d.toLocaleString() : '—'}</div>
                         </div>
 
                         {/* Status badge */}
                         <div>
                           {app.sdkStatus === 'active' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-medium">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-success-subtle text-success text-[11px] font-medium">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Live
                             </span>
                           )}
                           {app.sdkStatus === 'update' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 text-[11px] font-medium">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-warning-subtle text-warning text-[11px] font-medium">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Update SDK
                             </span>
                           )}
                           {app.sdkStatus === 'outdated' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 text-[11px] font-medium">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-error-subtle text-error text-[11px] font-medium">
                               <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span> Outdated
                             </span>
                           )}
                           {app.sdkStatus === 'pending' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-500/15 text-slate-400 text-[11px] font-medium">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Pending
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-3 text-ink-2 text-[11px] font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-surface-3"></span> Pending
                             </span>
                           )}
                         </div>
 
                         {/* Arrow */}
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-600 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-ink-3 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
                       </div>
 
                       {/* Integration warning for pending */}
                       {app.sdkStatus === 'pending' && (
-                        <div className="mt-3 px-4 py-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center gap-2">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                          <span className="text-[11px] text-blue-300">SDK not integrated yet.</span>
-                          <a href="#" className="text-[11px] text-blue-400 hover:text-blue-300 font-medium ml-1">Integration guide &rarr;</a>
+                        <div className="mt-3 px-4 py-2.5 rounded-lg bg-accent-12 border border-accent-line flex items-center gap-2">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent-deep shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                          <span className="text-[11px] text-accent-deep">SDK not integrated yet.</span>
+                          <a href="#" className="text-[11px] text-accent-deep hover:text-accent-deep font-medium ml-1">Integration guide &rarr;</a>
                         </div>
                       )}
 
                       {/* SDK update notice */}
                       {(app.sdkStatus === 'update' || app.sdkStatus === 'outdated') && (
-                        <div className="mt-3 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400 shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                          <span className="text-[11px] text-amber-300">SDK {app.sdkVersion} is {app.sdkStatus === 'outdated' ? 'outdated' : 'not the latest'}. Latest: 4.6.0</span>
-                          <a href="#" className="text-[11px] text-amber-400 hover:text-amber-300 font-medium ml-1">Changelog &rarr;</a>
+                        <div className="mt-3 px-4 py-2.5 rounded-lg bg-warning-subtle border border-warning flex items-center gap-2">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-warning shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                          <span className="text-[11px] text-warning">SDK {app.sdkVersion} is {app.sdkStatus === 'outdated' ? 'outdated' : 'not the latest'}. Latest: 4.6.0</span>
+                          <a href="#" className="text-[11px] text-warning hover:text-warning font-medium ml-1">Changelog &rarr;</a>
                         </div>
                       )}
                     </div>
@@ -6523,9 +6585,9 @@ export default function MetricTree() {
                 { label: 'Pending', value: '$3,200.00', color: 'amber', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> },
                 { label: 'Total Earned', value: '$87,640.50', color: 'blue', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> },
               ].map(c => (
-                <div key={c.label} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5">
+                <div key={c.label} className="bg-base border border-line rounded-xl p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-slate-500">{c.label}</span>
+                    <span className="text-xs text-ink-3">{c.label}</span>
                     <span className={`text-${c.color}-400`}>{c.icon}</span>
                   </div>
                   <div className={`text-2xl font-bold text-${c.color}-400`}>{c.value}</div>
@@ -6534,38 +6596,38 @@ export default function MetricTree() {
             </div>
 
             {/* Payout info */}
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 mb-6 flex items-center justify-between">
+            <div className="bg-base border border-line rounded-xl p-5 mb-6 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Next Payout</div>
-                  <div className="text-sm font-semibold text-slate-200">~Apr 27, 2026</div>
+                  <div className="text-xs text-ink-3 mb-1">Next Payout</div>
+                  <div className="text-sm font-semibold text-ink">~Apr 27, 2026</div>
                 </div>
-                <div className="w-px h-8 bg-slate-700"></div>
+                <div className="w-px h-8 bg-surface-2"></div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Payment Method</div>
-                  <div className="text-sm text-slate-200">Bank Transfer (Monobank)</div>
+                  <div className="text-xs text-ink-3 mb-1">Payment Method</div>
+                  <div className="text-sm text-ink">Bank Transfer (Monobank)</div>
                 </div>
-                <div className="w-px h-8 bg-slate-700"></div>
+                <div className="w-px h-8 bg-surface-2"></div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Threshold</div>
-                  <div className="text-sm text-slate-200">$500</div>
+                  <div className="text-xs text-ink-3 mb-1">Threshold</div>
+                  <div className="text-sm text-ink">$500</div>
                 </div>
               </div>
-              <button onClick={() => { setActiveNavItem('profile'); setProfileTab('payment'); }} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Edit payment details &rarr;</button>
+              <button onClick={() => { setActiveNavItem('profile'); setProfileTab('payment'); }} className="text-xs text-accent-deep hover:text-accent-deep transition-colors">Edit payment details &rarr;</button>
             </div>
 
             {/* Payment History */}
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-700/50 flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-100">Payment History</span>
+            <div className="bg-base border border-line rounded-xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+                <span className="text-sm font-semibold text-ink">Payment History</span>
                 <div className="flex items-center gap-2">
-                  <select className="bg-slate-700 border border-slate-600 rounded-lg px-2.5 py-1 text-xs text-slate-300 focus:outline-none">
+                  <select className="bg-surface-2 border border-line rounded-lg px-2.5 py-1 text-xs text-ink focus:outline-none">
                     <option>All time</option>
                     <option>Last 12 months</option>
                     <option>Last 6 months</option>
                     <option>Last 3 months</option>
                   </select>
-                  <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-slate-400 hover:bg-slate-700 transition-colors">
+                  <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs text-ink-2 hover:bg-surface-2 transition-colors">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Export
                   </button>
@@ -6574,7 +6636,7 @@ export default function MetricTree() {
 
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-slate-700/50 text-xs text-slate-500">
+                  <tr className="border-b border-line text-xs text-ink-3">
                     <th className="px-6 py-3 font-medium">Date</th>
                     <th className="px-4 py-3 font-medium">Period</th>
                     <th className="px-4 py-3 font-medium">Method</th>
@@ -6594,26 +6656,26 @@ export default function MetricTree() {
                     { date: 'Sep 26, 2025', period: 'Aug 2025', amount: '$4,200.00', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2025-0926' },
                     { date: 'Aug 27, 2025', period: 'Jul 2025', amount: '$3,890.50', method: 'Bank Transfer', status: 'processed', ref: 'PAY-2025-0827' },
                   ].map((p, i) => (
-                    <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-3 text-xs text-slate-300">{p.date}</td>
-                      <td className="px-4 py-3 text-xs text-slate-400">{p.period}</td>
-                      <td className="px-4 py-3 text-xs text-slate-400">{p.method}</td>
-                      <td className="px-4 py-3 text-xs text-slate-200 font-medium text-right">{p.amount}</td>
+                    <tr key={i} className="border-b border-line hover:bg-base transition-colors">
+                      <td className="px-6 py-3 text-xs text-ink">{p.date}</td>
+                      <td className="px-4 py-3 text-xs text-ink-2">{p.period}</td>
+                      <td className="px-4 py-3 text-xs text-ink-2">{p.method}</td>
+                      <td className="px-4 py-3 text-xs text-ink font-medium text-right">{p.amount}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                          p.status === 'processed' ? 'bg-emerald-500/20 text-emerald-400' :
-                          p.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
-                          'bg-blue-500/20 text-blue-400'
+                          p.status === 'processed' ? 'bg-success-subtle text-success' :
+                          p.status === 'pending' ? 'bg-warning-subtle text-warning' :
+                          'bg-accent-12 text-accent-deep'
                         }`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${
                             p.status === 'processed' ? 'bg-emerald-400' :
                             p.status === 'pending' ? 'bg-amber-400' :
-                            'bg-blue-400'
+                            'bg-accent'
                           }`}></span>
                           {p.status === 'processed' ? 'Processed' : p.status === 'pending' ? 'Pending' : 'Scheduled'}
                         </span>
                       </td>
-                      <td className="px-6 py-3 text-xs text-slate-500 font-mono">{p.ref}</td>
+                      <td className="px-6 py-3 text-xs text-ink-3 font-mono">{p.ref}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -6624,7 +6686,7 @@ export default function MetricTree() {
 
         {/* Toast notification */}
         {profileToast && (
-          <div className="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-2.5 rounded-lg shadow-lg shadow-emerald-900/30 text-sm font-medium flex items-center gap-2 z-50 animate-pulse">
+          <div className="fixed bottom-6 right-6 bg-emerald-600 text-ink px-4 py-2.5 rounded-lg shadow-lg shadow-emerald-900/30 text-sm font-medium flex items-center gap-2 z-50 animate-pulse">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
             {profileToast}
           </div>
@@ -6632,15 +6694,20 @@ export default function MetricTree() {
 
       </div>
       {/* ===== Footer ===== */}
-      <div className="border-t border-slate-800 px-6 py-4 flex items-center justify-between text-[11px] text-slate-600">
-        <span>&copy; 2026 CAS.AI</span>
-        <div className="flex items-center gap-4">
-          <a href="#" className="hover:text-slate-400 transition-colors">Terms</a>
-          <a href="#" className="hover:text-slate-400 transition-colors">Privacy</a>
-          <a href="#" className="hover:text-slate-400 transition-colors">Support</a>
-          <a href="#" className="hover:text-slate-400 transition-colors">API Docs</a>
-          <span className="text-slate-700">v2.4.1</span>
-        </div>
+      <div className="border-t border-line bg-base px-6 py-4 flex items-center justify-center gap-3 text-[12px] text-ink-3">
+        <span className="font-display font-bold tracking-[-0.02em] text-ink">CAS.AI</span>
+        <span className="w-px h-3.5 bg-line"></span>
+        <span>Analytics platform</span>
+        <span aria-hidden>·</span>
+        <span>&copy; 2026</span>
+        <span aria-hidden>·</span>
+        <span>All rights reserved.</span>
+        <span aria-hidden>·</span>
+        <a href="#" className="hover:text-ink-2 transition-colors">Terms</a>
+        <a href="#" className="hover:text-ink-2 transition-colors">Privacy</a>
+        <a href="#" className="hover:text-ink-2 transition-colors">Support</a>
+        <a href="#" className="hover:text-ink-2 transition-colors">API Docs</a>
+        <span className="text-ink-2">v2.4.1</span>
       </div>
       </div>
       </div>
