@@ -93,6 +93,7 @@ export default function MetricTree() {
   const [reportsCompare, setReportsCompare] = useState(false);
   const [fitColumns, setFitColumns] = useState(false);
   const [measureSearch, setMeasureSearch] = useState('');
+  const [activePreset, setActivePreset] = useState(null);
 
   // Superadmin filter states
   const [filterCustomer, setFilterCustomer] = useState('all');
@@ -742,6 +743,26 @@ export default function MetricTree() {
     dau_discrepancy: mk('dauDiscrepancy', pctFmt),
   };
 
+  // Значения разбивок и их доли — на них строятся подстроки отчёта
+  const splitSegments = {
+    adType:     [['Banner', 0.35], ['Interstitial', 0.40], ['Rewarded', 0.25]],
+    network:    [['AppLovin', 0.30], ['AdMob', 0.24], ['Unity Ads', 0.18], ['ironSource', 0.16], ['Meta AN', 0.12]],
+    country:    [['US', 0.38], ['DE', 0.17], ['UK', 0.14], ['JP', 0.12], ['Other', 0.19]],
+    os:         [['iOS', 0.55], ['Android', 0.45]],
+    deviceType: [['Phone', 0.82], ['Tablet', 0.18]],
+    placement:  [['Main Menu', 0.28], ['Level Complete', 0.34], ['Shop', 0.21], ['Revive', 0.17]],
+    appVersion: [['4.2.0', 0.46], ['4.1.3', 0.31], ['4.0.7', 0.15], ['3.9.5', 0.08]],
+    sdkVersion: [['CAS 3.9.2', 0.48], ['CAS 3.8.5', 0.28], ['CAS 3.7.1', 0.16], ['CAS 3.6.0', 0.08]],
+  };
+
+  // Аддитивные метрики делятся между сегментами; остальные — ставки и средние
+  const additiveMetrics = new Set([
+    'dau', 'wau', 'mau', 'sessions', 'session_count', 'impressions', 'revenue', 'iap_revenue',
+    'paying_users', 'purchases', 'installs', 'mmp_installs', 'profit_cal',
+    'impr_inter_daily', 'impr_reward_daily', 'impr_banner_daily', 'impr_mrec_daily',
+    'rev_by_sdk', 'rev_by_platform',
+  ]);
+
   const buildReportsRows = () => {
     const appId = selectedApp === 'all' ? 'puzzle' : selectedApp;
     const d = dashboardData[appId];
@@ -861,27 +882,30 @@ export default function MetricTree() {
     // Build split column label
     const splitLabel = reportsSplits.includes('date') ? 'Period' : reportsSplits[0] || 'Period';
 
-    // For now: date split = month, adType split = synthetic sub-rows
-    const hasAdTypeSplit = reportsSplits.includes('adType');
+    // Разбивка на подстроки: первый split, у которого есть значения
+    const segSplit = reportsSplits.find(id => id !== 'date' && splitSegments[id]);
+    const segments = segSplit ? splitSegments[segSplit] : null;
     const rows = [];
 
     merged.forEach((row, idx) => {
       const period = row._month;
-      if (hasAdTypeSplit) {
+      if (segments) {
         // Group header
         rows.push({ _type: 'group', _label: period, _idx: idx });
-        // Sub-rows per ad type
-        ['Banner', 'Interstitial', 'Rewarded'].forEach(adType => {
-          const factor = adType === 'Banner' ? 0.35 : adType === 'Interstitial' ? 0.40 : 0.25;
+        // Sub-rows per segment value
+        segments.forEach(([segLabel, share]) => {
           const subRow = {};
           selectedMetrics.forEach(mid => {
             const mk = metricKeyMap[mid];
             if (!mk) return;
             const val = row[mk.key];
-            subRow[mid] = val != null ? (mk.isNum ? val * factor : val) : null;
+            if (val == null) { subRow[mid] = null; return; }
+            if (!mk.isNum) { subRow[mid] = val; return; }
+            // аддитивные метрики делятся по доле сегмента, ставки и средние — варьируются вокруг базы
+            subRow[mid] = additiveMetrics.has(mid) ? val * share : val * (0.82 + share * 1.15);
           });
           subRow._type = 'data';
-          subRow._label = adType;
+          subRow._label = segLabel;
           subRow._group = period;
           subRow._idx = idx;
           rows.push(subRow);
@@ -962,6 +986,98 @@ export default function MetricTree() {
   };
 
   // E3: Saved Views — persist to localStorage
+  // Готовые пресеты под user stories (03-product/user-stories.md).
+  // Каждый собирает разбивки, метрики и фильтры так, чтобы закрыть сценарий целиком.
+  const storyPresets = [
+    {
+      code: 'L1-01', role: 'L1', name: 'Revenue health check',
+      story: 'Проверить, что выручка поступает стабильно, и сравнить с прошлым периодом',
+      splits: ['date'], metrics: ['revenue', 'impressions', 'dau', 'arpdau'],
+      app: 'all', compare: true,
+    },
+    {
+      code: 'L1-07', role: 'L1', name: 'Revenue by network',
+      story: 'Понять, какие рекламные сети приносят доход и как они платят',
+      splits: ['network'], metrics: ['revenue', 'ecpm', 'impressions', 'fill_rate'],
+      app: 'all',
+    },
+    {
+      code: 'L2-03', role: 'L2', name: 'App version comparison',
+      story: 'Сравнить версии приложения и понять, как релиз повлиял на монетизацию',
+      splits: ['appVersion'], metrics: ['revenue', 'ecpm', 'dau', 'impr_per_dau'],
+      app: 'puzzle',
+    },
+    {
+      code: 'L2-01', role: 'L2', name: 'SDK version impact',
+      story: 'Увидеть выручку по версиям SDK: улучшило обновление монетизацию или нет',
+      splits: ['sdkVersion'], metrics: ['revenue', 'ecpm', 'impressions', 'dau'],
+      app: 'all',
+    },
+    {
+      code: 'L2-04', role: 'L2', name: 'Ad load balance',
+      story: 'Найти баланс между рекламной нагрузкой и UX',
+      splits: ['date'], metrics: ['impr_per_session', 'impr_per_dau', 'sessions', 'session_duration'],
+      app: 'all',
+    },
+    {
+      code: 'L2-05', role: 'L2', name: 'Retention quality',
+      story: 'Оценить качество аудитории по удержанию D1 / D7',
+      splits: ['date'], metrics: ['d1_retention', 'd7_retention', 'dau', 'stickiness'],
+      app: 'all',
+    },
+    {
+      code: 'MON-01', role: 'MON', name: 'Config A/B comparison',
+      story: 'Сравнить конфигурации медиации между группами перед раскаткой',
+      note: 'Метрики uplift и DAU Parity ещё не заведены — сравнение по группам форматов',
+      splits: ['adType'], metrics: ['revenue', 'arpdau', 'ecpm', 'dau', 'fill_rate'],
+      app: 'puzzle',
+    },
+    {
+      code: 'MON-03', role: 'MON', name: 'Revenue drop decomposition',
+      story: 'Пройти дерево метрик: выручка → показы и цена → форматы → заполняемость',
+      splits: ['adType'], metrics: ['revenue', 'impressions', 'ecpm', 'fill_rate', 'impr_per_session'],
+      app: 'puzzle',
+    },
+    {
+      code: 'AN-01', role: 'AN', name: 'Network drop detection',
+      story: 'Таблица «сети × периоды», чтобы поймать отвалившуюся сеть',
+      splits: ['network'], metrics: ['impressions', 'ecpm', 'revenue', 'network_gap', 'anomaly_flag'],
+      app: 'all',
+    },
+    {
+      code: 'GM-01', role: 'GM', name: 'Portfolio by manager',
+      story: 'Картина портфеля бизнес-юнита: что растёт, что проседает, в разрезе менеджера',
+      splits: ['date'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm'],
+      app: 'all', filters: ['app', 'manager'], manager: 'm1', compare: true,
+    },
+    {
+      code: 'RND-02', role: 'RND', name: 'SDK adoption speed',
+      story: 'Скорость раскатки версий SDK, чтобы планировать deprecation',
+      splits: ['sdkVersion'], metrics: ['dau', 'sessions', 'revenue'],
+      app: 'all',
+    },
+    {
+      code: 'UA-01', role: 'UA', name: 'ROAS by app',
+      story: 'Понять, какие кампании окупаются, и где растёт стоимость установки',
+      splits: ['date'], metrics: ['roas', 'cpi', 'installs', 'profit_cal'],
+      app: 'idle',
+    },
+  ];
+
+  const applyStoryPreset = (preset) => {
+    setReportsSplits([...preset.splits]);
+    setSelectedMetrics([...preset.metrics]);
+    setSelectedApp(preset.app || 'all');
+    setFilterCountry(preset.country || 'all');
+    setActiveReportFilters(preset.filters || ['app']);
+    setFilterManager(preset.manager || 'all');
+    setFilterCustomer('all');
+    setReportsCompare(!!preset.compare);
+    setActivePreset(preset.code);
+    setViewType('table');
+    setShowSavedViewsDD(false);
+  };
+
   const saveCurrentView = (name) => {
     const view = { name, splits: [...reportsSplits], metrics: [...selectedMetrics], app: selectedApp, country: filterCountry, ts: Date.now() };
     const updated = [...savedViews, view];
@@ -4873,22 +4989,57 @@ export default function MetricTree() {
                   <div className="relative">
                     <button
                       onClick={() => { setShowSavedViewsDD(!showSavedViewsDD); setShowExportDD(false); }}
-                      className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
+                      className={`h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                        activePreset ? 'bg-accent-12 border-accent-line text-ink' : 'bg-base border-line text-ink hover:border-ink-3'
+                      }`}
                     >
-                      {savedViews.length ? 'Presets (' + savedViews.length + ')' : 'No preset'}
+                      {activePreset
+                        ? <><span className="font-mono text-[11px] text-accent-deep">{activePreset}</span>{storyPresets.find(x => x.code === activePreset)?.name}</>
+                        : 'No preset'}
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-3"><path d="M6 9l6 6 6-6"/></svg>
                     </button>
                     {showSavedViewsDD && (
-                      <div className="absolute left-0 top-full mt-1.5 bg-base border border-line rounded-xl shadow-pop z-50 min-w-[220px] overflow-hidden">
-                        {savedViews.length === 0 && (
-                          <div className="px-3 py-2.5 text-xs text-ink-3">No saved presets</div>
-                        )}
-                        {savedViews.map((view, i) => (
-                          <div key={i} className="flex items-center gap-2 px-3 py-2 hover:bg-surface-2 group">
-                            <button onClick={() => loadSavedView(view)} className="flex-1 text-left text-xs text-ink">{view.name}</button>
-                            <button onClick={(e) => { e.stopPropagation(); deleteSavedView(i); }} className="text-[11px] text-ink-3 hover:text-error opacity-0 group-hover:opacity-100">×</button>
-                          </div>
+                      <div className="absolute left-0 top-full mt-1.5 bg-base border border-line rounded-xl shadow-pop z-50 w-[420px] max-h-[460px] overflow-y-auto">
+                        <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
+                          <span className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold">User story presets</span>
+                          {activePreset && (
+                            <button
+                              onClick={() => { setActivePreset(null); setShowSavedViewsDD(false); }}
+                              className="text-[11px] text-ink-3 hover:text-ink"
+                            >Clear</button>
+                          )}
+                        </div>
+                        {storyPresets.map(preset => (
+                          <button
+                            key={preset.code}
+                            onClick={() => applyStoryPreset(preset)}
+                            className={`w-full flex items-start gap-2.5 px-3 py-2 text-left hover:bg-surface-2 transition-colors ${
+                              activePreset === preset.code ? 'bg-accent-12' : ''
+                            }`}
+                          >
+                            <span className="shrink-0 mt-0.5 px-1.5 py-0.5 rounded font-mono text-[10px] bg-surface-2 border border-line text-ink-2">{preset.code}</span>
+                            <span className="min-w-0">
+                              <span className="block text-xs font-medium text-ink">{preset.name}</span>
+                              <span className="block text-[11px] text-ink-3 leading-snug">{preset.story}</span>
+                              {preset.note && (
+                                <span className="block text-[10px] mt-0.5" style={{ color: 'var(--warning)' }}>{preset.note}</span>
+                              )}
+                            </span>
+                            {activePreset === preset.code && <span className="ml-auto shrink-0 text-accent-deep">✓</span>}
+                          </button>
                         ))}
+                        <div className="border-t border-line mt-1">
+                          <div className="px-3 pt-2.5 pb-1.5 text-[10px] uppercase tracking-wider text-ink-3 font-semibold">My presets</div>
+                          {savedViews.length === 0 && (
+                            <div className="px-3 pb-2.5 text-[11px] text-ink-3">Пока ничего не сохранено — соберите отчёт и нажмите «Save preset»</div>
+                          )}
+                          {savedViews.map((view, i) => (
+                            <div key={i} className="flex items-center gap-2 px-3 py-2 hover:bg-surface-2 group">
+                              <button onClick={() => { loadSavedView(view); setActivePreset(null); }} className="flex-1 text-left text-xs text-ink">{view.name}</button>
+                              <button onClick={(e) => { e.stopPropagation(); deleteSavedView(i); }} className="text-[11px] text-ink-3 hover:text-error opacity-0 group-hover:opacity-100">×</button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -4926,7 +5077,7 @@ export default function MetricTree() {
                   <div className="flex-1"></div>
 
                   <button
-                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); }}
+                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); setActivePreset(null); setReportsCompare(false); }}
                     className="h-8 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
@@ -5470,7 +5621,10 @@ export default function MetricTree() {
               {viewType === 'table' && (() => {
                 const rows = buildReportsRows();
                 const searchLower = reportsSearch.toLowerCase();
-                const hasAdTypeSplit = reportsSplits.includes('adType');
+                const segSplitId = reportsSplits.find(id => id !== 'date' && splitSegments[id]);
+                const segSplitLabel = segSplitId
+                  ? sidebarDimensions.flatMap(g => g.items).find(i => i.id === segSplitId)?.label
+                  : null;
 
                 // Filter by search (C4)
                 const filtered = rows.filter(row => {
@@ -5528,7 +5682,7 @@ export default function MetricTree() {
                         <thead>
                           <tr className="border-b border-line bg-surface">
                             <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold sticky left-0 bg-surface z-10`}>
-                              {hasAdTypeSplit ? 'Period / Ad Type' : 'Period'}
+                              {segSplitLabel ? `Period / ${segSplitLabel}` : 'Period'}
                             </th>
                             {selectedMetrics.map(mid => {
                               const metric = allMetricsOptions.find(m => m.id === mid);
@@ -5643,8 +5797,9 @@ export default function MetricTree() {
               {/* D1: Stacked/Grouped Bar Chart */}
               {viewType === 'bar' && (() => {
                 const rows = buildReportsRows().filter(r => r._type === 'data');
-                const hasAdTypeSplit = reportsSplits.includes('adType');
-                const segments = hasAdTypeSplit ? ['Banner', 'Interstitial', 'Rewarded'] : ['Total'];
+                const segSplitId = reportsSplits.find(id => id !== 'date' && splitSegments[id]);
+                const hasAdTypeSplit = !!segSplitId;
+                const segments = hasAdTypeSplit ? splitSegments[segSplitId].map(([label]) => label) : ['Total'];
                 const periods = [...new Set(rows.map(r => r._group || r._label))];
 
                 return (
