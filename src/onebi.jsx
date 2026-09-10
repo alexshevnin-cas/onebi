@@ -770,7 +770,16 @@ export default function MetricTree() {
     const ab = getAbSegments(appData, appId);
     if (!ab) return null;
     const [control, test] = ab;
-    const days = Array.from({ length: AB_TEST_DAYS }, (_, i) => i + 1);
+    const endDate = new Date((filterDateTo || '2025-12-31') + 'T00:00:00');
+    const days = Array.from({ length: AB_TEST_DAYS }, (_, i) => {
+      const d = new Date(endDate);
+      d.setDate(endDate.getDate() - (AB_TEST_DAYS - 1 - i));
+      return {
+        n: i + 1,
+        date: d,
+        label: `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`,
+      };
+    });
 
     const seedOf = (str) => {
       let h = 2166136261;
@@ -6303,7 +6312,7 @@ export default function MetricTree() {
                 const { days, control, test, seriesFor } = series;
                 const metrics = selectedMetrics.filter(mid => metricKeyMap[mid] && control.metrics[mid] != null);
 
-                const W = 420, H = 170, padL = 52, padR = 12, padT = 14, padB = 26;
+                const W = 1400, H = 190, padL = 78, padR = 24, padT = 16, padB = 30;
                 const cW = W - padL - padR, cH = H - padT - padB;
 
                 return (
@@ -6316,10 +6325,10 @@ export default function MetricTree() {
                           {label}
                         </span>
                       ))}
-                      <span className="ml-auto text-[11px] text-ink-3">{days.length} days of test · {metrics.length} metrics</span>
+                      <span className="ml-auto text-[11px] text-ink-3">{days[0].label} — {days[days.length - 1].label} · {days.length} days · {metrics.length} metrics</span>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-x-6 gap-y-5">
+                    <div className="flex flex-col gap-6">
                       {metrics.map(mid => {
                         const mk = metricKeyMap[mid];
                         const name = allMetricsOptions.find(m => m.id === mid)?.name || mid;
@@ -6337,8 +6346,8 @@ export default function MetricTree() {
 
                         return (
                           <div key={mid} className="min-w-0">
-                            <div className="flex items-baseline gap-2 mb-1">
-                              <span className="text-xs font-medium text-ink truncate">{name}</span>
+                            <div className="flex items-baseline gap-2 mb-1.5">
+                              <span className="text-[13px] font-medium text-ink truncate">{name}</span>
                               <span className="text-[11px] tabular shrink-0" style={{ color: delta >= 0 ? 'var(--success)' : 'var(--error)' }}>
                                 {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
                               </span>
@@ -6348,7 +6357,7 @@ export default function MetricTree() {
                                 <g key={f}>
                                   <line x1={padL} y1={padT + cH * f} x2={W - padR} y2={padT + cH * f}
                                     stroke="var(--bg-surface-3)" strokeWidth="1" strokeDasharray="3 4" />
-                                  <text x={padL - 8} y={padT + cH * f + 4} fill="var(--text-muted)" fontSize="10" textAnchor="end" fontFamily="Geist">
+                                  <text x={padL - 10} y={padT + cH * f + 4} fill="var(--text-muted)" fontSize="11" textAnchor="end" fontFamily="Geist">
                                     {mk.fmt(hi - (hi - lo) * f)}
                                   </text>
                                 </g>
@@ -6357,16 +6366,16 @@ export default function MetricTree() {
                               <polyline fill="none" stroke="var(--accent-deep)" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" points={line(tVals)} />
                               {tVals.map((v, i) => (
                                 <circle key={i} cx={x(i)} cy={y(v)} r="2.6" fill="var(--accent-deep)">
-                                  <title>{`${test.label} · day ${days[i]}: ${mk.fmt(v)}`}</title>
+                                  <title>{`${test.label} · ${days[i].label}: ${mk.fmt(v)}`}</title>
                                 </circle>
                               ))}
                               {cVals.map((v, i) => (
                                 <circle key={'c' + i} cx={x(i)} cy={y(v)} r="2.2" fill="var(--text-secondary)">
-                                  <title>{`${control.label} · day ${days[i]}: ${mk.fmt(v)}`}</title>
+                                  <title>{`${control.label} · ${days[i].label}: ${mk.fmt(v)}`}</title>
                                 </circle>
                               ))}
-                              {days.map((d, i) => (i % 3 === 0 || i === days.length - 1) && (
-                                <text key={d} x={x(i)} y={H - 8} fill="var(--text-muted)" fontSize="10" textAnchor="middle" fontFamily="Geist">d{d}</text>
+                              {days.map((d, i) => (
+                                <text key={d.n} x={x(i)} y={H - 9} fill="var(--text-muted)" fontSize="11" textAnchor="middle" fontFamily="Geist">{d.label}</text>
                               ))}
                             </svg>
                           </div>
