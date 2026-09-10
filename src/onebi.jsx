@@ -358,45 +358,45 @@ export default function MetricTree() {
   const qvCardDefs = {
     PubC: [
       { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
-      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v), planned: true },
-      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4), planned: true },
+      { id: 'revenue', label: 'Ad Revenue', key: 'revenue', format: v => '$' + formatNum(v), planned: true },
+      { id: 'arpdau', label: 'Ad ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4), planned: true },
       { id: 'd1_ret', label: 'Retention D1', key: 'd1Retention', format: v => v.toFixed(1) + '%' },
     ],
     L1: [
       { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
       { id: 'impressions', label: 'Impressions', key: 'impressions', format: v => formatNum(v) },
-      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
-      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'revenue', label: 'Ad Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'arpdau', label: 'Ad ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
       { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
     ],
     L2: [
       { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
-      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
-      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'revenue', label: 'Ad Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'arpdau', label: 'Ad ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
       { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
       { id: 'fill_rate', label: 'Fill Rate', key: 'fillRate', format: v => v.toFixed(1) + '%' },
       { id: 'd1_ret', label: 'Retention D1', key: 'd1Retention', format: v => v.toFixed(1) + '%' },
     ],
     Pub: [
       { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
-      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
-      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'revenue', label: 'Ad Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'arpdau', label: 'Ad ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
       { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
       { id: 'ltv', label: 'LTV', key: 'ltv', format: v => '$' + v.toFixed(2) },
-      { id: 'roas', label: 'ROAS', key: 'roas', format: v => v + '%' },
+      { id: 'roas', label: 'ROAS D7 / D30', key: 'roas', format: v => v + '%' },
     ],
     Admin: [
       { id: 'dau', label: 'DAU', key: 'dau', format: v => formatNum(v) },
-      { id: 'revenue', label: 'Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
-      { id: 'arpdau', label: 'ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'revenue', label: 'Ad Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'arpdau', label: 'Ad ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
       { id: 'ecpm', label: 'eCPM', key: 'ecpm', format: v => '$' + v.toFixed(2) },
       { id: 'fill_rate', label: 'Fill Rate', key: 'fillRate', format: v => v.toFixed(1) + '%' },
       { id: 'iap_revenue', label: 'IAP Revenue', key: 'iapRevenue', format: v => '$' + formatNum(v) },
     ],
     BD: [
-      { id: 'revenue', label: 'Total Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
+      { id: 'revenue', label: 'Total Ad Revenue', key: 'revenue', format: v => '$' + formatNum(v) },
       { id: 'dau', label: 'Total DAU', key: 'dau', format: v => formatNum(v) },
-      { id: 'arpdau', label: 'Avg ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
+      { id: 'arpdau', label: 'Avg Ad ARPDAU', key: 'arpdau', format: v => '$' + v.toFixed(4) },
     ],
     Payments: [
       { id: 'revenue', label: 'Current Balance', key: 'revenue', format: v => '$' + formatNum(v) },
@@ -409,23 +409,76 @@ export default function MetricTree() {
   };
 
   // H4: Metric tooltips with formulas
+  // Описания и формулы — по 04-bi/metrics-dictionary.md (ref = ID метрики в словаре)
   const metricTooltips = {
-    dau: { desc: 'Daily Active Users', formula: 'Unique users per day' },
-    revenue: { desc: 'Ad Revenue', formula: 'Impressions × eCPM / 1000' },
-    arpdau: { desc: 'Average Revenue Per DAU', formula: 'Revenue / DAU' },
-    ecpm: { desc: 'Effective Cost Per Mille', formula: 'Revenue / Impressions × 1000' },
-    fill_rate: { desc: 'Fill Rate', formula: 'Filled Requests / Total Requests × 100' },
-    impressions: { desc: 'Total Ad Impressions', formula: 'Sum of all ad views' },
-    d1_retention: { desc: 'Day 1 Retention', formula: 'Users D1 / Installs × 100' },
-    d7_retention: { desc: 'Day 7 Retention', formula: 'Users D7 / Installs × 100' },
-    d30_retention: { desc: 'Day 30 Retention', formula: 'Users D30 / Installs × 100' },
-    ltv: { desc: 'Lifetime Value', formula: 'Cumulative ARPU over user lifetime' },
-    roas: { desc: 'Return on Ad Spend', formula: 'Revenue / UA Cost × 100' },
-    cpi: { desc: 'Cost Per Install', formula: 'UA Cost / Installs' },
-    iap_revenue: { desc: 'In-App Purchase Revenue', formula: 'Sum of all IAP transactions' },
-    iap_arpdau: { desc: 'IAP ARPDAU', formula: 'IAP Revenue / DAU' },
-    stickiness: { desc: 'Stickiness', formula: 'DAU / MAU × 100' },
-    impr_per_dau: { desc: 'Impressions per DAU', formula: 'Impressions / DAU' },
+    dau: { ref: 'm5', desc: 'Daily Active Users — среднее число уникальных активных пользователей в день за период', formula: 'COUNT DISTINCT active users per day' },
+    wau: { ref: '—', desc: 'Weekly Active Users (нет в словаре метрик)', formula: 'COUNT DISTINCT active users per week' },
+    mau: { ref: 'abs', desc: 'Monthly Active Users — base-метрика для Stickiness', formula: 'COUNT DISTINCT active users per month' },
+    sessions: { ref: 'm6', desc: 'Как часто пользователь заходит в игру', formula: 'Avg Sessions per User per Day' },
+    session_duration: { ref: 'm7', desc: 'Насколько «залипают» в игре', formula: 'Avg Session Length' },
+    sessions_per_user: { ref: 's5', desc: 'Сессий на пользователя', formula: 'Total sessions ÷ Active Users' },
+    time_per_user: { ref: 's4', desc: 'Время сессий на пользователя', formula: 'Total session time ÷ Active Users' },
+    ad_session_length: { ref: 's1', desc: 'Длина ad-сессии: от старта сессии до последнего показа', formula: 'SUM ad session duration ÷ Ad Sessions' },
+    impr_per_session: { ref: 's6', desc: 'Показов на сессию', formula: 'Total ad impressions ÷ Total sessions' },
+    session_count: { ref: 's7', desc: 'Всего сессий за период', formula: 'COUNT sessions' },
+    revenue: { ref: 'm13', desc: 'Сколько приносит реклама', formula: 'Σ Ad Revenue' },
+    arpdau: { ref: 'm38', desc: 'Сколько рекламной выручки в среднем приносит один DAU', formula: 'Ad Revenue ÷ DAU' },
+    ecpm: { ref: 'm20', desc: 'Сколько в среднем приносит 1 000 рекламных показов', formula: 'Revenue ÷ Impressions × 1000' },
+    fill_rate: { ref: 'm21', desc: 'Теряем ли показы из-за отсутствия спроса', formula: 'Fills ÷ Requests × 100' },
+    impressions: { ref: 'm46', desc: 'Сколько всего рекламных показов отображено', formula: 'COUNT ad impressions' },
+    impr_per_dau: { ref: 'm15', desc: 'Достаточно ли рекламы на пользователя', formula: 'Impressions ÷ DAU' },
+    iap_revenue: { ref: 'i3', desc: 'Сколько заработали на внутриигровых покупках', formula: 'Σ IAP revenue' },
+    iap_arpdau: { ref: 'm39', desc: 'Сколько IAP-выручки в среднем приносит один DAU', formula: 'IAP Revenue ÷ DAU' },
+    paying_users: { ref: 'i1', desc: 'Сколько платящих пользователей', formula: 'COUNT DISTINCT users with IAP purchase' },
+    purchases: { ref: 'i8', desc: 'Сколько покупок совершено', formula: 'COUNT IAP purchase transactions' },
+    iap_arppu: { ref: 'i12', desc: 'IAP-доход на платящего пользователя', formula: 'IAP Revenue ÷ Paying Users' },
+    impr_inter_daily: { ref: 'im2', desc: 'Сколько interstitial-показов получает пользователь в день', formula: 'Interstitial Impressions (Daily) ÷ Active Users' },
+    impr_reward_daily: { ref: 'im4', desc: 'Сколько rewarded-показов получает пользователь в день', formula: 'Rewarded Impressions (Daily) ÷ Active Users' },
+    impr_banner_daily: { ref: 'im6', desc: 'Сколько banner-показов получает пользователь в день', formula: 'Banner Impressions (Daily) ÷ Active Users' },
+    impr_mrec_daily: { ref: 'im8', desc: 'Сколько MREC-показов получает пользователь в день', formula: 'MREC Impressions (Daily) ÷ Active Users' },
+    ctr_inter: { ref: 'im10', desc: 'Насколько кликабельны interstitial-объявления', formula: 'Clicks_interstitial ÷ Impressions_interstitial × 100' },
+    ctr_reward: { ref: 'im19', desc: 'Насколько кликабелен rewarded video', formula: 'Clicks_rewarded ÷ Impressions_rewarded × 100' },
+    ctr_banner: { ref: 'im13', desc: 'Насколько кликабельны баннеры', formula: 'Clicks_banner ÷ Impressions_banner × 100' },
+    d1_retention: { ref: 'r1', desc: 'Зацепила ли игра', formula: 'Users D1 ÷ Users D0' },
+    d7_retention: { ref: 'r3', desc: 'Есть ли устойчивое удержание', formula: 'Users D7 ÷ Users D0' },
+    d14_retention: { ref: 'r4', desc: 'Остаются ли на второй неделе', formula: 'Users D14 ÷ Users D0' },
+    d30_retention: { ref: 'r5', desc: 'Остаются ли через месяц', formula: 'Users D30 ÷ Users D0' },
+    d60_retention: { ref: 'r6', desc: 'Долгосрочное удержание', formula: 'Users D60 ÷ Users D0' },
+    d90_retention: { ref: 'r7', desc: 'Удержание через квартал', formula: 'Users D90 ÷ Users D0' },
+    rolling_ret_d7: { ref: 'r8', desc: 'Сколько были активны хотя бы раз за неделю', formula: 'Users active D0–D7 ÷ Users D0' },
+    rolling_ret_d30: { ref: 'r9', desc: 'Сколько были активны хотя бы раз за месяц', formula: 'Users active D0–D30 ÷ Users D0' },
+    churn_d7: { ref: 'r10', desc: 'Какой процент теряем к 7 дню', formula: '1 − Retention D7' },
+    churn_d30: { ref: 'r11', desc: 'Какой процент теряем к 30 дню', formula: '1 − Retention D30' },
+    stickiness: { ref: 'r12', desc: 'Насколько часто пользователи возвращаются', formula: 'DAU ÷ MAU' },
+    avg_lifetime: { ref: 'r13', desc: 'Сколько дней в среднем живёт пользователь', formula: 'AVG active days per user' },
+    ltv: { ref: 'm12', desc: 'Сколько приносит пользователь за жизнь', formula: 'ARPDAU × Lifetime Days' },
+    time_per_user_lt: { ref: 'cs1', desc: 'Вовлечённость за весь жизненный цикл', formula: 'Lifetime Session Time ÷ Lifetime Active Users' },
+    sessions_per_user_lt: { ref: 'cs6', desc: 'Как часто пользователь возвращается за жизнь', formula: 'Lifetime Sessions ÷ Lifetime Active Users' },
+    time_per_user_daily: { ref: 'cs4', desc: 'Как меняется вовлечённость по дням жизни', formula: 'Daily Session Time ÷ Daily Cohort Active Users' },
+    sessions_per_user_daily: { ref: 'cs7', desc: 'Как меняется частота сессий по дням жизни', formula: 'Daily Sessions ÷ Daily Cohort Active Users' },
+    installs: { ref: 'm32', desc: 'Сколько привели пользователей', formula: 'New Users' },
+    cpi: { ref: 'm33', desc: 'Сколько стоит пользователь', formula: 'Cost ÷ Installs' },
+    roas: { ref: 'm34', desc: 'Окупается ли трафик', formula: 'Revenue ÷ Cost' },
+    roas_todate: { ref: 'm43', desc: 'Окупился ли трафик на текущий момент', formula: 'Cumulative Total Revenue ÷ UA Spend × 100%' },
+    profit_cal: { ref: 'm44', desc: 'Прибыльны ли мы за выбранный период', formula: 'Total Revenue − UA Spend' },
+    att_optin: { ref: 'm45', desc: 'Какой процент пользователей разрешает трекинг', formula: 'ATT Allow Users ÷ ATT Prompted Users × 100' },
+    mmp_installs: { ref: 'm65', desc: 'Сколько установок по данным MMP', formula: 'COUNT attributed installs (Adjust / AppsFlyer / Singular)' },
+    eroas_d60: { ref: 'm67', desc: 'Прогнозируемый ROAS на 60-й день', formula: 'Predicted Total Revenue D60 ÷ UA Spend' },
+    eroas_d365: { ref: 'm68', desc: 'Прогнозируемый ROAS на 365-й день', formula: 'Predicted Total Revenue D365 ÷ UA Spend' },
+    arpu_d7: { ref: 'm71', desc: 'Прогнозируемый ARPU на 7-й день', formula: 'Predicted Total Revenue D7 ÷ Cohort Installs' },
+    arpu_d14: { ref: 'm72', desc: 'Прогнозируемый ARPU на 14-й день', formula: 'Predicted Total Revenue D14 ÷ Cohort Installs' },
+    arpu_d30: { ref: 'm73', desc: 'Прогнозируемый ARPU на 30-й день', formula: 'Predicted Total Revenue D30 ÷ Cohort Installs' },
+    render_rate: { ref: 'n9', desc: 'Показывается ли загруженная реклама', formula: 'Rendered ÷ Loaded' },
+    bid_price: { ref: 'n7', desc: 'Сколько сеть готова платить', formula: 'AVG bid in auction' },
+    ctr_network: { ref: 'n8', desc: 'Качественный ли трафик сети', formula: 'Clicks_net ÷ Impr_net' },
+    bidding_share: { ref: 'n10', desc: 'Что эффективнее — bidding или waterfall', formula: 'Revenue split by auction type' },
+    rev_by_sdk: { ref: 'd1', desc: 'Как повлияло обновление SDK на выручку', formula: 'SUM ad revenue by sdk_version' },
+    rev_by_platform: { ref: 'd6', desc: 'Какая медиация приносит больше', formula: 'SUM ad revenue by mediation_platform' },
+    ecpm_by_platform: { ref: 'd7', desc: 'Какая медиация платит лучше', formula: 'Revenue ÷ Impressions × 1000 by mediation_platform' },
+    anomaly_flag: { ref: 'd3', desc: 'Где данные не поступали или резко упали', formula: 'Автоматическая метка аномальных дней' },
+    network_gap: { ref: 'd4', desc: 'Какая сеть отваливалась', formula: 'COUNT дней без данных от сети' },
+    dau_discrepancy: { ref: 'd5', desc: 'Корректно ли считается DAU', formula: 'CAS DAU − Firebase/GA DAU' },
+    d1_ret: { ref: 'r1', desc: 'Зацепила ли игра', formula: 'Users D1 ÷ Users D0' },
   };
 
   // G5: BD mock client data
@@ -604,7 +657,7 @@ export default function MetricTree() {
 
   // Reports table — build rows from dashboardData based on splits & measures
   const pctFmt = v => v?.toFixed(1) + '%';
-  const dolFmt = v => '$' + v?.toFixed(2);
+  const dolFmt = v => '$' + v?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const numFmt = v => formatNum(v);
   const decFmt = v => v?.toFixed(1);
   const mk = (key, fmt, isNum = true) => ({ key, fmt, isNum });
@@ -622,7 +675,7 @@ export default function MetricTree() {
     impr_per_session: mk('imprPerSession', decFmt),
     session_count: mk('sessionCount', numFmt),
     // Monetisation
-    revenue: mk('revenue', v => '$' + (v >= 1000 ? formatNum(v) : v?.toFixed(2))),
+    revenue: mk('revenue', dolFmt),
     arpdau: mk('arpdau', v => '$' + v?.toFixed(4)),
     ecpm: mk('ecpm', dolFmt),
     fill_rate: mk('fillRate', pctFmt),
@@ -982,84 +1035,84 @@ export default function MetricTree() {
   const countries = ['all', 'US', 'GB', 'DE', 'FR', 'JP', 'KR', 'BR', 'IN', 'RU'];
   const allMetricsOptions = [
     // Engagement
-    { id: 'dau', name: 'DAU', section: 'engagement' },
-    { id: 'wau', name: 'WAU', section: 'engagement' },
-    { id: 'mau', name: 'MAU', section: 'engagement' },
-    { id: 'sessions', name: 'Sessions', section: 'engagement' },
-    { id: 'session_duration', name: 'Duration', section: 'engagement' },
+    { id: 'dau', name: 'DAU', ref: 'm5', section: 'engagement' },
+    { id: 'wau', name: 'WAU', ref: '—', section: 'engagement' },
+    { id: 'mau', name: 'MAU', ref: 'abs', section: 'engagement' },
+    { id: 'sessions', name: 'AVG Session Count', ref: 'm6', section: 'engagement' },
+    { id: 'session_duration', name: 'AVG Session Duration', ref: 'm7', section: 'engagement' },
     // F2: Session extended
-    { id: 'sessions_per_user', name: 'Sessions/User', section: 'engagement' },
-    { id: 'time_per_user', name: 'Time/User', section: 'engagement' },
-    { id: 'ad_session_length', name: 'Ad Session Len', section: 'engagement' },
-    { id: 'impr_per_session', name: 'Impr/Session', section: 'engagement' },
-    { id: 'session_count', name: 'Session Count', section: 'engagement' },
+    { id: 'sessions_per_user', name: 'Sessions per User', ref: 's5', section: 'engagement' },
+    { id: 'time_per_user', name: 'Time per User', ref: 's4', section: 'engagement' },
+    { id: 'ad_session_length', name: 'Ad Session Length', ref: 's1', section: 'engagement' },
+    { id: 'impr_per_session', name: 'Impressions per Session', ref: 's6', section: 'engagement' },
+    { id: 'session_count', name: 'Session Count (Total)', ref: 's7', section: 'engagement' },
     // Monetisation
-    { id: 'revenue', name: 'Revenue', section: 'monetisation' },
-    { id: 'arpdau', name: 'ARPDAU', section: 'monetisation' },
-    { id: 'ecpm', name: 'eCPM', section: 'monetisation' },
-    { id: 'fill_rate', name: 'Fill Rate', section: 'monetisation' },
-    { id: 'impressions', name: 'Impr', section: 'monetisation' },
-    { id: 'impr_per_dau', name: 'Impr/DAU', section: 'monetisation' },
+    { id: 'revenue', name: 'Ad Revenue', ref: 'm13', section: 'monetisation' },
+    { id: 'arpdau', name: 'Ad ARPDAU', ref: 'm38', section: 'monetisation' },
+    { id: 'ecpm', name: 'eCPM', ref: 'm20', section: 'monetisation' },
+    { id: 'fill_rate', name: 'Fill Rate', ref: 'm21', section: 'monetisation' },
+    { id: 'impressions', name: 'Impressions', ref: 'm46', section: 'monetisation' },
+    { id: 'impr_per_dau', name: 'Impressions / DAU', ref: 'm15', section: 'monetisation' },
     // F1: IAP
-    { id: 'iap_revenue', name: 'IAP Revenue', section: 'monetisation' },
-    { id: 'iap_arpdau', name: 'IAP ARPDAU', section: 'monetisation' },
-    { id: 'paying_users', name: 'Paying Users', section: 'monetisation' },
-    { id: 'purchases', name: 'Purchases', section: 'monetisation' },
-    { id: 'iap_arppu', name: 'IAP ARPPU', section: 'monetisation' },
+    { id: 'iap_revenue', name: 'IAP Revenue', ref: 'i3', section: 'monetisation' },
+    { id: 'iap_arpdau', name: 'IAP ARPDAU', ref: 'm39', section: 'monetisation' },
+    { id: 'paying_users', name: 'Paying Users', ref: 'i1', section: 'monetisation' },
+    { id: 'purchases', name: 'Number of Purchases', ref: 'i8', section: 'monetisation' },
+    { id: 'iap_arppu', name: 'IAP ARPPU', ref: 'i12', section: 'monetisation' },
     // F5: Impressions by Ad Type
-    { id: 'impr_inter_daily', name: 'Inter Impr/Day', section: 'impressions' },
-    { id: 'impr_reward_daily', name: 'Reward Impr/Day', section: 'impressions' },
-    { id: 'impr_banner_daily', name: 'Banner Impr/Day', section: 'impressions' },
-    { id: 'impr_mrec_daily', name: 'MREC Impr/Day', section: 'impressions' },
-    { id: 'ctr_inter', name: 'CTR Inter', section: 'impressions' },
-    { id: 'ctr_reward', name: 'CTR Reward', section: 'impressions' },
-    { id: 'ctr_banner', name: 'CTR Banner', section: 'impressions' },
+    { id: 'impr_inter_daily', name: 'Impressions per User — Interstitial (Daily)', ref: 'im2', section: 'impressions' },
+    { id: 'impr_reward_daily', name: 'Impressions per User — Rewarded Video (Daily)', ref: 'im4', section: 'impressions' },
+    { id: 'impr_banner_daily', name: 'Impressions per User — Banner (Daily)', ref: 'im6', section: 'impressions' },
+    { id: 'impr_mrec_daily', name: 'Impressions per User — MREC (Daily)', ref: 'im8', section: 'impressions' },
+    { id: 'ctr_inter', name: 'CTR — Interstitial', ref: 'im10', section: 'impressions' },
+    { id: 'ctr_reward', name: 'CTR — Rewarded Video', ref: 'im19', section: 'impressions' },
+    { id: 'ctr_banner', name: 'CTR — Banner', ref: 'im13', section: 'impressions' },
     // Cohort / Retention
-    { id: 'd1_retention', name: 'D1 Ret', section: 'cohort' },
-    { id: 'd7_retention', name: 'D7 Ret', section: 'cohort' },
-    { id: 'd30_retention', name: 'D30 Ret', section: 'cohort' },
-    { id: 'ltv', name: 'LTV', section: 'cohort' },
+    { id: 'd1_retention', name: 'Retention D1', ref: 'r1', section: 'cohort' },
+    { id: 'd7_retention', name: 'Retention D7', ref: 'r3', section: 'cohort' },
+    { id: 'd30_retention', name: 'Retention D30', ref: 'r5', section: 'cohort' },
+    { id: 'ltv', name: 'LTV', ref: 'm12', section: 'cohort' },
     // F3: Retention extended
-    { id: 'd14_retention', name: 'D14 Ret', section: 'cohort' },
-    { id: 'd60_retention', name: 'D60 Ret', section: 'cohort' },
-    { id: 'd90_retention', name: 'D90 Ret', section: 'cohort' },
-    { id: 'rolling_ret_d7', name: 'Roll Ret D7', section: 'cohort' },
-    { id: 'rolling_ret_d30', name: 'Roll Ret D30', section: 'cohort' },
-    { id: 'churn_d7', name: 'Churn D7', section: 'cohort' },
-    { id: 'churn_d30', name: 'Churn D30', section: 'cohort' },
-    { id: 'stickiness', name: 'Stickiness', section: 'cohort' },
-    { id: 'avg_lifetime', name: 'Avg Lifetime', section: 'cohort' },
+    { id: 'd14_retention', name: 'Retention D14', ref: 'r4', section: 'cohort' },
+    { id: 'd60_retention', name: 'Retention D60', ref: 'r6', section: 'cohort' },
+    { id: 'd90_retention', name: 'Retention D90', ref: 'r7', section: 'cohort' },
+    { id: 'rolling_ret_d7', name: 'Rolling Retention D7', ref: 'r8', section: 'cohort' },
+    { id: 'rolling_ret_d30', name: 'Rolling Retention D30', ref: 'r9', section: 'cohort' },
+    { id: 'churn_d7', name: 'Churn Rate D7', ref: 'r10', section: 'cohort' },
+    { id: 'churn_d30', name: 'Churn Rate D30', ref: 'r11', section: 'cohort' },
+    { id: 'stickiness', name: 'Stickiness', ref: 'r12', section: 'cohort' },
+    { id: 'avg_lifetime', name: 'Avg Lifetime Days', ref: 'r13', section: 'cohort' },
     // F4: Cohort Session
-    { id: 'time_per_user_lt', name: 'Time/User LT', section: 'cohort' },
-    { id: 'sessions_per_user_lt', name: 'Sess/User LT', section: 'cohort' },
-    { id: 'time_per_user_daily', name: 'Time/User Daily', section: 'cohort' },
-    { id: 'sessions_per_user_daily', name: 'Sess/User Daily', section: 'cohort' },
+    { id: 'time_per_user_lt', name: 'Time per User (Lifetime)', ref: 'cs1', section: 'cohort' },
+    { id: 'sessions_per_user_lt', name: 'Sessions per User — Lifetime', ref: 'cs6', section: 'cohort' },
+    { id: 'time_per_user_daily', name: 'Time per User — Daily', ref: 'cs4', section: 'cohort' },
+    { id: 'sessions_per_user_daily', name: 'Sessions per User — Daily', ref: 'cs7', section: 'cohort' },
     // UA
-    { id: 'installs', name: 'Installs', section: 'ua' },
-    { id: 'cpi', name: 'CPI', section: 'ua' },
-    { id: 'roas', name: 'ROAS', section: 'ua' },
+    { id: 'installs', name: 'Installs', ref: 'm32', section: 'ua' },
+    { id: 'cpi', name: 'CPI', ref: 'm33', section: 'ua' },
+    { id: 'roas', name: 'ROAS D7 / D30', ref: 'm34', section: 'ua' },
     // F8: UA extended
-    { id: 'roas_todate', name: 'ROAS To-Date', section: 'ua' },
-    { id: 'profit_cal', name: 'Profit Calendar', section: 'ua' },
-    { id: 'att_optin', name: 'ATT Opt-In', section: 'ua' },
-    { id: 'mmp_installs', name: 'MMP Installs', section: 'ua' },
-    { id: 'eroas_d60', name: 'eROAS D60', section: 'ua' },
-    { id: 'eroas_d365', name: 'eROAS D365', section: 'ua' },
-    { id: 'arpu_d7', name: 'ARPU D7', section: 'ua' },
-    { id: 'arpu_d14', name: 'ARPU D14', section: 'ua' },
-    { id: 'arpu_d30', name: 'ARPU D30', section: 'ua' },
+    { id: 'roas_todate', name: 'ROAS, To-Date', ref: 'm43', section: 'ua' },
+    { id: 'profit_cal', name: 'Profit (Calendar)', ref: 'm44', section: 'ua' },
+    { id: 'att_optin', name: 'ATT Opt-In Rate', ref: 'm45', section: 'ua' },
+    { id: 'mmp_installs', name: 'MMP Installs', ref: 'm65', section: 'ua' },
+    { id: 'eroas_d60', name: 'eROAS Forecast D60', ref: 'm67', section: 'ua' },
+    { id: 'eroas_d365', name: 'eROAS Forecast D365', ref: 'm68', section: 'ua' },
+    { id: 'arpu_d7', name: 'ARPU Forecast D7', ref: 'm71', section: 'ua' },
+    { id: 'arpu_d14', name: 'ARPU Forecast D14', ref: 'm72', section: 'ua' },
+    { id: 'arpu_d30', name: 'ARPU Forecast D30', ref: 'm73', section: 'ua' },
     // F6: Network advanced (displayed in network table, also selectable)
-    { id: 'render_rate', name: 'Render Rate', section: 'network' },
-    { id: 'bid_price', name: 'Bid Price', section: 'network' },
-    { id: 'ctr_network', name: 'CTR Network', section: 'network' },
-    { id: 'bidding_share', name: 'Bidding %', section: 'network' },
+    { id: 'render_rate', name: 'Network Render Rate', ref: 'n9', section: 'network' },
+    { id: 'bid_price', name: 'Network Bid Price', ref: 'n7', section: 'network' },
+    { id: 'ctr_network', name: 'Network CTR', ref: 'n8', section: 'network' },
+    { id: 'bidding_share', name: 'Bidding vs Waterfall', ref: 'n10', section: 'network' },
     // F7: Diagnostic
-    { id: 'rev_by_sdk', name: 'Rev by SDK', section: 'diagnostic' },
-    { id: 'rev_by_platform', name: 'Rev by Platform', section: 'diagnostic' },
-    { id: 'ecpm_by_platform', name: 'eCPM by Platform', section: 'diagnostic' },
-    { id: 'anomaly_flag', name: 'Anomaly Flag', section: 'diagnostic' },
-    { id: 'network_gap', name: 'Network Gap', section: 'diagnostic' },
-    { id: 'dau_discrepancy', name: 'DAU Discrep.', section: 'diagnostic' },
+    { id: 'rev_by_sdk', name: 'Revenue by SDK Version', ref: 'd1', section: 'diagnostic' },
+    { id: 'rev_by_platform', name: 'Revenue by Mediation Platform', ref: 'd6', section: 'diagnostic' },
+    { id: 'ecpm_by_platform', name: 'eCPM by Mediation Platform', ref: 'd7', section: 'diagnostic' },
+    { id: 'anomaly_flag', name: 'Anomaly Flag', ref: 'd3', section: 'diagnostic' },
+    { id: 'network_gap', name: 'Network Data Gap', ref: 'd4', section: 'diagnostic' },
+    { id: 'dau_discrepancy', name: 'DAU Discrepancy', ref: 'd5', section: 'diagnostic' },
   ];
 
   // Available metrics that can be added to tables
@@ -4530,7 +4583,7 @@ export default function MetricTree() {
                   <div className="bg-base border border-line rounded-card p-5">
                     <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
                       <div className="flex items-center gap-2.5">
-                        <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink">Revenue</h3>
+                        <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink">Ad Revenue</h3>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-ink-3"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
                         <span className="px-2.5 py-1 rounded-md bg-accent-12 text-[11px] font-medium text-ink-2">
                           {trend.length ? `${trend[0].label} — ${trend[trend.length - 1].label}` : '—'}
@@ -4664,7 +4717,7 @@ export default function MetricTree() {
                         >
                           <div className="flex items-center gap-1.5 mb-2">
                             <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-2">{card.label}</span>
-                            <span title={metricTooltips[card.id] ? `${metricTooltips[card.id].desc}\n= ${metricTooltips[card.id].formula}` : card.label}>
+                            <span title={metricTooltips[card.id] ? `${metricTooltips[card.id].desc}\n= ${metricTooltips[card.id].formula}\nMetrics Dictionary: ${metricTooltips[card.id].ref}` : card.label}>
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-ink-3"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
                             </span>
                           </div>
@@ -4764,7 +4817,7 @@ export default function MetricTree() {
                         <thead>
                           <tr className="border-b border-line">
                             <th className="py-2 pr-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3">App</th>
-                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">Revenue</th>
+                            <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">Ad Revenue</th>
                             <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">eCPM</th>
                             <th className="py-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-3 text-right">DAU</th>
                             <th className="py-2 pl-3"></th>
@@ -5283,7 +5336,7 @@ export default function MetricTree() {
                                     <button
                                       key={m.id}
                                       onClick={() => { on ? setSelectedMetrics(selectedMetrics.filter(x => x !== m.id)) : addMeasure(m.id); }}
-                                      title={tip ? `${tip.desc}\n= ${tip.formula}` : undefined}
+                                      title={tip ? `${tip.desc}\n= ${tip.formula}\nMetrics Dictionary: ${tip.ref}` : undefined}
                                       className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[13px] hover:bg-surface-2 ${on ? 'text-ink font-medium' : 'text-ink-2'}`}
                                     >
                                       {m.name}
@@ -5488,7 +5541,7 @@ export default function MetricTree() {
                                   onDragOver={(e) => handleColumnDragOver(e, mid)}
                                   onDragEnd={handleColumnDragEnd}
                                   className={`text-right ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap cursor-grab active:cursor-grabbing select-none ${draggedColumn === mid ? 'opacity-40' : ''} ${tip ? 'cursor-help' : ''}`}
-                                  title={tip ? `${tip.desc}\n= ${tip.formula}` : undefined}
+                                  title={tip ? `${tip.desc}\n= ${tip.formula}\nMetrics Dictionary: ${tip.ref}` : undefined}
                                 >
                                   {metric?.name || mid}
                                 </th>
