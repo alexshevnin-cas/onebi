@@ -28,8 +28,8 @@ export default function MetricTree() {
   // BI Filter States
   const [filterDateFrom, setFilterDateFrom] = useState('2025-12-01');
   const [filterDateTo, setFilterDateTo] = useState('2025-12-31');
-  const [filterAppVersion, setFilterAppVersion] = useState('all');
-  const [filterSdkVersion, setFilterSdkVersion] = useState('all');
+  const [filterSdkVersions, setFilterSdkVersions] = useState([]); // пусто = все версии
+  const [showSdkVersionDropdown, setShowSdkVersionDropdown] = useState(false);
   const [filterCountry, setFilterCountry] = useState('all');
   const [breakdownType, setBreakdownType] = useState('month');
   const [selectedMetrics, setSelectedMetrics] = useState(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']);
@@ -732,11 +732,23 @@ export default function MetricTree() {
     dau_discrepancy: mk('dauDiscrepancy', pctFmt),
   };
 
+  // Версии SDK, доступные для фильтра: по выбранному приложению или по всем
+  const getSdkVersionOptions = () => {
+    const ids = selectedApp === 'all' ? realAppIds : [selectedApp];
+    const acc = new Map();
+    ids.forEach(id => (dashboardData[id]?.sdkVersionTable || []).forEach(v => {
+      acc.set(v.version, (acc.get(v.version) || 0) + v.dauShare / (ids.length || 1));
+    }));
+    return [...acc.entries()].map(([version, share]) => ({ version, share }));
+  };
+
   // Разбивки по версиям берут значения из sdkVersionTable приложения
   const versionSplitKeys = { appVersion: 'appVersion', sdkVersion: 'version' };
 
   const getVersionSegments = (appData, splitId) => {
-    const table = appData?.sdkVersionTable || [];
+    const all = appData?.sdkVersionTable || [];
+    // фильтр по версиям SDK сужает и разбивку, и итоги
+    const table = filterSdkVersions.length ? all.filter(v => filterSdkVersions.includes(v.version)) : all;
     const field = versionSplitKeys[splitId];
     if (!table.length || !field) return null;
     // у одной версии SDK может быть несколько версий приложения — складываем
@@ -805,6 +817,13 @@ export default function MetricTree() {
 
     let dauScale = 1.0;
     let revScale = 1.0;
+    if (filterSdkVersions.length) {
+      const table = d.sdkVersionTable || [];
+      const share = table
+        .filter(v => filterSdkVersions.includes(v.version))
+        .reduce((sum, v) => sum + v.dauShare, 0) / 100;
+      if (share > 0) { dauScale *= share; revScale *= share; }
+    }
     if (filterManager !== 'all') {
       const mm = managerMultipliers[filterManager] || 1.0;
       dauScale *= mm;
@@ -1142,6 +1161,7 @@ export default function MetricTree() {
     setActiveReportFilters(preset.filters || ['app']);
     setFilterManager(preset.manager || 'all');
     setFilterCustomer('all');
+    setFilterSdkVersions(preset.sdkVersions || []);
     setReportsCompare(!!preset.compare);
     setActivePreset(preset.code);
     setViewType('table');
@@ -1695,7 +1715,8 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 3.9.2', appVersion: '2.4.1', dau: 89200, dauShare: 53, sessions: 3.6, duration: 9.4, revenue: 4125, arpdau: 0.0463, imprPerDau: 8.2, ecpm: 5.65, fillRate: 97.2 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '2.4.1', dau: 6740, dauShare: 4, sessions: 3.7, duration: 9.6, revenue: 323, arpdau: 0.0479, imprPerDau: 8.4, ecpm: 5.86, fillRate: 97.6 },
+        { version: 'CAS 3.9.2', appVersion: '2.4.1', dau: 82460, dauShare: 49, sessions: 3.6, duration: 9.4, revenue: 4125, arpdau: 0.0463, imprPerDau: 8.2, ecpm: 5.65, fillRate: 97.2 },
         { version: 'CAS 3.8.5', appVersion: '2.3.8', dau: 52400, dauShare: 31, sessions: 3.4, duration: 9.0, revenue: 2280, arpdau: 0.0435, imprPerDau: 7.8, ecpm: 5.58, fillRate: 96.8 },
         { version: 'CAS 3.7.1', appVersion: '2.2.0', dau: 18600, dauShare: 11, sessions: 3.2, duration: 8.5, revenue: 695, arpdau: 0.0374, imprPerDau: 7.2, ecpm: 5.19, fillRate: 95.1 },
         { version: 'CAS 3.6.0', appVersion: '2.1.x', dau: 8300, dauShare: 5, sessions: 3.0, duration: 8.1, revenue: 195, arpdau: 0.0235, imprPerDau: 6.5, ecpm: 3.62, fillRate: 91.4 },
@@ -1734,7 +1755,8 @@ export default function MetricTree() {
         { network: 'Bigo Ads', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 3.9.2', appVersion: '4.2.0', dau: 74700, dauShare: 46, sessions: 3.1, duration: 7.8, revenue: 2385, arpdau: 0.0319, imprPerDau: 8.6, ecpm: 3.62, fillRate: 92.4 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '4.2.0', dau: 6496, dauShare: 4, sessions: 3.2, duration: 8.0, revenue: 244, arpdau: 0.0376, imprPerDau: 8.7, ecpm: 4.32, fillRate: 94.1 },
+        { version: 'CAS 3.9.2', appVersion: '4.2.0', dau: 68204, dauShare: 42, sessions: 3.1, duration: 7.8, revenue: 2385, arpdau: 0.0319, imprPerDau: 8.6, ecpm: 3.62, fillRate: 92.4 },
         { version: 'CAS 3.9.2', appVersion: '4.1.3', dau: 50300, dauShare: 31, sessions: 3.3, duration: 8.4, revenue: 2166, arpdau: 0.0431, imprPerDau: 8.4, ecpm: 5.14, fillRate: 96.2 },
         { version: 'CAS 3.8.5', appVersion: '4.0.7', dau: 24400, dauShare: 15, sessions: 3.4, duration: 8.7, revenue: 1052, arpdau: 0.0431, imprPerDau: 8.3, ecpm: 5.21, fillRate: 96.5 },
         { version: 'CAS 3.7.1', appVersion: '3.9.5', dau: 13000, dauShare: 8, sessions: 3.4, duration: 8.8, revenue: 215, arpdau: 0.0165, imprPerDau: 6.9, ecpm: 2.41, fillRate: 88.1 },
@@ -1798,7 +1820,8 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 3.9.2', appVersion: '1.8.0', dau: 62400, dauShare: 55, sessions: 4.6, duration: 14.2, revenue: 4520, arpdau: 0.0724, imprPerDau: 9.4, ecpm: 7.70, fillRate: 95.8 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '1.8.0', dau: 4512, dauShare: 4, sessions: 4.7, duration: 14.5, revenue: 338, arpdau: 0.0749, imprPerDau: 9.6, ecpm: 7.98, fillRate: 96.3 },
+        { version: 'CAS 3.9.2', appVersion: '1.8.0', dau: 57888, dauShare: 51, sessions: 4.6, duration: 14.2, revenue: 4520, arpdau: 0.0724, imprPerDau: 9.4, ecpm: 7.70, fillRate: 95.8 },
         { version: 'CAS 3.9.0', appVersion: '1.7.5', dau: 31200, dauShare: 28, sessions: 4.4, duration: 13.8, revenue: 2105, arpdau: 0.0675, imprPerDau: 9.0, ecpm: 7.50, fillRate: 94.5 },
         { version: 'CAS 3.8.2', appVersion: '1.6.x', dau: 14100, dauShare: 12, sessions: 4.2, duration: 13.2, revenue: 682, arpdau: 0.0484, imprPerDau: 8.4, ecpm: 5.76, fillRate: 92.8 },
         { version: 'CAS 3.7.x', appVersion: '1.5.x', dau: 5100, dauShare: 5, sessions: 3.9, duration: 12.5, revenue: 105, arpdau: 0.0206, imprPerDau: 7.2, ecpm: 2.86, fillRate: 88.2 },
@@ -1862,7 +1885,8 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1260000, dauShare: 60, sessions: 2.7, duration: 5.0, revenue: 11200, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '3.2.1', dau: 84000, dauShare: 4, sessions: 2.8, duration: 5.2, revenue: 3092, arpdau: 0.0368, imprPerDau: 8.6, ecpm: 4.39, fillRate: 94.2 },
+        { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1176000, dauShare: 56, sessions: 2.7, duration: 5.0, revenue: 11200, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
         { version: 'CAS 3.9.0', appVersion: '3.1.8', dau: 525000, dauShare: 25, sessions: 2.5, duration: 4.6, revenue: 4180, arpdau: 0.0318, imprPerDau: 7.8, ecpm: 4.08, fillRate: 92.1 },
         { version: 'CAS 3.8.x', appVersion: '3.0.x', dau: 231000, dauShare: 11, sessions: 2.4, duration: 4.4, revenue: 1520, arpdau: 0.0263, imprPerDau: 7.2, ecpm: 3.65, fillRate: 89.8 },
         { version: 'CAS 3.6.x', appVersion: '2.x', dau: 84000, dauShare: 4, sessions: 2.2, duration: 4.0, revenue: 540, arpdau: 0.0257, imprPerDau: 6.8, ecpm: 3.78, fillRate: 87.2 },
@@ -5124,7 +5148,7 @@ export default function MetricTree() {
                         <div className="border-t border-line mt-1">
                           <div className="px-3 pt-2.5 pb-1.5 text-[10px] uppercase tracking-wider text-ink-3 font-semibold">My presets</div>
                           {savedViews.length === 0 && (
-                            <div className="px-3 pb-2.5 text-[11px] text-ink-3">Пока ничего не сохранено — соберите отчёт и нажмите «Save preset»</div>
+                            <div className="px-3 pb-2.5 text-[11px] text-ink-3">Nothing saved yet — build a report and hit «Save preset»</div>
                           )}
                           {savedViews.map((view, i) => (
                             <div key={i} className="flex items-center gap-2 px-3 py-2 hover:bg-surface-2 group">
@@ -5170,7 +5194,7 @@ export default function MetricTree() {
                   <div className="flex-1"></div>
 
                   <button
-                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); setActivePreset(null); setReportsCompare(false); }}
+                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); setActivePreset(null); setReportsCompare(false); setFilterSdkVersions([]); }}
                     className="h-8 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
@@ -5444,6 +5468,71 @@ export default function MetricTree() {
                         </div>
                       )}
 
+                      {/* SDK Version filter chip — множественный выбор */}
+                      {activeReportFilters.includes('sdkVersion') && (
+                        <div className="relative">
+                          <button
+                            onClick={() => { setShowSdkVersionDropdown(!showSdkVersionDropdown); setShowManagerDropdown(false); setShowCustomerDropdown(false); }}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-accent-12 text-ink border border-accent-line hover:brightness-95 cursor-pointer"
+                          >
+                            SDK Version: {
+                              filterSdkVersions.length === 0 ? 'All'
+                                : filterSdkVersions.length === 1 ? filterSdkVersions[0]
+                                : `${filterSdkVersions.length} selected`
+                            }
+                            <span className="text-ink-3">▾</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'sdkVersion')); setFilterSdkVersions([]); }}
+                              className="text-ink-3 hover:text-ink ml-0.5"
+                            >×</button>
+                          </button>
+                          {showSdkVersionDropdown && (
+                            <div className="absolute left-0 top-full mt-1.5 bg-base border border-line rounded-xl shadow-pop z-50 min-w-[240px] overflow-hidden">
+                              <div className="flex items-center justify-between px-3 py-2 border-b border-line">
+                                <span className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold">Select versions</span>
+                                <button
+                                  onClick={() => setFilterSdkVersions([])}
+                                  className="text-[11px] text-ink-3 hover:text-ink"
+                                >All</button>
+                              </div>
+                              <div className="max-h-64 overflow-y-auto py-1">
+                                {getSdkVersionOptions().map(({ version, share }) => {
+                                  const on = filterSdkVersions.includes(version);
+                                  const isBeta = /beta/i.test(version);
+                                  return (
+                                    <button
+                                      key={version}
+                                      onClick={() => setFilterSdkVersions(on
+                                        ? filterSdkVersions.filter(v => v !== version)
+                                        : [...filterSdkVersions, version])}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-surface-2"
+                                    >
+                                      <span className={`w-4 h-4 shrink-0 rounded border flex items-center justify-center ${
+                                        on ? 'bg-accent border-accent-line' : 'bg-base border-line'
+                                      }`}>
+                                        {on && (
+                                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l5 5L19 7"/></svg>
+                                        )}
+                                      </span>
+                                      <span className={on ? 'text-ink font-medium' : 'text-ink-2'}>{version}</span>
+                                      {isBeta && (
+                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'var(--warning-subtle)', color: 'var(--warning)' }}>beta</span>
+                                      )}
+                                      <span className="ml-auto text-[11px] text-ink-3 tabular">{Math.round(share)}%</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {filterSdkVersions.length > 0 && (
+                                <div className="px-3 py-2 border-t border-line text-[11px] text-ink-3">
+                                  {filterSdkVersions.length} of {getSdkVersionOptions().length} selected
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* + Filter button with dropdown */}
                       <div className="relative">
                         <button
@@ -5459,6 +5548,7 @@ export default function MetricTree() {
                               { id: 'country', label: 'Country' },
                               { id: 'manager', label: 'Manager' },
                               { id: 'customer', label: 'Customer' },
+                              { id: 'sdkVersion', label: 'SDK Version' },
                               { id: 'dateCreated', label: 'Date Created' },
                             ].filter(f => !activeReportFilters.includes(f.id)).map(f => (
                               <button
@@ -5469,7 +5559,7 @@ export default function MetricTree() {
                                 {f.label}
                               </button>
                             ))}
-                            {activeReportFilters.length >= 5 && (
+                            {activeReportFilters.length >= 6 && (
                               <div className="px-3 py-2 text-[10px] text-ink-3">All filters added</div>
                             )}
                           </div>
