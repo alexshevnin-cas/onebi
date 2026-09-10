@@ -5869,9 +5869,7 @@ export default function MetricTree() {
                   <span className="w-1 h-4 rounded-full bg-accent"></span>
                   <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink">Results</span>
                   <span className="px-2 py-0.5 rounded-md bg-accent-12 border border-accent-line font-mono text-[11px] text-ink tabular">
-                    {reportsSplits.includes('abGroup')
-                      ? selectedMetrics.filter(mid => metricKeyMap[mid]).length + ' metrics'
-                      : buildReportsRows().filter(r => r._type === 'data').length + ' rows'}
+                    {buildReportsRows().filter(r => r._type === 'data').length} rows
                   </span>
                 </span>
 
@@ -5977,61 +5975,8 @@ export default function MetricTree() {
                 </div>
               </div>
 
-              {/* Сравнение A/B-групп: метрики идут строками, группы — колонками */}
-              {viewType === 'table' && reportsSplits.includes('abGroup') && (() => {
-                const appId = selectedApp === 'all' ? 'puzzle' : selectedApp;
-                const ab = getAbSegments(dashboardData[appId], appId);
-                if (!ab) return null;
-                const [control, test] = ab;
-                const cellPy = reportsDensity === 'compact' ? 'py-1.5' : 'py-2.5';
-                const rows = selectedMetrics
-                  .filter(mid => metricKeyMap[mid] && control.metrics[mid] != null)
-                  .map(mid => ({
-                    id: mid,
-                    name: allMetricsOptions.find(m => m.id === mid)?.name || mid,
-                    tip: metricTooltips[mid],
-                    fmt: metricKeyMap[mid].fmt,
-                    c: control.metrics[mid],
-                    t: test.metrics[mid],
-                  }));
-
-                return (
-                  <div className="bg-base border border-line border-t-0 rounded-b-card overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full tabular text-xs">
-                        <thead>
-                          <tr className="border-b border-line bg-surface">
-                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap`}>Metric</th>
-                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap`}>{control.label}</th>
-                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap`}>{test.label}</th>
-                            <th className="w-full" aria-hidden />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map(r => (
-                            <tr key={r.id} className="border-b border-line last:border-0 hover:bg-surface-2">
-                              <td
-                                className={`${cellPy} px-4 text-ink-2 whitespace-nowrap ${r.tip ? 'cursor-help' : ''}`}
-                                title={r.tip ? `${r.tip.desc}\n= ${r.tip.formula}\nMetrics Dictionary: ${r.tip.ref}` : undefined}
-                              >{r.name}</td>
-                              <td className={`${cellPy} px-4 text-ink whitespace-nowrap`}>{r.fmt(r.c)}</td>
-                              <td className={`${cellPy} px-4 text-ink whitespace-nowrap`}>{r.fmt(r.t)}</td>
-                              <td aria-hidden />
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="flex items-center justify-between px-4 py-2 border-t border-line text-[10px] text-ink-3">
-                      <span>Data updated: 3 min ago</span>
-                      <span>Test days: {test.metrics.ab_days} · verdict: {test.metrics.ab_outcome}</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
               {/* Reports Data Table (C1-C5) — only in table mode */}
-              {viewType === 'table' && !reportsSplits.includes('abGroup') && (() => {
+              {viewType === 'table' && (() => {
                 const rows = buildReportsRows();
                 const searchLower = reportsSearch.toLowerCase();
                 const abSplit = reportsSplits.includes('abGroup');
