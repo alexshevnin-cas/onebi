@@ -764,6 +764,45 @@ export default function MetricTree() {
     ab_days: mk('ab_days', v => v + ' d'),
   };
 
+  // Дневная динамика групп теста. Среднее по дням совпадает с итоговым
+  // значением группы — иначе график противоречил бы таблице.
+  const getAbDailySeries = (appData, appId) => {
+    const ab = getAbSegments(appData, appId);
+    if (!ab) return null;
+    const [control, test] = ab;
+    const days = Array.from({ length: AB_TEST_DAYS }, (_, i) => i + 1);
+
+    const seedOf = (str) => {
+      let h = 2166136261;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return h >>> 0;
+    };
+    // xorshift: соседние дни не связаны длиной строки, распределение ровное
+    const rnd = (n) => {
+      let x = (n ^ 0x9E3779B9) >>> 0;
+      x ^= x << 13; x >>>= 0;
+      x ^= x >>> 17;
+      x ^= x << 5; x >>>= 0;
+      return x / 4294967296;
+    };
+
+    const seriesFor = (seg, metricId) => {
+      const base = seg.metrics[metricId];
+      if (base == null || typeof base !== 'number') return null;
+      const seed = seedOf(`${appId}|${seg.group}|${metricId}`);
+      const raw = days.map((d, i) => {
+        const noise = (rnd(seed + i * 7919) + rnd(seed + i * 104729)) / 2 - 0.5; // сглаженный шум
+        const ramp = seg.group === 'test' ? (i / (days.length - 1) - 0.5) * 0.03 : 0;
+        return 1 + noise * 0.08 + ramp;
+      });
+      // нормируем к единице, чтобы среднее серии совпало с итогом группы
+      const mean = raw.reduce((a, b) => a + b, 0) / raw.length;
+      return raw.map(v => base * v / mean);
+    };
+
+    return { days, control, test, seriesFor };
+  };
+
   // ===== A/B-тест версии SDK: группы и статистика =====
   // Логика повторяет реальный разбор раунда (docs/research/…casv-result-480-beta):
   // сравниваем стабильную версию и бету, но добавляем то, чего в отчёте не было —
@@ -6256,7 +6295,89 @@ export default function MetricTree() {
               })()}
 
               {/* D2: Multi-line Chart */}
-              {viewType === 'line' && (() => {
+              {/* Сравнение версий: отдельный график на каждую метрику, линии — группы теста */}
+              {viewType === 'line' && reportsSplits.includes('abGroup') && (() => {
+                const appId = selectedApp === 'all' ? 'puzzle' : selectedApp;
+                const series = getAbDailySeries(dashboardData[appId], appId);
+                if (!series) return null;
+                const { days, control, test, seriesFor } = series;
+                const metrics = selectedMetrics.filter(mid => metricKeyMap[mid] && control.metrics[mid] != null);
+
+                const W = 420, H = 170, padL = 52, padR = 12, padT = 14, padB = 26;
+                const cW = W - padL - padR, cH = H - padT - padB;
+
+                return (
+                  <div className="bg-base border border-line border-t-0 rounded-b-card p-5">
+                    {/* легенда — одна на все графики */}
+                    <div className="flex items-center gap-5 mb-4">
+                      {[[control.label, 'var(--text-secondary)'], [test.label, 'var(--accent-deep)']].map(([label, color]) => (
+                        <span key={label} className="flex items-center gap-2 text-[11px] text-ink-2">
+                          <span className="w-4 h-0.5 rounded" style={{ backgroundColor: color }} />
+                          {label}
+                        </span>
+                      ))}
+                      <span className="ml-auto text-[11px] text-ink-3">{days.length} days of test · {metrics.length} metrics</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-x-6 gap-y-5">
+                      {metrics.map(mid => {
+                        const mk = metricKeyMap[mid];
+                        const name = allMetricsOptions.find(m => m.id === mid)?.name || mid;
+                        const cVals = seriesFor(control, mid) || [];
+                        const tVals = seriesFor(test, mid) || [];
+                        const all = [...cVals, ...tVals];
+                        const min = Math.min(...all), max = Math.max(...all);
+                        const pad = (max - min) * 0.25 || Math.abs(max) * 0.1 || 1;
+                        const lo = min - pad, hi = max + pad;
+                        const x = (i) => padL + (days.length > 1 ? (i / (days.length - 1)) * cW : cW / 2);
+                        const y = (v) => padT + cH - ((v - lo) / (hi - lo || 1)) * cH;
+                        const line = (vals) => vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+                        const avg = (vals) => vals.reduce((a, b) => a + b, 0) / (vals.length || 1);
+                        const delta = avg(cVals) ? (avg(tVals) - avg(cVals)) / Math.abs(avg(cVals)) * 100 : 0;
+
+                        return (
+                          <div key={mid} className="min-w-0">
+                            <div className="flex items-baseline gap-2 mb-1">
+                              <span className="text-xs font-medium text-ink truncate">{name}</span>
+                              <span className="text-[11px] tabular shrink-0" style={{ color: delta >= 0 ? 'var(--success)' : 'var(--error)' }}>
+                                {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+                              </span>
+                            </div>
+                            <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+                              {[0, 0.5, 1].map(f => (
+                                <g key={f}>
+                                  <line x1={padL} y1={padT + cH * f} x2={W - padR} y2={padT + cH * f}
+                                    stroke="var(--bg-surface-3)" strokeWidth="1" strokeDasharray="3 4" />
+                                  <text x={padL - 8} y={padT + cH * f + 4} fill="var(--text-muted)" fontSize="10" textAnchor="end" fontFamily="Geist">
+                                    {mk.fmt(hi - (hi - lo) * f)}
+                                  </text>
+                                </g>
+                              ))}
+                              <polyline fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" points={line(cVals)} />
+                              <polyline fill="none" stroke="var(--accent-deep)" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" points={line(tVals)} />
+                              {tVals.map((v, i) => (
+                                <circle key={i} cx={x(i)} cy={y(v)} r="2.6" fill="var(--accent-deep)">
+                                  <title>{`${test.label} · day ${days[i]}: ${mk.fmt(v)}`}</title>
+                                </circle>
+                              ))}
+                              {cVals.map((v, i) => (
+                                <circle key={'c' + i} cx={x(i)} cy={y(v)} r="2.2" fill="var(--text-secondary)">
+                                  <title>{`${control.label} · day ${days[i]}: ${mk.fmt(v)}`}</title>
+                                </circle>
+                              ))}
+                              {days.map((d, i) => (i % 3 === 0 || i === days.length - 1) && (
+                                <text key={d} x={x(i)} y={H - 8} fill="var(--text-muted)" fontSize="10" textAnchor="middle" fontFamily="Geist">d{d}</text>
+                              ))}
+                            </svg>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {viewType === 'line' && !reportsSplits.includes('abGroup') && (() => {
                 const rows = buildReportsRows().filter(r => r._type === 'data' && !r._group);
                 const fallbackRows = rows.length === 0 ? buildReportsRows().filter(r => r._type === 'data') : rows;
                 const periods = fallbackRows.map(r => r._label);
