@@ -336,6 +336,9 @@ export default function MetricTree() {
 
   // Sidebar category definitions
   const sidebarDimensions = [
+    { group: 'Experiment', items: [
+      { id: 'abGroup', label: 'A/B Group' },
+    ]},
     { group: 'Common', items: [
       { id: 'date', label: 'Activity Date' },
       { id: 'country', label: 'Country' },
@@ -478,6 +481,20 @@ export default function MetricTree() {
     anomaly_flag: { ref: 'd3', desc: 'Где данные не поступали или резко упали', formula: 'Автоматическая метка аномальных дней' },
     network_gap: { ref: 'd4', desc: 'Какая сеть отваливалась', formula: 'COUNT дней без данных от сети' },
     dau_discrepancy: { ref: 'd5', desc: 'Корректно ли считается DAU', formula: 'CAS DAU − Firebase/GA DAU' },
+    viewers: { ref: 'm36', desc: 'Сколько уникальных пользователей видели рекламу в группе', formula: 'COUNT DISTINCT users with ad exposure' },
+    ad_arpu: { ref: 'm59', desc: 'Доход на зрителя рекламы — в отчётах раунда эта метрика называется ARPV', formula: 'Ad Revenue ÷ Active Users per Ad' },
+    impr_per_viewer: { ref: 'im1', desc: 'Сколько показов приходится на одного зрителя', formula: 'Impressions ÷ Active Users per Ad' },
+    display_rate: { ref: 'm52', desc: 'Какая доля полученных ответов реально показана', formula: 'Impressions ÷ Fills × 100' },
+    uplift_arpu: { ref: 'm26', desc: 'Прирост дохода на зрителя в тестовой группе', formula: '(ARPU_test − ARPU_control) ÷ ARPU_control' },
+    uplift_revenue: { ref: 'm27', desc: 'Прирост выручки в деньгах за период теста', formula: '(ARPU_test − ARPU_control) × Viewers_test' },
+    prob_better: { ref: 'new', desc: 'Вероятность, что тестовая версия лучше контрольной. Ниже 95% раскатывать рано', formula: 'Φ(z), z = ΔARPU ÷ SE' },
+    p_value: { ref: 'new', desc: 'Вероятность увидеть такую разницу при отсутствии эффекта. Значимо при p < 0.05', formula: '2 × (1 − Φ(|z|))' },
+    mde: { ref: 'new', desc: 'Минимальный эффект, различимый при текущем объёме выборки', formula: '2.8 × SE ÷ ARPU_control' },
+    days_to_signif: { ref: 'new', desc: 'Сколько дней нужно докрутить, чтобы текущая разница стала значимой', formula: 'days × (MDE ÷ effect)²' },
+    srm_pvalue: { ref: 'new', desc: 'Проверка перекоса сплита. Ниже 0.01 — группы разъехались, тест считать нельзя', formula: 'χ² по числу пользователей в группах' },
+    dau_parity: { ref: 'm28', desc: 'Соотношение размеров групп. Отклонение от 100% говорит о перекосе', formula: 'Users_test ÷ Users_control × 100' },
+    ab_outcome: { ref: 'new', desc: 'Вердикт по тесту: раскатывать, придержать, добрать данных или пересобрать сплит', formula: 'SRM < 0.01 → invalid; p < 0.05 → better/worse; иначе inconclusive' },
+    ab_days: { ref: 'new', desc: 'Сколько дней идёт тест', formula: 'дни от старта эксперимента' },
     d1_ret: { ref: 'r1', desc: 'Зацепила ли игра', formula: 'Users D1 ÷ Users D0' },
   };
 
@@ -730,6 +747,120 @@ export default function MetricTree() {
     anomaly_flag: mk('anomalyFlag', v => v ? 'Yes' : 'No', false),
     network_gap: mk('networkGap', pctFmt),
     dau_discrepancy: mk('dauDiscrepancy', pctFmt),
+    // Experimentation
+    viewers: mk('viewers', numFmt),
+    ad_arpu: mk('ad_arpu', v => '$' + v?.toFixed(4)),
+    impr_per_viewer: mk('impr_per_viewer', decFmt),
+    display_rate: mk('display_rate', pctFmt),
+    uplift_arpu: mk('uplift_arpu', v => (v > 0 ? '+' : '') + v?.toFixed(2) + '%'),
+    uplift_revenue: mk('uplift_revenue', v => (v > 0 ? '+$' : '−$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+    prob_better: mk('prob_better', v => v?.toFixed(1) + '%'),
+    p_value: mk('p_value', v => v < 0.0001 ? '<0.0001' : v?.toFixed(4)),
+    mde: mk('mde', v => '±' + v?.toFixed(2) + '%'),
+    days_to_signif: mk('days_to_signif', v => v === 0 ? 'reached' : v > 365 ? 'never at this traffic' : v + ' d'),
+    srm_pvalue: mk('srm_pvalue', v => v?.toFixed(3)),
+    dau_parity: mk('dau_parity', pctFmt),
+    ab_outcome: mk('ab_outcome', v => v, false),
+    ab_days: mk('ab_days', v => v + ' d'),
+  };
+
+  // ===== A/B-тест версии SDK: группы и статистика =====
+  // Логика повторяет реальный разбор раунда (docs/research/…casv-result-480-beta):
+  // сравниваем стабильную версию и бету, но добавляем то, чего в отчёте не было —
+  // значимость, вероятность выигрыша, проверку сплита и оценку недостающих дней.
+
+  // нормальное распределение: CDF через приближение Абрамовица–Стиган
+  const normalCdf = (z) => {
+    const t = 1 / (1 + 0.2316419 * Math.abs(z));
+    const d = 0.3989423 * Math.exp(-z * z / 2);
+    const prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return z > 0 ? 1 - prob : prob;
+  };
+
+  // Доход на зрителя разбросан сильно — берём типичный для рекламы коэффициент вариации
+  const AD_REVENUE_CV = 2.5;
+  const AB_TEST_DAYS = 14;
+
+  // приложения, где сплит разъехался — отдельный кейс для проверки валидности
+  const AB_SKEWED_APPS = ['idle'];
+
+  const getAbSegments = (appData, appId) => {
+    const table = appData?.sdkVersionTable || [];
+    const beta = table.find(v => /beta/i.test(v.version));
+    const stableRows = table.filter(v => !/beta/i.test(v.version));
+    if (!beta || !stableRows.length) return null;
+    // контроль — доминирующая стабильная версия SDK (её строки складываем по DAU)
+    const byVersion = new Map();
+    stableRows.forEach(v => byVersion.set(v.version, [...(byVersion.get(v.version) || []), v]));
+    const [ctrlVersion, ctrlRows] = [...byVersion.entries()]
+      .sort((a, b) => b[1].reduce((x, v) => x + v.dau, 0) - a[1].reduce((x, v) => x + v.dau, 0))[0];
+    const cDau = ctrlRows.reduce((a, v) => a + v.dau, 0) || 1;
+    const wAvg = (field) => ctrlRows.reduce((a, v) => a + v[field] * v.dau, 0) / cDau;
+    const stable = {
+      version: ctrlVersion,
+      arpdau: wAvg('arpdau'), imprPerDau: wAvg('imprPerDau'), ecpm: wAvg('ecpm'), fillRate: wAvg('fillRate'),
+    };
+
+    // тест раскатан на аудиторию беты, контроль — столько же на стабильной версии
+    const skewed = AB_SKEWED_APPS.includes(appId);
+    const viewersT = Math.round(beta.dau * 0.88);
+    const viewersC = Math.round(beta.dau * (skewed ? 0.97 : 0.883));
+    const arpuT = beta.arpdau;
+    const arpuC = stable.arpdau;
+    const imprPerViewerT = beta.imprPerDau;
+    const imprPerViewerC = stable.imprPerDau;
+
+    const mk = (label, group, viewers, arpu, imprPerViewer, ecpm, fillRate) => {
+      const impressions = Math.round(viewers * imprPerViewer);
+      return {
+        label, group,
+        metrics: {
+          viewers, impressions, revenue: +(viewers * arpu).toFixed(2),
+          ad_arpu: arpu, impr_per_viewer: imprPerViewer, ecpm, fill_rate: fillRate,
+          display_rate: +(fillRate * 0.985).toFixed(1),
+        },
+      };
+    };
+
+    const control = mk(`Control · ${stable.version}`, 'control', viewersC, arpuC, imprPerViewerC, stable.ecpm, stable.fillRate);
+    const test = mk(`Test · ${beta.version}`, 'test', viewersT, arpuT, imprPerViewerT, beta.ecpm, beta.fillRate);
+
+    // — статистика сравнения —
+    const seC = arpuC * AD_REVENUE_CV / Math.sqrt(viewersC);
+    const seT = arpuT * AD_REVENUE_CV / Math.sqrt(viewersT);
+    const seDiff = Math.sqrt(seC * seC + seT * seT) || 1e-9;
+    const effect = (arpuT - arpuC) / arpuC;
+    const z = (arpuT - arpuC) / seDiff;
+    const pValue = 2 * (1 - normalCdf(Math.abs(z)));
+    const probBetter = normalCdf(z);
+    // минимально различимый эффект при мощности 80% и alpha 5%
+    const mde = 2.8 * seDiff / arpuC;
+    // сколько дней нужно, чтобы текущий эффект стал значимым
+    const daysNeeded = Math.abs(effect) > 1e-9
+      ? Math.ceil(AB_TEST_DAYS * Math.pow(mde / Math.abs(effect), 2))
+      : null;
+    // перекос сплита: хи-квадрат на равенство групп
+    const nTotal = viewersC + viewersT;
+    const chi2 = Math.pow(viewersC - viewersT, 2) / nTotal;
+    const srmP = 2 * (1 - normalCdf(Math.sqrt(chi2)));
+
+    test.metrics.uplift_arpu = +(effect * 100).toFixed(2);
+    test.metrics.uplift_revenue = +((arpuT - arpuC) * viewersT).toFixed(2);
+    test.metrics.p_value = +pValue.toFixed(4);
+    test.metrics.prob_better = +Math.min(probBetter * 100, 99.9).toFixed(1);
+    test.metrics.mde = +(mde * 100).toFixed(2);
+    test.metrics.days_to_signif = pValue < 0.05 ? 0 : daysNeeded;
+    test.metrics.srm_pvalue = +srmP.toFixed(3);
+    test.metrics.ab_days = AB_TEST_DAYS;
+    test.metrics.ab_outcome =
+      srmP < 0.01 ? 'invalid · split skewed'
+      : pValue >= 0.05 ? (daysNeeded > 365 ? 'inconclusive · never at this traffic' : `inconclusive · +${daysNeeded} d`)
+      : effect > 0 ? 'better · ship'
+      : 'worse · hold';
+    control.metrics.ab_days = AB_TEST_DAYS;
+    test.metrics.dau_parity = +((viewersT / viewersC) * 100).toFixed(1);
+
+    return [control, test];
   };
 
   // Версии SDK, доступные для фильтра: по выбранному приложению или по всем
@@ -932,6 +1063,20 @@ export default function MetricTree() {
     // Build split column label
     const splitLabel = reportsSplits.includes('date') ? 'Period' : reportsSplits[0] || 'Period';
 
+    // Разбивка по группам A/B: значения групп и статистика сравнения
+    if (reportsSplits.includes('abGroup')) {
+      const ab = getAbSegments(d, appId);
+      if (ab) {
+        return ab.map((seg, i) => {
+          const row = { _type: 'data', _label: seg.label, _idx: i };
+          selectedMetrics.forEach(mid => {
+            row[mid] = seg.metrics[mid] ?? null;
+          });
+          return row;
+        });
+      }
+    }
+
     // Разбивка на подстроки: первый split, у которого есть значения.
     // Для версий берём реальные строки sdkVersionTable, для остальных — доли.
     const segSplit = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
@@ -1115,11 +1260,12 @@ export default function MetricTree() {
       app: 'all',
     },
     {
-      code: 'MON-01', role: 'MON', name: 'Config A/B comparison',
-      story: 'Сравнить конфигурации медиации между группами перед раскаткой',
-      note: 'Метрики uplift и DAU Parity ещё не заведены — сравнение по группам форматов',
-      splits: ['adType'], metrics: ['revenue', 'arpdau', 'ecpm', 'dau', 'fill_rate'],
-      app: 'puzzle',
+      code: 'MON-01', role: 'MON', name: 'SDK A/B decision',
+      story: 'Решить, раскатывать ли бету: разница по группам, значимость и качество сплита',
+      note: 'Порог решения: p-value < 0.05 и probability to be better ≥ 95%',
+      splits: ['abGroup'],
+      metrics: ['ab_outcome', 'viewers', 'ad_arpu', 'uplift_arpu', 'uplift_revenue', 'prob_better', 'p_value', 'mde', 'srm_pvalue', 'ab_days'],
+      app: 'drivecsx',
     },
     {
       code: 'MON-03', role: 'MON', name: 'Revenue drop decomposition',
@@ -1317,6 +1463,21 @@ export default function MetricTree() {
     { id: 'rev_by_platform', name: 'Revenue by Mediation Platform', ref: 'd6', section: 'diagnostic' },
     { id: 'ecpm_by_platform', name: 'eCPM by Mediation Platform', ref: 'd7', section: 'diagnostic' },
     { id: 'anomaly_flag', name: 'Anomaly Flag', ref: 'd3', section: 'diagnostic' },
+    // Experimentation — сравнение версий SDK
+    { id: 'viewers', name: 'Active Users per Ad', ref: 'm36', section: 'experiment' },
+    { id: 'ad_arpu', name: 'Ad ARPU', ref: 'm59', section: 'experiment' },
+    { id: 'impr_per_viewer', name: 'Impressions per User', ref: 'im1', section: 'experiment' },
+    { id: 'display_rate', name: 'Display Rate', ref: 'm52', section: 'experiment' },
+    { id: 'uplift_arpu', name: 'ARPU uplift %', ref: 'm26', section: 'experiment' },
+    { id: 'uplift_revenue', name: 'Revenue uplift $', ref: 'm27', section: 'experiment' },
+    { id: 'prob_better', name: 'Probability to be better', ref: 'new', section: 'experiment' },
+    { id: 'p_value', name: 'p-value', ref: 'new', section: 'experiment' },
+    { id: 'mde', name: 'MDE %', ref: 'new', section: 'experiment' },
+    { id: 'days_to_signif', name: 'Days to significance', ref: 'new', section: 'experiment' },
+    { id: 'srm_pvalue', name: 'SRM p-value', ref: 'new', section: 'experiment' },
+    { id: 'dau_parity', name: 'DAU Parity', ref: 'm28', section: 'experiment' },
+    { id: 'ab_outcome', name: 'Outcome', ref: 'new', section: 'experiment' },
+    { id: 'ab_days', name: 'Test days', ref: 'new', section: 'experiment' },
     { id: 'network_gap', name: 'Network Data Gap', ref: 'd4', section: 'diagnostic' },
     { id: 'dau_discrepancy', name: 'DAU Discrepancy', ref: 'd5', section: 'diagnostic' },
   ];
@@ -1885,7 +2046,7 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '3.2.1', dau: 84000, dauShare: 4, sessions: 2.8, duration: 5.2, revenue: 3092, arpdau: 0.0368, imprPerDau: 8.6, ecpm: 4.39, fillRate: 94.2 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '3.2.1', dau: 84000, dauShare: 4, sessions: 2.7, duration: 5.0, revenue: 2881, arpdau: 0.0343, imprPerDau: 8.8, ecpm: 3.90, fillRate: 92.6 },
         { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1176000, dauShare: 56, sessions: 2.7, duration: 5.0, revenue: 11200, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
         { version: 'CAS 3.9.0', appVersion: '3.1.8', dau: 525000, dauShare: 25, sessions: 2.5, duration: 4.6, revenue: 4180, arpdau: 0.0318, imprPerDau: 7.8, ecpm: 4.08, fillRate: 92.1 },
         { version: 'CAS 3.8.x', appVersion: '3.0.x', dau: 231000, dauShare: 11, sessions: 2.4, duration: 4.4, revenue: 1520, arpdau: 0.0263, imprPerDau: 7.2, ecpm: 3.65, fillRate: 89.8 },
@@ -5804,7 +5965,8 @@ export default function MetricTree() {
               {viewType === 'table' && (() => {
                 const rows = buildReportsRows();
                 const searchLower = reportsSearch.toLowerCase();
-                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
+                const abSplit = reportsSplits.includes('abGroup');
+                const segSplitId = abSplit ? 'abGroup' : reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
                 const segSplitLabel = segSplitId
                   ? sidebarDimensions.flatMap(g => g.items).find(i => i.id === segSplitId)?.label
                   : null;
