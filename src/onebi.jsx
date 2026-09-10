@@ -799,6 +799,7 @@ export default function MetricTree() {
     const stable = {
       version: ctrlVersion,
       arpdau: wAvg('arpdau'), imprPerDau: wAvg('imprPerDau'), ecpm: wAvg('ecpm'), fillRate: wAvg('fillRate'),
+      sessions: wAvg('sessions'), duration: wAvg('duration'),
     };
 
     // тест раскатан на аудиторию беты, контроль — столько же на стабильной версии
@@ -807,23 +808,36 @@ export default function MetricTree() {
     const viewersC = Math.round(beta.dau * (skewed ? 0.97 : 0.883));
     const arpuT = beta.arpdau;
     const arpuC = stable.arpdau;
-    const imprPerViewerT = beta.imprPerDau;
-    const imprPerViewerC = stable.imprPerDau;
 
-    const mk = (label, group, viewers, arpu, imprPerViewer, ecpm, fillRate) => {
+    // не каждый активный пользователь доходит до рекламы
+    const VIEWER_SHARE = 0.92;
+
+    const mk = (label, group, src, viewers) => {
+      const dau = Math.round(viewers / VIEWER_SHARE);
+      const imprPerViewer = src.imprPerDau;
       const impressions = Math.round(viewers * imprPerViewer);
+      const revenue = +(viewers * src.arpdau).toFixed(2);
       return {
         label, group,
         metrics: {
-          viewers, impressions, revenue: +(viewers * arpu).toFixed(2),
-          ad_arpu: arpu, impr_per_viewer: imprPerViewer, ecpm, fill_rate: fillRate,
-          display_rate: +(fillRate * 0.985).toFixed(1),
+          viewers, dau, impressions, revenue,
+          ad_arpu: src.arpdau,
+          arpdau: +(revenue / dau).toFixed(4),
+          ecpm: src.ecpm,
+          fill_rate: src.fillRate,
+          display_rate: +(src.fillRate * 0.985).toFixed(1),
+          impr_per_viewer: imprPerViewer,
+          impr_per_dau: +(impressions / dau).toFixed(2),
+          impr_per_session: +(imprPerViewer / src.sessions).toFixed(2),
+          sessions_per_user: src.sessions,
+          session_duration: src.duration,
+          sessions: Math.round(dau * src.sessions),
         },
       };
     };
 
-    const control = mk(`Control · ${stable.version}`, 'control', viewersC, arpuC, imprPerViewerC, stable.ecpm, stable.fillRate);
-    const test = mk(`Test · ${beta.version}`, 'test', viewersT, arpuT, imprPerViewerT, beta.ecpm, beta.fillRate);
+    const control = mk(`Control · ${stable.version}`, 'control', stable, viewersC);
+    const test = mk(`Test · ${beta.version}`, 'test', beta, viewersT);
 
     // — статистика сравнения —
     const seC = arpuC * AD_REVENUE_CV / Math.sqrt(viewersC);
@@ -1264,7 +1278,7 @@ export default function MetricTree() {
       story: 'Решить, раскатывать ли бету: разница по группам, значимость и качество сплита',
       note: 'Порог решения: p-value < 0.05 и probability to be better ≥ 95%',
       splits: ['abGroup'],
-      metrics: ['ab_outcome', 'viewers', 'ad_arpu', 'uplift_arpu', 'uplift_revenue', 'prob_better', 'p_value', 'mde', 'srm_pvalue', 'ab_days'],
+      metrics: ['ad_arpu', 'arpdau', 'ecpm', 'impr_per_dau', 'impr_per_session', 'impr_per_viewer', 'sessions_per_user', 'session_duration', 'fill_rate', 'display_rate', 'viewers', 'dau', 'impressions', 'revenue'],
       app: 'drivecsx',
     },
     {
@@ -1876,7 +1890,7 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '2.4.1', dau: 6740, dauShare: 4, sessions: 3.7, duration: 9.6, revenue: 323, arpdau: 0.0479, imprPerDau: 8.4, ecpm: 5.86, fillRate: 97.6 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '2.4.1', dau: 6740, dauShare: 4, sessions: 3.4, duration: 8.9, revenue: 323, arpdau: 0.0479, imprPerDau: 9.1, ecpm: 5.86, fillRate: 97.6 },
         { version: 'CAS 3.9.2', appVersion: '2.4.1', dau: 82460, dauShare: 49, sessions: 3.6, duration: 9.4, revenue: 4125, arpdau: 0.0463, imprPerDau: 8.2, ecpm: 5.65, fillRate: 97.2 },
         { version: 'CAS 3.8.5', appVersion: '2.3.8', dau: 52400, dauShare: 31, sessions: 3.4, duration: 9.0, revenue: 2280, arpdau: 0.0435, imprPerDau: 7.8, ecpm: 5.58, fillRate: 96.8 },
         { version: 'CAS 3.7.1', appVersion: '2.2.0', dau: 18600, dauShare: 11, sessions: 3.2, duration: 8.5, revenue: 695, arpdau: 0.0374, imprPerDau: 7.2, ecpm: 5.19, fillRate: 95.1 },
@@ -1916,7 +1930,7 @@ export default function MetricTree() {
         { network: 'Bigo Ads', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '4.2.0', dau: 6496, dauShare: 4, sessions: 3.2, duration: 8.0, revenue: 244, arpdau: 0.0376, imprPerDau: 8.7, ecpm: 4.32, fillRate: 94.1 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '4.2.0', dau: 6496, dauShare: 4, sessions: 3.0, duration: 7.4, revenue: 244, arpdau: 0.0376, imprPerDau: 9.4, ecpm: 4.32, fillRate: 94.1 },
         { version: 'CAS 3.9.2', appVersion: '4.2.0', dau: 68204, dauShare: 42, sessions: 3.1, duration: 7.8, revenue: 2385, arpdau: 0.0319, imprPerDau: 8.6, ecpm: 3.62, fillRate: 92.4 },
         { version: 'CAS 3.9.2', appVersion: '4.1.3', dau: 50300, dauShare: 31, sessions: 3.3, duration: 8.4, revenue: 2166, arpdau: 0.0431, imprPerDau: 8.4, ecpm: 5.14, fillRate: 96.2 },
         { version: 'CAS 3.8.5', appVersion: '4.0.7', dau: 24400, dauShare: 15, sessions: 3.4, duration: 8.7, revenue: 1052, arpdau: 0.0431, imprPerDau: 8.3, ecpm: 5.21, fillRate: 96.5 },
@@ -1981,7 +1995,7 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '1.8.0', dau: 4512, dauShare: 4, sessions: 4.7, duration: 14.5, revenue: 338, arpdau: 0.0749, imprPerDau: 9.6, ecpm: 7.98, fillRate: 96.3 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '1.8.0', dau: 4512, dauShare: 4, sessions: 4.4, duration: 13.4, revenue: 338, arpdau: 0.0749, imprPerDau: 10.5, ecpm: 7.98, fillRate: 96.3 },
         { version: 'CAS 3.9.2', appVersion: '1.8.0', dau: 57888, dauShare: 51, sessions: 4.6, duration: 14.2, revenue: 4520, arpdau: 0.0724, imprPerDau: 9.4, ecpm: 7.70, fillRate: 95.8 },
         { version: 'CAS 3.9.0', appVersion: '1.7.5', dau: 31200, dauShare: 28, sessions: 4.4, duration: 13.8, revenue: 2105, arpdau: 0.0675, imprPerDau: 9.0, ecpm: 7.50, fillRate: 94.5 },
         { version: 'CAS 3.8.2', appVersion: '1.6.x', dau: 14100, dauShare: 12, sessions: 4.2, duration: 13.2, revenue: 682, arpdau: 0.0484, imprPerDau: 8.4, ecpm: 5.76, fillRate: 92.8 },
@@ -2046,7 +2060,7 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '3.2.1', dau: 84000, dauShare: 4, sessions: 2.7, duration: 5.0, revenue: 2881, arpdau: 0.0343, imprPerDau: 8.8, ecpm: 3.90, fillRate: 92.6 },
+        { version: 'CAS 4.8.1 beta4', appVersion: '3.2.1', dau: 84000, dauShare: 4, sessions: 2.5, duration: 4.6, revenue: 2881, arpdau: 0.0343, imprPerDau: 9.6, ecpm: 3.90, fillRate: 92.6 },
         { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1176000, dauShare: 56, sessions: 2.7, duration: 5.0, revenue: 11200, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
         { version: 'CAS 3.9.0', appVersion: '3.1.8', dau: 525000, dauShare: 25, sessions: 2.5, duration: 4.6, revenue: 4180, arpdau: 0.0318, imprPerDau: 7.8, ecpm: 4.08, fillRate: 92.1 },
         { version: 'CAS 3.8.x', appVersion: '3.0.x', dau: 231000, dauShare: 11, sessions: 2.4, duration: 4.4, revenue: 1520, arpdau: 0.0263, imprPerDau: 7.2, ecpm: 3.65, fillRate: 89.8 },
@@ -5855,7 +5869,9 @@ export default function MetricTree() {
                   <span className="w-1 h-4 rounded-full bg-accent"></span>
                   <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink">Results</span>
                   <span className="px-2 py-0.5 rounded-md bg-accent-12 border border-accent-line font-mono text-[11px] text-ink tabular">
-                    {buildReportsRows().filter(r => r._type === 'data').length} rows
+                    {reportsSplits.includes('abGroup')
+                      ? selectedMetrics.filter(mid => metricKeyMap[mid]).length + ' metrics'
+                      : buildReportsRows().filter(r => r._type === 'data').length + ' rows'}
                   </span>
                 </span>
 
@@ -5961,8 +5977,61 @@ export default function MetricTree() {
                 </div>
               </div>
 
+              {/* Сравнение A/B-групп: метрики идут строками, группы — колонками */}
+              {viewType === 'table' && reportsSplits.includes('abGroup') && (() => {
+                const appId = selectedApp === 'all' ? 'puzzle' : selectedApp;
+                const ab = getAbSegments(dashboardData[appId], appId);
+                if (!ab) return null;
+                const [control, test] = ab;
+                const cellPy = reportsDensity === 'compact' ? 'py-1.5' : 'py-2.5';
+                const rows = selectedMetrics
+                  .filter(mid => metricKeyMap[mid] && control.metrics[mid] != null)
+                  .map(mid => ({
+                    id: mid,
+                    name: allMetricsOptions.find(m => m.id === mid)?.name || mid,
+                    tip: metricTooltips[mid],
+                    fmt: metricKeyMap[mid].fmt,
+                    c: control.metrics[mid],
+                    t: test.metrics[mid],
+                  }));
+
+                return (
+                  <div className="bg-base border border-line border-t-0 rounded-b-card overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full tabular text-xs">
+                        <thead>
+                          <tr className="border-b border-line bg-surface">
+                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap`}>Metric</th>
+                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap`}>{control.label}</th>
+                            <th className={`text-left ${cellPy} px-4 text-[11px] uppercase tracking-wider text-ink-3 font-semibold whitespace-nowrap`}>{test.label}</th>
+                            <th className="w-full" aria-hidden />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map(r => (
+                            <tr key={r.id} className="border-b border-line last:border-0 hover:bg-surface-2">
+                              <td
+                                className={`${cellPy} px-4 text-ink-2 whitespace-nowrap ${r.tip ? 'cursor-help' : ''}`}
+                                title={r.tip ? `${r.tip.desc}\n= ${r.tip.formula}\nMetrics Dictionary: ${r.tip.ref}` : undefined}
+                              >{r.name}</td>
+                              <td className={`${cellPy} px-4 text-ink whitespace-nowrap`}>{r.fmt(r.c)}</td>
+                              <td className={`${cellPy} px-4 text-ink whitespace-nowrap`}>{r.fmt(r.t)}</td>
+                              <td aria-hidden />
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-2 border-t border-line text-[10px] text-ink-3">
+                      <span>Data updated: 3 min ago</span>
+                      <span>Test days: {test.metrics.ab_days} · verdict: {test.metrics.ab_outcome}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Reports Data Table (C1-C5) — only in table mode */}
-              {viewType === 'table' && (() => {
+              {viewType === 'table' && !reportsSplits.includes('abGroup') && (() => {
                 const rows = buildReportsRows();
                 const searchLower = reportsSearch.toLowerCase();
                 const abSplit = reportsSplits.includes('abGroup');
