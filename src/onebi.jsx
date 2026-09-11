@@ -28,6 +28,10 @@ export default function MetricTree() {
   // BI Filter States
   const [filterDateFrom, setFilterDateFrom] = useState('2025-12-01');
   const [filterDateTo, setFilterDateTo] = useState('2025-12-31');
+  // когорта: даты установки, по которым отобраны пользователи
+  const [filterInstallFrom, setFilterInstallFrom] = useState('2025-11-01');
+  const [filterInstallTo, setFilterInstallTo] = useState('2025-12-31');
+  const [openDatePicker, setOpenDatePicker] = useState(null); // 'activity' | 'install'
   const [filterSdkVersions, setFilterSdkVersions] = useState([]); // пусто = все версии
   const [showSdkVersionDropdown, setShowSdkVersionDropdown] = useState(false);
   const [filterCountry, setFilterCountry] = useState('all');
@@ -102,7 +106,7 @@ export default function MetricTree() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [showManagerDropdown, setShowManagerDropdown] = useState(false);
   const [showDateCreatedDropdown, setShowDateCreatedDropdown] = useState(false);
-  const [activeReportFilters, setActiveReportFilters] = useState([]); // which filter chips are visible: 'app', 'country', 'manager', 'customer', 'dateCreated'
+  const [activeReportFilters, setActiveReportFilters] = useState(['app', 'sdkVersion']); // видимые чипы фильтров: app, country, sdkVersion, manager, customer, dateCreated
   const [showFilterPickerDropdown, setShowFilterPickerDropdown] = useState(false);
   const [customerDropdownSearch, setCustomerDropdownSearch] = useState('');
   const [managerDropdownSearch, setManagerDropdownSearch] = useState('');
@@ -351,7 +355,7 @@ export default function MetricTree() {
       { id: 'placement', label: 'Placement' },
     ]},
     { group: 'Version', items: [
-      { id: 'appVersion', label: 'Package Version' },
+      { id: 'appVersion', label: 'App Version' },
       { id: 'sdkVersion', label: 'SDK Version' },
     ]},
   ];
@@ -935,6 +939,25 @@ export default function MetricTree() {
     return [...acc.entries()].map(([version, share]) => ({ version, share }));
   };
 
+  // Быстрые диапазоны для обоих фильтров дат
+  const datePresets = [
+    { id: 'last7', label: 'Last 7 days', days: 7 },
+    { id: 'last14', label: 'Last 14 days', days: 14 },
+    { id: 'last30', label: 'Last 30 days', days: 30 },
+    { id: 'last90', label: 'Last 90 days', days: 90 },
+  ];
+
+  const shiftDays = (iso, delta) => {
+    const d = new Date(iso + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const dateSpanDays = (from, to) => {
+    const a = new Date(from + 'T00:00:00'), b = new Date(to + 'T00:00:00');
+    return Math.max(Math.round((b - a) / 86400000) + 1, 1);
+  };
+
   // Разбивки по версиям берут значения из sdkVersionTable приложения
   const versionSplitKeys = { appVersion: 'appVersion', sdkVersion: 'version' };
 
@@ -1010,6 +1033,18 @@ export default function MetricTree() {
 
     let dauScale = 1.0;
     let revScale = 1.0;
+
+    // Install date — когорта: чем уже окно установки, тем меньше пользователей
+    // попадает в отчёт. Полное окно (90 дней) соответствует всей аудитории.
+    const COHORT_FULL_WINDOW = 90;
+    const installSpan = dateSpanDays(filterInstallFrom, filterInstallTo);
+    const cohortShare = Math.min(installSpan / COHORT_FULL_WINDOW, 1);
+    if (cohortShare < 1) {
+      dauScale *= cohortShare;
+      // у свежих когорт выручка на пользователя выше — они активнее
+      revScale *= cohortShare * (1 + (1 - cohortShare) * 0.18);
+    }
+
     if (filterSdkVersions.length) {
       const table = d.sdkVersionTable || [];
       const share = table
@@ -1301,13 +1336,13 @@ export default function MetricTree() {
       code: 'L2-03', role: 'L2', name: 'App version comparison',
       story: 'Сравнить версии приложения и понять, как релиз повлиял на монетизацию',
       splits: ['appVersion'], metrics: ['revenue', 'ecpm', 'dau', 'arpdau', 'impr_per_dau'],
-      app: 'drivecsx',
+      app: 'drivecsx', filters: ['app', 'sdkVersion'],
     },
     {
       code: 'L2-01', role: 'L2', name: 'SDK version impact',
       story: 'Увидеть выручку по версиям SDK: улучшило обновление монетизацию или нет',
       splits: ['sdkVersion'], metrics: ['revenue', 'ecpm', 'impressions', 'dau'],
-      app: 'all',
+      app: 'all', filters: ['app', 'sdkVersion'],
     },
     {
       code: 'L2-04', role: 'L2', name: 'Ad load balance',
@@ -1351,7 +1386,7 @@ export default function MetricTree() {
       code: 'RND-02', role: 'RND', name: 'SDK adoption speed',
       story: 'Скорость раскатки версий SDK, чтобы планировать deprecation',
       splits: ['date', 'sdkVersion'], metrics: ['dau', 'sessions', 'revenue'],
-      app: 'all',
+      app: 'all', filters: ['app', 'sdkVersion'],
     },
     {
       code: 'UA-01', role: 'UA', name: 'ROAS by app',
@@ -5436,11 +5471,65 @@ export default function MetricTree() {
                       Filters
                     </span>
                     <div className="flex flex-wrap gap-2 flex-1">
-                      {/* Period — always visible */}
-                      <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-accent-12 text-ink border border-accent-line">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-                        {filterDateFrom} — {filterDateTo}
-                      </span>
+                      {/* Два периода: окно наблюдения и когорта установки */}
+                      {[
+                        {
+                          id: 'activity', label: 'Activity date',
+                          from: filterDateFrom, to: filterDateTo,
+                          setFrom: setFilterDateFrom, setTo: setFilterDateTo,
+                          hint: 'Days the metrics are calculated for',
+                        },
+                        {
+                          id: 'install', label: 'Install date',
+                          from: filterInstallFrom, to: filterInstallTo,
+                          setFrom: setFilterInstallFrom, setTo: setFilterInstallTo,
+                          hint: 'Cohort: when these users installed the app',
+                        },
+                      ].map(f => (
+                        <div key={f.id} className="relative">
+                          <button
+                            onClick={() => setOpenDatePicker(openDatePicker === f.id ? null : f.id)}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium bg-accent-12 text-ink border border-accent-line hover:brightness-95"
+                            title={f.hint}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                            <span className="text-ink-2">{f.label}:</span> {f.from} — {f.to}
+                            <span className="text-ink-3 ml-0.5">{dateSpanDays(f.from, f.to)}d</span>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-3"><path d="M6 9l6 6 6-6"/></svg>
+                          </button>
+                          {openDatePicker === f.id && (
+                            <div className="absolute left-0 top-full mt-1.5 w-[300px] bg-base border border-line rounded-xl shadow-pop z-50 p-3">
+                              <div className="text-[10px] uppercase tracking-wider text-ink-3 font-semibold mb-2">{f.label}</div>
+                              <div className="text-[11px] text-ink-3 mb-2.5">{f.hint}</div>
+                              <div className="flex items-center gap-2 mb-2.5">
+                                <label className="flex-1">
+                                  <span className="block text-[10px] text-ink-3 mb-1">From</span>
+                                  <input type="date" value={f.from} onChange={(e) => f.setFrom(e.target.value)}
+                                    className="w-full bg-surface border border-line rounded-lg px-2 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line" />
+                                </label>
+                                <label className="flex-1">
+                                  <span className="block text-[10px] text-ink-3 mb-1">To</span>
+                                  <input type="date" value={f.to} onChange={(e) => f.setTo(e.target.value)}
+                                    className="w-full bg-surface border border-line rounded-lg px-2 py-1.5 text-xs text-ink focus:outline-none focus:border-accent-line" />
+                                </label>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 mb-2.5">
+                                {datePresets.map(dp => (
+                                  <button
+                                    key={dp.id}
+                                    onClick={() => { f.setTo(f.to); f.setFrom(shiftDays(f.to, -(dp.days - 1))); }}
+                                    className="px-2 py-1 rounded-md bg-surface border border-line text-[11px] text-ink-2 hover:text-ink hover:border-ink-3"
+                                  >{dp.label}</button>
+                                ))}
+                              </div>
+                              <button
+                                onClick={() => setOpenDatePicker(null)}
+                                className="w-full h-8 rounded-lg bg-accent text-xs font-semibold text-accent-ink hover:brightness-95"
+                              >Apply</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
 
                       {/* App filter chip */}
                       {activeReportFilters.includes('app') && (
