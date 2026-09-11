@@ -345,6 +345,7 @@ export default function MetricTree() {
     ]},
     { group: 'Common', items: [
       { id: 'date', label: 'Activity Date' },
+      { id: 'app', label: 'App' },
       { id: 'country', label: 'Country' },
       { id: 'os', label: 'OS' },
       { id: 'deviceType', label: 'Device Type' },
@@ -1016,15 +1017,84 @@ export default function MetricTree() {
 
   // Аддитивные метрики делятся между сегментами; остальные — ставки и средние
   const additiveMetrics = new Set([
-    'dau', 'wau', 'mau', 'sessions', 'session_count', 'impressions', 'revenue', 'iap_revenue',
+    'dau', 'wau', 'mau', 'session_count', 'impressions', 'revenue', 'iap_revenue',
     'paying_users', 'purchases', 'installs', 'mmp_installs', 'profit_cal',
     'impr_inter_daily', 'impr_reward_daily', 'impr_banner_daily', 'impr_mrec_daily',
     'rev_by_sdk', 'rev_by_platform',
   ]);
 
+  // All Apps в Reports: складываем приложения в псевдо-приложение по месяцам.
+  // Аддитивные поля — суммой, ставки и средние — взвешенно по DAU.
+  const ADDITIVE_FIELDS = new Set(['installs', 'dau', 'wau', 'mau', 'impressions', 'clicks', 'revenue', 'adRevenue', 'uaCost', 'organic', 'paid']);
+  const mergeRowsWeighted = (rowsByApp) => {
+    const present = rowsByApp.filter(Boolean);
+    if (!present.length) return null;
+    const wSum = present.reduce((a, r) => a + (r.dau || 1), 0) || 1;
+    const out = {};
+    const keys = new Set(present.flatMap(r => Object.keys(r)));
+    keys.forEach(k => {
+      const vals = present.map(r => r[k]);
+      if (typeof vals.find(v => v != null) !== 'number') { out[k] = vals.find(v => v != null); return; }
+      out[k] = ADDITIVE_FIELDS.has(k)
+        ? +vals.reduce((a, v) => a + (v || 0), 0).toFixed(4)
+        : +(present.reduce((a, r) => a + (r[k] || 0) * (r.dau || 1), 0) / wSum).toFixed(4);
+    });
+    return out;
+  };
+  const aggregateApps = () => {
+    const apps = realAppIds.map(id => dashboardData[id]).filter(Boolean);
+    const byIndex = (field) => {
+      const n = Math.max(...apps.map(a => (a[field] || []).length));
+      return Array.from({ length: n }, (_, i) => mergeRowsWeighted(apps.map(a => (a[field] || [])[i]))).filter(Boolean);
+    };
+    // строки по месяцам: engagement/ua у части приложений — описания метрик, их пропускаем
+    const rowsOnly = (field) => apps.map(a => (a[field] || []).some(r => r.period || r.month) ? a[field] : []);
+    const byIndexRows = (field) => {
+      const tables = rowsOnly(field);
+      const n = Math.max(...tables.map(t => t.length));
+      return Array.from({ length: n }, (_, i) => mergeRowsWeighted(tables.map(t => t[i]))).filter(Boolean);
+    };
+    // сети — суммой по имени сети
+    const netMap = {};
+    apps.forEach(a => (a.networksTable || []).forEach(n => {
+      const cur = netMap[n.network] || { network: n.network, revenue: 0, impressions: 0, _w: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 };
+      const w = n.impressions || 1;
+      cur.revenue += n.revenue; cur.impressions += n.impressions;
+      ['ecpm', 'fillRate', 'sov', 'winRate', 'latency'].forEach(k => { cur[k] += (n[k] || 0) * w; });
+      cur._w += w; netMap[n.network] = cur;
+    }));
+    const networksTable = Object.values(netMap).map(n => {
+      const r = { ...n }; ['ecpm', 'fillRate', 'sov', 'winRate', 'latency'].forEach(k => { r[k] = n._w ? +(n[k] / n._w).toFixed(2) : 0; }); delete r._w; return r;
+    });
+    // версии SDK — по имени версии, доли пересчитаны от общей аудитории
+    const totalDau = apps.reduce((a, x) => a + (x.sdkVersionTable || []).reduce((b, v) => b + v.dau, 0), 0) || 1;
+    const verMap = {};
+    apps.forEach(a => (a.sdkVersionTable || []).forEach(v => {
+      const cur = verMap[v.version] || { version: v.version, appVersion: v.appVersion, dau: 0, revenue: 0, _acc: {} };
+      cur.dau += v.dau; cur.revenue += v.revenue;
+      ['sessions', 'duration', 'arpdau', 'imprPerDau', 'ecpm', 'fillRate'].forEach(k => { cur._acc[k] = (cur._acc[k] || 0) + (v[k] || 0) * v.dau; });
+      verMap[v.version] = cur;
+    }));
+    const sdkVersionTable = Object.values(verMap).map(v => {
+      const r = { version: v.version, appVersion: v.appVersion, dau: v.dau, revenue: v.revenue, dauShare: Math.round(v.dau / totalDau * 100) };
+      ['sessions', 'duration', 'arpdau', 'imprPerDau', 'ecpm', 'fillRate'].forEach(k => { r[k] = v.dau ? +(v._acc[k] / v.dau).toFixed(4) : 0; });
+      return r;
+    }).sort((a, b) => b.dau - a.dau);
+    return {
+      name: 'All Apps',
+      cohortTable: byIndex('cohortTable'),
+      monetisationTable: byIndex('monetisationTable'),
+      engagementTable: byIndexRows('engagementTable'),
+      uaTable: byIndexRows('uaTable'),
+      networksTable,
+      sdkVersionTable,
+    };
+  };
+
   const buildReportsRows = () => {
-    const appId = selectedApp === 'all' ? 'puzzle' : selectedApp;
-    const d = dashboardData[appId];
+    const isAllApps = selectedApp === 'all';
+    const appId = isAllApps ? 'puzzle' : selectedApp; // для A/B-серий, где нужна одна таблица версий
+    const d = isAllApps ? aggregateApps() : dashboardData[appId];
     if (!d) return [];
 
     // Filter-based multipliers for fake data variation
@@ -1077,13 +1147,14 @@ export default function MetricTree() {
       revScale *= Math.max(ratio * 0.9, 0.08);
     }
 
-    // Merge all table data by month
-    const cohort = d.cohortTable || [];
-    const mon = d.monetisationTable || [];
-    const eng = d.engagementTable || [];
-    const ua = d.uaTable || [];
+    // Merge all table data by month — для выбранного приложения и, при разбивке App, для каждого
+    const mergeApp = (src) => {
+    const cohort = src.cohortTable || [];
+    const mon = src.monetisationTable || [];
+    const eng = src.engagementTable || [];
+    const ua = src.uaTable || [];
 
-    const merged = cohort.map((c, i) => {
+    return cohort.map((c, i) => {
       const m = mon[i] || {};
       const e = eng[i] || {};
       const u = ua[i] || {};
@@ -1109,6 +1180,8 @@ export default function MetricTree() {
       base.purchases = Math.round(base.payingUsers * 1.8);
       base.iapArppu = base.payingUsers ? base.iapRevenue / base.payingUsers : 0;
       // F2: Session extended
+      base.avgSessions = base.avgSessions ?? (e.avgSessions || 3.2);
+      base.avgDuration = base.avgDuration ?? (e.avgDuration || 8);
       base.sessionsPerUser = e.avgSessions || 3.2;
       base.timePerUser = (e.avgDuration || 8) * (e.avgSessions || 3.2);
       base.adSessionLength = (e.avgDuration || 8) * 0.65;
@@ -1158,6 +1231,8 @@ export default function MetricTree() {
       base.dauDiscrepancy = 2.1 + i * 0.4;
       return base;
     });
+    };
+    const merged = mergeApp(d);
 
     // Build split column label
     const splitLabel = reportsSplits.includes('date') ? 'Period' : reportsSplits[0] || 'Period';
@@ -1176,9 +1251,38 @@ export default function MetricTree() {
       }
     }
 
+    // Разбивка по приложениям: строки — реальные приложения, только при All Apps
+    if (reportsSplits.includes('app') && isAllApps) {
+      const perApp = realAppIds.map(id => ({ id, name: apps.find(a => a.id === id)?.name || id, rows: mergeApp(dashboardData[id]) }));
+      const pick = (row, mid) => { const mk = metricKeyMap[mid]; return mk ? (row?.[mk.key] ?? null) : null; };
+      const out = [];
+      if (reportsSplits.includes('date')) {
+        merged.forEach((row, idx) => {
+          out.push({ _type: 'group', _label: row._month, _idx: idx });
+          perApp.forEach(a => {
+            const r = { _type: 'data', _label: a.name, _group: row._month, _idx: idx };
+            selectedMetrics.forEach(mid => { r[mid] = pick(a.rows[idx], mid); });
+            out.push(r);
+          });
+        });
+        return out;
+      }
+      perApp.forEach((a, i) => {
+        const r = { _type: 'data', _label: a.name, _idx: i };
+        selectedMetrics.forEach(mid => {
+          const vals = a.rows.map(x => pick(x, mid)).filter(v => typeof v === 'number');
+          r[mid] = !vals.length ? null : additiveMetrics.has(mid)
+            ? vals.reduce((x, y) => x + y, 0)
+            : vals.reduce((x, y) => x + y, 0) / vals.length;
+        });
+        out.push(r);
+      });
+      return out;
+    }
+
     // Разбивка на подстроки: первый split, у которого есть значения.
     // Для версий берём реальные строки sdkVersionTable, для остальных — доли.
-    const segSplit = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
+    const segSplit = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || (id === 'app' && selectedApp === 'all')));
     const versionRows = versionSplitKeys[segSplit] ? getVersionSegments(d, segSplit) : null;
     const segments = versionRows
       ? versionRows.map(v => [v.label, v.share])
@@ -1409,7 +1513,7 @@ export default function MetricTree() {
     setFilterSdkVersions(preset.sdkVersions || []);
     setReportsCompare(!!preset.compare);
     setActivePreset(preset.code);
-    setViewType('table');
+    setViewType(preset.view || 'table');
     setShowSavedViewsDD(false);
   };
 
@@ -6126,7 +6230,7 @@ export default function MetricTree() {
                 const rows = buildReportsRows();
                 const searchLower = reportsSearch.toLowerCase();
                 const abSplit = reportsSplits.includes('abGroup');
-                const segSplitId = abSplit ? 'abGroup' : reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
+                const segSplitId = abSplit ? 'abGroup' : reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || (id === 'app' && selectedApp === 'all')));
                 const segSplitLabel = segSplitId
                   ? sidebarDimensions.flatMap(g => g.items).find(i => i.id === segSplitId)?.label
                   : null;
@@ -6366,14 +6470,16 @@ export default function MetricTree() {
 
               {viewType === 'bar' && !reportsSplits.includes('abGroup') && (() => {
                 const rows = buildReportsRows().filter(r => r._type === 'data');
-                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id]));
+                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || (id === 'app' && selectedApp === 'all')));
                 const hasAdTypeSplit = !!segSplitId;
                 const segments = hasAdTypeSplit
-                  ? (splitSegments[segSplitId]
+                  ? (segSplitId === 'app'
+                      ? realAppIds.map(id => apps.find(a => a.id === id)?.name || id)
+                      : splitSegments[segSplitId]
                       ? splitSegments[segSplitId].map(([label]) => label)
                       : (getVersionSegments(dashboardData[selectedApp === 'all' ? 'puzzle' : selectedApp], segSplitId) || []).map(v => v.label))
                   : ['Total'];
-                const periods = [...new Set(rows.map(r => r._group || r._label))];
+                const periods = [...new Set(rows.map(r => r._group || r._label))].reverse();
 
                 return (
                   <div className="bg-base border border-line rounded-xl p-5">
@@ -6545,7 +6651,8 @@ export default function MetricTree() {
 
               {viewType === 'line' && !reportsSplits.includes('abGroup') && (() => {
                 const rows = buildReportsRows().filter(r => r._type === 'data' && !r._group);
-                const fallbackRows = rows.length === 0 ? buildReportsRows().filter(r => r._type === 'data') : rows;
+                // таблица идёт от нового к старому, график — по времени слева направо
+                const fallbackRows = [...(rows.length === 0 ? buildReportsRows().filter(r => r._type === 'data') : rows)].reverse();
                 const periods = fallbackRows.map(r => r._label);
                 const visibleMetrics = selectedMetrics.filter(mid => !hiddenSeries.has(mid) && metricKeyMap[mid]);
 
