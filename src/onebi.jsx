@@ -1038,7 +1038,9 @@ export default function MetricTree() {
     // попадает в отчёт. Полное окно (90 дней) соответствует всей аудитории.
     const COHORT_FULL_WINDOW = 90;
     const installSpan = dateSpanDays(filterInstallFrom, filterInstallTo);
-    const cohortShare = Math.min(installSpan / COHORT_FULL_WINDOW, 1);
+    const cohortShare = activeReportFilters.includes('installDate')
+      ? Math.min(installSpan / COHORT_FULL_WINDOW, 1)
+      : 1;
     if (cohortShare < 1) {
       dauScale *= cohortShare;
       // у свежих когорт выручка на пользователя выше — они активнее
@@ -1360,7 +1362,7 @@ export default function MetricTree() {
       code: 'MON-01', role: 'MON', name: 'SDK A/B decision',
       story: 'Решить, раскатывать ли бету: разница по группам, значимость и качество сплита',
       note: 'Порог решения: p-value < 0.05 и probability to be better ≥ 95%',
-      splits: ['abGroup'],
+      splits: ['abGroup'], filters: ['app', 'sdkVersion', 'installDate'],
       metrics: ['ad_arpu', 'arpdau', 'ecpm', 'impr_per_dau', 'impr_per_session', 'impr_per_viewer', 'sessions_per_user', 'session_duration', 'fill_rate', 'display_rate', 'viewers', 'dau', 'impressions', 'revenue'],
       app: 'drivecsx',
     },
@@ -5485,7 +5487,7 @@ export default function MetricTree() {
                           setFrom: setFilterInstallFrom, setTo: setFilterInstallTo,
                           hint: 'Cohort: when these users installed the app',
                         },
-                      ].map(f => (
+                      ].filter(f => f.id === 'activity' || activeReportFilters.includes('installDate')).map(f => (
                         <div key={f.id} className="relative">
                           <button
                             onClick={() => setOpenDatePicker(openDatePicker === f.id ? null : f.id)}
@@ -5496,6 +5498,12 @@ export default function MetricTree() {
                             <span className="text-ink-2">{f.label}:</span> {f.from} — {f.to}
                             <span className="text-ink-3 ml-0.5">{dateSpanDays(f.from, f.to)}d</span>
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-3"><path d="M6 9l6 6 6-6"/></svg>
+                            {f.id === 'install' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(x => x !== 'installDate')); setOpenDatePicker(null); }}
+                                className="text-ink-3 hover:text-ink ml-0.5"
+                              >×</button>
+                            )}
                           </button>
                           {openDatePicker === f.id && (
                             <div className="absolute left-0 top-full mt-1.5 w-[300px] bg-base border border-line rounded-xl shadow-pop z-50 p-3">
@@ -5861,6 +5869,7 @@ export default function MetricTree() {
                               { id: 'manager', label: 'Manager' },
                               { id: 'customer', label: 'Customer' },
                               { id: 'sdkVersion', label: 'SDK Version' },
+                              { id: 'installDate', label: 'Install date (cohort)' },
                               { id: 'dateCreated', label: 'Date Created' },
                             ].filter(f => !activeReportFilters.includes(f.id)).map(f => (
                               <button
@@ -5871,7 +5880,7 @@ export default function MetricTree() {
                                 {f.label}
                               </button>
                             ))}
-                            {activeReportFilters.length >= 6 && (
+                            {activeReportFilters.length >= 7 && (
                               <div className="px-3 py-2 text-[10px] text-ink-3">All filters added</div>
                             )}
                           </div>
@@ -6145,19 +6154,7 @@ export default function MetricTree() {
                   return true;
                 });
 
-                // Totals (C2)
-                const dataRows = visible.filter(r => r._type === 'data');
-                const totals = {};
-                selectedMetrics.forEach(mid => {
-                  const mk = metricKeyMap[mid];
-                  if (!mk || !mk.isNum) { totals[mid] = null; return; }
-                  const vals = dataRows.map(r => r[mid]).filter(v => v != null);
-                  // For rates/percentages, average; for absolutes, sum
-                  const isRate = ['d1_retention', 'd7_retention', 'd30_retention', 'fill_rate', 'ecpm', 'arpdau', 'cpi', 'impr_per_dau', 'roas', 'ltv'].includes(mid);
-                  totals[mid] = vals.length ? (isRate ? vals.reduce((a, b) => a + b, 0) / vals.length : vals.reduce((a, b) => a + b, 0)) : null;
-                });
-
-                const totalDataRows = dataRows.length;
+                const totalDataRows = visible.filter(r => r._type === 'data').length;
                 const totalAllRows = rows.filter(r => r._type === 'data').length;
                 const cellPy = reportsDensity === 'compact' ? 'py-1' : 'py-2.5';
                 const cellText = reportsDensity === 'compact' ? 'text-[11px]' : 'text-xs';
@@ -6268,21 +6265,6 @@ export default function MetricTree() {
                           })}
                         </tbody>
                         {/* C2: Totals row (sticky) */}
-                        <tfoot className="sticky bottom-0">
-                          <tr className="bg-base border-t border-line font-semibold">
-                            <td className={`${cellPy} px-4 text-ink-2 whitespace-nowrap sticky left-0 bg-base z-10`}>Total</td>
-                            {selectedMetrics.map(mid => {
-                              const mk = metricKeyMap[mid];
-                              const val = totals[mid];
-                              return (
-                                <td key={mid} className={`${cellPy} px-4 text-left text-ink whitespace-nowrap`}>
-                                  {val != null && mk ? mk.fmt(val) : '—'}
-                                </td>
-                              );
-                            })}
-                            {!fitColumns && <td aria-hidden />}
-                          </tr>
-                        </tfoot>
                       </table>
                     </div>
 
