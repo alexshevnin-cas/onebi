@@ -346,6 +346,7 @@ export default function MetricTree() {
     { group: 'Common', items: [
       { id: 'date', label: 'Activity Date' },
       { id: 'app', label: 'App' },
+      { id: 'portfolio', label: 'Portfolio (1C)' },
       { id: 'country', label: 'Country' },
       { id: 'os', label: 'OS' },
       { id: 'deviceType', label: 'Device Type' },
@@ -500,6 +501,16 @@ export default function MetricTree() {
     dau_parity: { ref: 'm28', desc: 'Соотношение размеров групп. Отклонение от 100% говорит о перекосе', formula: 'Users_test ÷ Users_control × 100' },
     ab_outcome: { ref: 'new', desc: 'Вердикт по тесту: раскатывать, придержать, добрать данных или пересобрать сплит', formula: 'SRM < 0.01 → invalid; p < 0.05 → better/worse; иначе inconclusive' },
     ab_days: { ref: 'new', desc: 'Сколько дней идёт тест', formula: 'дни от старта эксперимента' },
+    total_revenue: { ref: 'm41', desc: 'Вся выручка продукта', formula: 'Ad Revenue + IAP Revenue' },
+    total_arpdau: { ref: 'm40', desc: 'Вся выручка на пользователя в день', formula: '(Ad Revenue + IAP Revenue) ÷ DAU' },
+    nofill_rate: { ref: 'm22', desc: 'Где потери выручки: доля запросов без ответа', formula: '1 − Fill Rate' },
+    requests: { ref: 'm49', desc: 'Сколько запросов рекламы отправлено', formula: 'Impressions ÷ Fill Rate' },
+    d3_retention: { ref: 'r2', desc: 'Удерживаем ли в первые дни', formula: 'Users D3 ÷ Users D0' },
+    ua_cost: { ref: 'm31', desc: 'Сколько тратим на трафик', formula: 'Installs × CPI' },
+    app_profit: { ref: 'm4', desc: 'Приложение прибыльно?', formula: 'Ad Revenue − UA Cost' },
+    payback_days: { ref: 'm35', desc: 'Когда вернём инвестиции', formula: 'День, когда ROAS = 100%' },
+    dau_share: { ref: 'new', desc: 'Доля аудитории на версии — скорость раскатки', formula: 'DAU версии ÷ DAU всего × 100' },
+    owner: { ref: 'new', desc: 'Владелец проекта из справочника 1С', formula: '1C Mapping · Product owner' },
     d1_ret: { ref: 'r1', desc: 'Зацепила ли игра', formula: 'Users D1 ÷ Users D0' },
   };
 
@@ -752,6 +763,16 @@ export default function MetricTree() {
     anomaly_flag: mk('anomalyFlag', v => v ? 'Yes' : 'No', false),
     network_gap: mk('networkGap', pctFmt),
     dau_discrepancy: mk('dauDiscrepancy', pctFmt),
+    total_revenue: mk('totalRevenue', dolFmt),
+    total_arpdau: mk('totalArpdau', v => '$' + v?.toFixed(4)),
+    nofill_rate: mk('nofillRate', pctFmt),
+    requests: mk('requests', numFmt),
+    d3_retention: mk('d3Retention', pctFmt),
+    ua_cost: mk('uaCost', dolFmt),
+    app_profit: mk('appProfit', dolFmt),
+    payback_days: mk('paybackDays', v => v + ' d'),
+    dau_share: mk('dauShare', pctFmt),
+    owner: mk('owner', v => v || '—', false),
     // Experimentation
     viewers: mk('viewers', numFmt),
     ad_arpu: mk('ad_arpu', v => '$' + v?.toFixed(4)),
@@ -1003,6 +1024,47 @@ export default function MetricTree() {
     }));
   };
 
+  // Разбивка по сетям — реальные строки networksTable (включая сети с нулями)
+  const getNetworkSegments = (appData) => {
+    const table = appData?.networksTable || [];
+    if (!table.length) return null;
+    const totRev = table.reduce((a, n) => a + n.revenue, 0) || 1;
+    const totImp = table.reduce((a, n) => a + n.impressions, 0) || 1;
+    return table.map(n => ({
+      label: n.network,
+      share: n.revenue / totRev,
+      shares: { impressions: n.impressions / totImp, requests: n.impressions / totImp },
+      metrics: {
+        ecpm: n.ecpm, fill_rate: n.fillRate, nofill_rate: +(100 - n.fillRate).toFixed(1),
+        render_rate: +(n.fillRate * 0.98).toFixed(1), bid_price: +(n.ecpm * 0.85).toFixed(2),
+        ctr_network: n.revenue ? +(0.35 + n.winRate / 100).toFixed(2) : 0,
+        bidding_share: n.revenue ? Math.min(95, 40 + n.winRate) : 0,
+        // без данных — нули, а не доля
+        ...(n.revenue === 0 ? { revenue: 0, impressions: 0, requests: 0 } : {}),
+      },
+    }));
+  };
+
+  // Профили ставок по сегментам: множители к базовому значению, доли — к аддитивным
+  const segmentProfiles = {
+    adType: {
+      Banner:       { ecpm: 0.25, fill_rate: 1.02, arpdau: 0.45, ad_arpu: 0.45, impr_per_dau: 1.7, impr_per_session: 1.7, impressions: 0.60, requests: 0.60, nofill_rate: 0.6 },
+      Interstitial: { ecpm: 1.45, fill_rate: 0.98, arpdau: 1.2, ad_arpu: 1.2, impr_per_dau: 0.85, impr_per_session: 0.85, impressions: 0.30, requests: 0.30, nofill_rate: 1.3 },
+      Rewarded:     { ecpm: 2.8, fill_rate: 0.90, arpdau: 0.7, ad_arpu: 0.7, impr_per_dau: 0.30, impr_per_session: 0.30, impressions: 0.10, requests: 0.10, nofill_rate: 2.4 },
+    },
+    country: {
+      US:    { ecpm: 1.35, arpdau: 1.35, ad_arpu: 1.35, cpi: 1.30, roas: 1.15, roas_todate: 1.15, ltv: 1.30, d1_retention: 1.05, fill_rate: 1.02 },
+      DE:    { ecpm: 1.10, arpdau: 1.10, ad_arpu: 1.10, cpi: 1.05, roas: 1.00, roas_todate: 1.00, ltv: 1.10, d1_retention: 1.02, fill_rate: 1.01 },
+      UK:    { ecpm: 1.05, arpdau: 1.05, ad_arpu: 1.05, cpi: 1.00, roas: 0.95, roas_todate: 0.95, ltv: 1.05, d1_retention: 1.00, fill_rate: 1.00 },
+      JP:    { ecpm: 0.95, arpdau: 0.95, ad_arpu: 0.95, cpi: 0.85, roas: 0.80, roas_todate: 0.80, ltv: 0.90, d1_retention: 0.98, fill_rate: 0.98 },
+      Other: { ecpm: 0.60, arpdau: 0.60, ad_arpu: 0.60, cpi: 0.55, roas: 0.90, roas_todate: 0.90, ltv: 0.60, d1_retention: 0.95, fill_rate: 0.93 },
+    },
+    os: {
+      iOS:     { ecpm: 1.25, arpdau: 1.25, ad_arpu: 1.25, cpi: 1.20, ltv: 1.2, fill_rate: 1.01 },
+      Android: { ecpm: 0.80, arpdau: 0.80, ad_arpu: 0.80, cpi: 0.85, ltv: 0.85, fill_rate: 0.99 },
+    },
+  };
+
   // Значения разбивок и их доли — на них строятся подстроки отчёта
   const splitSegments = {
     adType:     [['Banner', 0.35], ['Interstitial', 0.40], ['Rewarded', 0.25]],
@@ -1020,8 +1082,44 @@ export default function MetricTree() {
     'dau', 'wau', 'mau', 'session_count', 'impressions', 'revenue', 'iap_revenue',
     'paying_users', 'purchases', 'installs', 'mmp_installs', 'profit_cal',
     'impr_inter_daily', 'impr_reward_daily', 'impr_banner_daily', 'impr_mrec_daily',
+    'ua_cost', 'app_profit', 'total_revenue', 'requests',
     'rev_by_sdk', 'rev_by_platform',
   ]);
+
+  // Дерево проектов из 1С (Проекты → бизнес-юнит → дивизион → проект).
+  // Четыре «настоящих» приложения расставлены по дереву; остальные проекты —
+  // тонкие клоны на базе одного из них с коэффициентом масштаба.
+  const portfolioTree = [
+    { name: 'cas games', children: [
+      { name: 'Core division (our)', apps: [
+        { id: 'drivecsx', owner: 'Maksym Starostenko' },
+        { id: 'drivex', name: 'Drive X Unlimited', base: 'drivecsx', k: 0.34, owner: 'Maksym Starostenko' },
+        { id: 'obby', name: 'Obby All Games', base: 'stack', k: 0.28, owner: 'Pavel Shmyrev' },
+        { id: 'tankmerge', name: 'Tank Merge', base: 'idle', k: 0.41, owner: 'Vasiliy Popov' },
+        { id: 'prison', name: 'Prison Escape', base: 'stack', k: 0.12, owner: 'Pavel Shmyrev' },
+        { id: 'arrowrush', name: 'ArrowRush: Tap & Clear', base: 'puzzle', k: 0.19, owner: 'Mikhail Moroz' },
+        { id: 'racing', name: 'Racing in Car', base: 'drivecsx', k: 0.09, owner: 'Maksym Starostenko' },
+      ]},
+      { name: 'Next division (харвест)', apps: [
+        { id: 'puzzle', owner: 'Mikhail Moroz' },
+        { id: 'sniper', name: 'Sniper Arena New', base: 'puzzle', k: 0.31, owner: 'Mikhail Moroz' },
+        { id: 'stranger', name: 'Stranger School: Prank', base: 'idle', k: 0.14, owner: 'Pavel Shmyrev' },
+      ]},
+      { name: 'old + Мусор', apps: [
+        { id: 'octopus', name: 'octopus', base: 'idle', k: 0.05, owner: 'Vasiliy Popov' },
+        { id: 'traffic', name: 'traffic asphalt', base: 'drivecsx', k: 0.03, owner: 'Oleh Huk-Sataikin' },
+      ]},
+      { name: 'RND-Tech', apps: [
+        { id: 'gugu', name: 'Gugu Gaga Penguin: Obby', base: 'puzzle', k: 0.04, owner: 'Yuriy Vityuk' },
+      ]},
+    ]},
+    { name: 'CAS mediation', apps: [
+      { id: 'stack', owner: 'Anton Smirnov' },
+    ]},
+    { name: 'Cas publishing', apps: [
+      { id: 'idle', owner: 'Serhii Shcherbyna' },
+    ]},
+  ];
 
   // All Apps в Reports: складываем приложения в псевдо-приложение по месяцам.
   // Аддитивные поля — суммой, ставки и средние — взвешенно по DAU.
@@ -1209,7 +1307,15 @@ export default function MetricTree() {
       base.ctrBanner = (c.ctr || 0.52) * 0.25;
       // F8: UA extended
       base.roasTodate = (u.roasD30 || c.roas || 145) * 1.15;
-      base.profitCal = (base.adRevenue || base.revenue || 0) - (u.uaCost || 0);
+      base.uaCost = u.uaCost ?? Math.round((base.adRevenue || base.revenue || 0) / ((c.roas || 140) / 100));
+      base.appProfit = +((base.adRevenue || base.revenue || 0) - base.uaCost).toFixed(2);
+      base.totalRevenue = +((base.adRevenue || base.revenue || 0) + base.iapRevenue).toFixed(2);
+      base.totalArpdau = base.dau ? base.totalRevenue / base.dau : 0;
+      base.profitCal = +(base.totalRevenue - base.uaCost).toFixed(2);
+      base.paybackDays = u.payback ?? Math.round(3000 / (c.roas || 140));
+      base.d3Retention = (c.d1Retention || 42) * 0.7;
+      base.nofillRate = 100 - (m.fillRate || 95);
+      base.requests = Math.round((base.impressions || 0) / ((m.fillRate || 95) / 100));
       base.attOptin = 38 + i * 1.2;
       base.mmpInstalls = Math.round((c.installs || 0) * 0.92);
       base.eroasD60 = (u.roasD30 || c.roas || 145) * 1.35;
@@ -1226,9 +1332,15 @@ export default function MetricTree() {
       base.revBySdk = base.adRevenue || base.revenue || 0;
       base.revByPlatform = (base.adRevenue || base.revenue || 0) * 0.55;
       base.ecpmByPlatform = (m.ecpm || 5) * 1.08;
-      base.anomalyFlag = false;
       base.networkGap = 1.2 + i * 0.3;
       base.dauDiscrepancy = 2.1 + i * 0.4;
+      // Сюжеты аномалий приложения: выброс расхождения DAU, отвал сети в месяце
+      const inc = src.incidents || {};
+      if (inc.dauDiscrepancy?.[base._month] != null) base.dauDiscrepancy = inc.dauDiscrepancy[base._month];
+      const netInc = inc.network?.[base._month] || {};
+      const outages = Object.values(netInc).filter(t => t === 'outage').length;
+      if (outages) base.networkGap = +(outages / Math.max((src.networksTable || []).filter(n => n.revenue > 0).length, 1) * 100).toFixed(1);
+      base.anomalyFlag = base.dauDiscrepancy > 5 || Object.keys(netInc).length > 0;
       return base;
     });
     };
@@ -1249,6 +1361,51 @@ export default function MetricTree() {
           return row;
         });
       }
+    }
+
+    // Разбивка Portfolio (1C): бизнес-юнит → дивизион → проект, с итогами по группам
+    if (reportsSplits.includes('portfolio') && isAllApps) {
+      const pick = (rowsOf, mid) => {
+        const mk = metricKeyMap[mid];
+        if (!mk) return null;
+        const vals = rowsOf.map(r => r[mk.key]).filter(v => typeof v === 'number');
+        if (!vals.length) return null;
+        return additiveMetrics.has(mid) ? vals.reduce((a, b) => a + b, 0) : vals.reduce((a, b) => a + b, 0) / vals.length;
+      };
+      // тонкий клон: аддитивные поля × k, ставки с небольшим сдвигом
+      const projectRows = (proj) => {
+        const base = mergeApp(dashboardData[proj.base || proj.id]);
+        if (!proj.base) return base;
+        const tilt = 0.9 + ((proj.id.length * 7) % 5) * 0.05;
+        return base.map(r => {
+          const o = { ...r };
+          Object.keys(o).forEach(f => {
+            if (typeof o[f] !== 'number') return;
+            const additive = ADDITIVE_FIELDS.has(f) || ['sessionCount', 'payingUsers', 'purchases', 'iapRevenue', 'requests', 'totalRevenue', 'appProfit', 'profitCal', 'mmpInstalls'].includes(f);
+            // наклоняем только денежные ставки; проценты и доли остаются как у базы
+            const tiltable = ['ecpm', 'arpdau', 'ltv', 'cpi', 'roas', 'roasTodate', 'bidPrice', 'ecpmByPlatform', 'iapArpdau', 'iapArppu', 'totalArpdau', 'arpuD7', 'arpuD14', 'arpuD30'].includes(f);
+            o[f] = additive ? +(o[f] * proj.k).toFixed(2) : tiltable ? +(o[f] * tilt).toFixed(4) : o[f];
+          });
+          return o;
+        });
+      };
+      const out = [];
+      const emit = (label, rowsOf, extra) => {
+        const r = { ...extra, _label: label };
+        selectedMetrics.forEach(mid => { r[mid] = mid === 'owner' ? (extra._owner || null) : pick(rowsOf, mid); });
+        out.push(r);
+      };
+      const walk = (node, level, parents) => {
+        const leaves = node.apps
+          ? node.apps.map(a => ({ ...a, name: a.name || apps.find(x => x.id === a.id)?.name || a.id, rows: projectRows(a) }))
+          : node.children.flatMap(ch => ch.apps.map(a => ({ ...a, rows: projectRows(a) })));
+        const allRows = leaves.flatMap(l => l.rows);
+        emit(node.name, allRows, { _type: 'group', _values: true, _level: level, _parents: parents, _idx: out.length });
+        if (node.children) node.children.forEach(ch => walk(ch, level + 1, [...parents, node.name]));
+        else leaves.forEach(l => emit(l.name, l.rows, { _type: 'data', _level: level + 1, _group: node.name, _parents: [...parents, node.name], _owner: l.owner, _idx: out.length }));
+      };
+      portfolioTree.forEach(n => walk(n, 0, []));
+      return out;
     }
 
     // Разбивка по приложениям: строки — реальные приложения, только при All Apps
@@ -1282,15 +1439,40 @@ export default function MetricTree() {
 
     // Разбивка на подстроки: первый split, у которого есть значения.
     // Для версий берём реальные строки sdkVersionTable, для остальных — доли.
-    const segSplit = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || (id === 'app' && selectedApp === 'all')));
+    const segSplit = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio') && selectedApp === 'all')));
     const versionRows = versionSplitKeys[segSplit] ? getVersionSegments(d, segSplit) : null;
-    const segments = versionRows
-      ? versionRows.map(v => [v.label, v.share])
+    const networkRows = segSplit === 'network' ? getNetworkSegments(d) : null;
+    const ownRows = versionRows || networkRows;
+    const segments = ownRows
+      ? ownRows.map(v => [v.label, v.share])
       : (segSplit ? splitSegments[segSplit] : null);
-    // значения версии подставляем поверх долей — eCPM и ARPDAU у релиза свои
-    const segOverrides = versionRows
-      ? Object.fromEntries(versionRows.map(v => [v.label, v.metrics]))
-      : {};
+    // собственные значения сегмента поверх долей — eCPM и Fill у сети/релиза свои
+    const segOverrides = ownRows ? Object.fromEntries(ownRows.map(v => [v.label, v.metrics])) : {};
+    // доли аддитивных метрик у сегмента (показы сети ≠ доля выручки)
+    const segShares = ownRows ? Object.fromEntries(ownRows.map(v => [v.label, v.shares || {}])) : {};
+    const profile = segmentProfiles[segSplit] || null;
+    const monthsCount = merged.length;
+    // доли версий меняются по месяцам: новые растут, старые угасают
+    const versionShareAt = (k, idx) => {
+      if (!versionRows) return null;
+      const n = versionRows.length, fin = versionRows.map(v => v.share);
+      const init = fin.map((_, i) => (i === 0 ? 0 : fin[i - 1]) + (i === n - 1 ? fin[n - 1] : 0));
+      const t = monthsCount > 1 ? (monthsCount - 1 - idx) / (monthsCount - 1) : 1;
+      const raw = init.map((v, i) => v + (fin[i] - v) * t);
+      const sum = raw.reduce((a, b) => a + b, 0) || 1;
+      return raw[k] / sum;
+    };
+    // значение метрики в сегменте: свои данные → профиль ставок → доля
+    const segValue = (mid, label, share, base, k, idx) => {
+      const own = segOverrides[label]?.[mid];
+      if (additiveMetrics.has(mid)) {
+        const sh = versionRows && idx != null ? versionShareAt(k, idx) : (segShares[label]?.[mid] ?? profile?.[label]?.[mid] ?? share);
+        return base * sh;
+      }
+      if (own != null) return own;
+      if (profile) return base * (profile[label]?.[mid] ?? 1);
+      return base * (0.82 + share * 1.15);
+    };
     const splitByPeriod = reportsSplits.includes('date');
     const rows = [];
 
@@ -1306,16 +1488,19 @@ export default function MetricTree() {
           ? vals.reduce((a, b) => a + b, 0)
           : vals.reduce((a, b) => a + b, 0) / vals.length;
       });
-      segments.forEach(([segLabel, share]) => {
+      segments.forEach(([segLabel, share], k) => {
         const dataRow = { _type: 'data', _label: segLabel, _idx: 0 };
         selectedMetrics.forEach(mid => {
           const mk = metricKeyMap[mid];
           if (!mk) return;
+          if (mid === 'dau_share') { dataRow[mid] = +(share * 100).toFixed(1); return; }
+          if (mid === 'anomaly_flag' && networkRows) { dataRow[mid] = Object.values(d.incidents?.network || {}).some(m => m[segLabel]); return; }
+          if (mid === 'network_gap' && networkRows) { const hit = Object.values(d.incidents?.network || {}).filter(m => m[segLabel] === 'outage').length; dataRow[mid] = +(hit / Math.max(monthsCount, 1) * 100).toFixed(1); return; }
           const own = segOverrides[segLabel]?.[mid];
-          if (own != null) { dataRow[mid] = own; return; }
+          if (own != null && (!additiveMetrics.has(mid) || segShares[segLabel]?.[mid] == null)) { dataRow[mid] = own; return; }
           const val = totals[mid];
           if (val == null) { dataRow[mid] = null; return; }
-          dataRow[mid] = additiveMetrics.has(mid) ? val * share : val * (0.82 + share * 1.15);
+          dataRow[mid] = segValue(mid, segLabel, share, val, k, null);
         });
         rows.push(dataRow);
       });
@@ -1330,16 +1515,26 @@ export default function MetricTree() {
         // Sub-rows per segment value
         segments.forEach(([segLabel, share]) => {
           const subRow = {};
+          const k = segments.findIndex(([l]) => l === segLabel);
+          const incident = networkRows ? (d.incidents?.network?.[period]?.[segLabel] || null) : null;
           selectedMetrics.forEach(mid => {
             const mk = metricKeyMap[mid];
             if (!mk) return;
+            // сюжет инцидента у сети в этом месяце
+            if (incident === 'outage') {
+              if (['impressions', 'revenue', 'ecpm', 'fill_rate', 'requests', 'render_rate'].includes(mid)) { subRow[mid] = 0; return; }
+              if (mid === 'network_gap') { subRow[mid] = 100; return; }
+              if (mid === 'anomaly_flag') { subRow[mid] = true; return; }
+            }
+            if (mid === 'anomaly_flag') { subRow[mid] = incident != null; return; }
+            if (mid === 'network_gap' && networkRows) { subRow[mid] = incident === 'outage' ? 100 : +(0.4 + share * 2).toFixed(1); return; }
+            if (mid === 'dau_share') { subRow[mid] = versionRows ? +(versionShareAt(k, idx) * 100).toFixed(1) : +(share * 100).toFixed(1); return; }
             const val = row[mk.key];
             if (val == null) { subRow[mid] = null; return; }
             if (!mk.isNum) { subRow[mid] = val; return; }
-            const own = segOverrides[segLabel]?.[mid];
-            if (own != null && !additiveMetrics.has(mid)) { subRow[mid] = own; return; }
-            // аддитивные метрики делятся по доле сегмента, ставки и средние — варьируются вокруг базы
-            subRow[mid] = additiveMetrics.has(mid) ? val * share : val * (0.82 + share * 1.15);
+            let v = segValue(mid, segLabel, share, val, k, idx);
+            if (incident === 'ecpm-drop' && ['ecpm', 'revenue', 'arpdau', 'ad_arpu'].includes(mid)) v *= 0.45;
+            subRow[mid] = v;
           });
           subRow._type = 'data';
           subRow._label = segLabel;
@@ -1426,80 +1621,228 @@ export default function MetricTree() {
   // Готовые пресеты под user stories (03-product/user-stories.md).
   // Каждый собирает разбивки, метрики и фильтры так, чтобы закрыть сценарий целиком.
   const storyPresets = [
-    {
-      code: 'L1-01', role: 'L1', name: 'Revenue health check',
+    // ===== L1 — базовый клиент медиации =====
+    { code: 'L1-01', role: 'L1', name: 'Revenue health check',
       story: 'Проверить, что выручка поступает стабильно, и сравнить с прошлым периодом',
-      splits: ['date'], metrics: ['revenue', 'impressions', 'dau', 'arpdau'],
-      app: 'all', compare: true,
-    },
-    {
-      code: 'L1-07', role: 'L1', name: 'Revenue by network',
-      story: 'Понять, какие рекламные сети приносят доход и как они платят',
-      splits: ['network'], metrics: ['revenue', 'ecpm', 'impressions', 'fill_rate'],
-      app: 'all',
-    },
-    {
-      code: 'L2-03', role: 'L2', name: 'App version comparison',
+      splits: ['date'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm', 'impressions'], app: 'drivecsx' },
+    { code: 'L1-02', role: 'L1', name: 'Monetisation efficiency',
+      story: 'Насколько эффективно монетизируется аудитория — ARPDAU и eCPM во времени',
+      splits: ['date'], metrics: ['arpdau', 'ecpm', 'impr_per_dau', 'fill_rate', 'revenue', 'dau'], app: 'idle', view: 'line' },
+    { code: 'L1-03', role: 'L1', name: 'Revenue by ad type',
+      story: 'Сколько приносит каждый формат рекламы — структура дохода',
+      splits: ['adType'], metrics: ['revenue', 'impressions', 'ecpm', 'impr_per_dau'], app: 'stack', view: 'bar' },
+    { code: 'L1-04', role: 'L1', name: 'App comparison',
+      story: 'Сравнить приложения: какое зарабатывает объёмом, какое — ценой пользователя',
+      splits: ['app'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm', 'fill_rate', 'impressions'], app: 'all' },
+    { code: 'L1-05', role: 'L1', name: 'Revenue by country',
+      story: 'Откуда приходит основной доход — разбивка по странам',
+      splits: ['country'], metrics: ['revenue', 'dau', 'impressions', 'arpdau', 'ecpm'], app: 'puzzle' },
+    { code: 'L1-06', role: 'L1', name: 'eCPM by ad format',
+      story: 'Какие форматы платят лучше — eCPM по типам рекламы',
+      splits: ['adType'], metrics: ['ecpm', 'revenue', 'impressions', 'fill_rate', 'impr_per_dau'], app: 'drivecsx' },
+    { code: 'L1-07', role: 'L1', name: 'Revenue by network',
+      story: 'Какие рекламные сети приносят доход и как они платят',
+      splits: ['network'], metrics: ['revenue', 'ecpm', 'impressions', 'fill_rate', 'bidding_share'], app: 'stack' },
+    { code: 'L1-08', role: 'L1', name: 'Network health',
+      story: 'Поймать отвал сети: кто и когда перестал отдавать данные, что ещё не подключено',
+      splits: ['date', 'network'], metrics: ['impressions', 'ecpm', 'revenue', 'network_gap', 'anomaly_flag'], app: 'drivecsx' },
+    { code: 'L1-10', role: 'L1', name: 'My weekly check',
+      story: 'Типовой еженедельный отчёт: собрать раз, открывать одним кликом или ссылкой',
+      splits: ['date'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm'], app: 'drivecsx',
+      filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.9.2'] },
+
+    // ===== L2 — продвинутый клиент =====
+    { code: 'L2-01', role: 'L2', name: 'SDK version impact',
+      story: 'Улучшило ли обновление SDK монетизацию — выручка и ставки по версиям',
+      splits: ['sdkVersion'], metrics: ['revenue', 'ecpm', 'arpdau', 'fill_rate', 'impr_per_dau', 'dau'],
+      app: 'drivecsx', filters: ['app', 'sdkVersion'] },
+    { code: 'L2-02', role: 'L2', name: 'Build issue detection',
+      story: 'Найти проблемный билд: показов больше, а качество показов провалилось',
+      splits: ['appVersion'], metrics: ['impressions', 'impr_per_dau', 'fill_rate', 'ecpm', 'revenue', 'dau'],
+      app: 'drivecsx', filters: ['app', 'sdkVersion'] },
+    { code: 'L2-03', role: 'L2', name: 'App version comparison',
       story: 'Сравнить версии приложения и понять, как релиз повлиял на монетизацию',
-      splits: ['appVersion'], metrics: ['revenue', 'ecpm', 'dau', 'arpdau', 'impr_per_dau'],
-      app: 'drivecsx', filters: ['app', 'sdkVersion'],
-    },
-    {
-      code: 'L2-01', role: 'L2', name: 'SDK version impact',
-      story: 'Увидеть выручку по версиям SDK: улучшило обновление монетизацию или нет',
-      splits: ['sdkVersion'], metrics: ['revenue', 'ecpm', 'impressions', 'dau'],
-      app: 'all', filters: ['app', 'sdkVersion'],
-    },
-    {
-      code: 'L2-04', role: 'L2', name: 'Ad load balance',
-      story: 'Найти баланс между рекламной нагрузкой и UX',
-      splits: ['date'], metrics: ['impr_per_session', 'impr_per_dau', 'sessions', 'session_duration'],
-      app: 'all',
-    },
-    {
-      code: 'L2-05', role: 'L2', name: 'Retention quality',
-      story: 'Оценить качество аудитории по удержанию D1 / D7',
-      splits: ['date'], metrics: ['d1_retention', 'd7_retention', 'dau', 'stickiness'],
-      app: 'all',
-    },
-    {
-      code: 'MON-01', role: 'MON', name: 'SDK A/B decision',
+      splits: ['appVersion'], metrics: ['arpdau', 'ecpm', 'fill_rate', 'impr_per_dau', 'session_duration', 'dau', 'revenue'],
+      app: 'drivecsx', filters: ['app', 'sdkVersion'] },
+    { code: 'L2-04', role: 'L2', name: 'Ad load balance',
+      story: 'Баланс рекламной нагрузки и UX: показов на сессию против вовлечённости',
+      splits: ['date'], metrics: ['impr_per_session', 'impr_per_dau', 'session_duration', 'sessions', 'arpdau', 'd7_retention'], app: 'idle' },
+    { code: 'L2-05', role: 'L2', name: 'Retention quality',
+      story: 'Качество аудитории: удержание против объёма закупки',
+      splits: ['date'], metrics: ['d1_retention', 'd7_retention', 'd30_retention', 'installs', 'cpi', 'stickiness', 'dau'], app: 'drivecsx' },
+    { code: 'L2-06', role: 'L2', name: 'Engagement trend',
+      story: 'Не размылась ли вовлечённость при росте аудитории',
+      splits: ['date'], metrics: ['session_duration', 'sessions', 'sessions_per_user', 'time_per_user', 'session_count', 'dau'], app: 'stack' },
+    { code: 'L2-07', role: 'L2', name: 'Revenue loss points',
+      story: 'Где теряется выручка: сети с плохой заполняемостью и пустые сети',
+      splits: ['network'], metrics: ['fill_rate', 'nofill_rate', 'requests', 'impressions', 'ecpm', 'revenue'], app: 'drivecsx' },
+    { code: 'L2-08', role: 'L2', name: 'DAU verification',
+      story: 'Сверить DAU между CAS SDK и Firebase — можно ли доверять цифрам',
+      splits: ['date'], metrics: ['dau_discrepancy', 'dau', 'wau', 'mau', 'installs'], app: 'stack', view: 'bar' },
+    { code: 'L2-09', role: 'L2', name: 'Version rollout tracking',
+      story: 'Скорость раскатки релиза: как новая версия вытесняет старые',
+      splits: ['date', 'appVersion'], metrics: ['dau_share', 'dau', 'revenue', 'arpdau'],
+      app: 'drivecsx', filters: ['app', 'sdkVersion'] },
+    { code: 'L2-12', role: 'L2', name: 'Unified spend revenue',
+      story: 'Spend, revenue и установки в одной таблице — без ручной сводки из трёх сервисов',
+      splits: ['country'], metrics: ['revenue', 'ua_cost', 'profit_cal', 'installs', 'cpi', 'roas', 'mmp_installs'], app: 'idle' },
+
+    // ===== PubC — кандидат в паблишинг =====
+    { code: 'PubC-01', role: 'PubC', name: 'SDK data flowing',
+      story: 'Убедиться, что интеграция прошла: данные из SDK поступают',
+      splits: ['date'], metrics: ['impressions', 'dau', 'revenue', 'fill_rate'], app: 'drivecsx' },
+    { code: 'PubC-02', role: 'PubC', name: 'CPI by country',
+      story: 'Адекватна ли цена трафика — CPI вместе с ROAS и удержанием',
+      splits: ['country'], metrics: ['installs', 'cpi', 'roas', 'd1_retention', 'revenue'], app: 'puzzle' },
+    { code: 'PubC-03', role: 'PubC', name: 'Prototype retention',
+      story: 'Цепляет ли прототип: D1 и D3 по когортам',
+      splits: ['date'], metrics: ['d1_retention', 'd3_retention', 'd7_retention', 'stickiness', 'installs'], app: 'puzzle', view: 'line' },
+    { code: 'PubC-04', role: 'PubC', name: 'Session engagement',
+      story: 'Вовлечённость: длина и число сессий при росте аудитории',
+      splits: ['date'], metrics: ['session_duration', 'sessions', 'time_per_user', 'dau'], app: 'idle', view: 'line' },
+    { code: 'PubC-05', role: 'PubC', name: 'Prototype monetisation',
+      story: 'Зарабатывает ли прототип — выручка и ARPDAU',
+      splits: ['date'], metrics: ['revenue', 'arpdau', 'ecpm', 'impressions', 'dau', 'fill_rate'], app: 'puzzle' },
+
+    // ===== Pub — паблишинг =====
+    { code: 'Pub-01', role: 'Pub', name: 'Publisher profit',
+      story: 'Реальная прибыльность: выручка минус закупка',
+      splits: ['date'], metrics: ['app_profit', 'revenue', 'ua_cost', 'roas', 'roas_todate', 'installs', 'cpi'], app: 'stack' },
+    { code: 'Pub-02', role: 'Pub', name: 'ROAS payback trend',
+      story: 'Окупаемость трафика ускоряется или замедляется',
+      splits: ['date'], metrics: ['roas', 'roas_todate', 'eroas_d60', 'cpi', 'installs', 'app_profit'], app: 'stack', view: 'line' },
+    { code: 'Pub-03', role: 'Pub', name: 'App economics overview',
+      story: 'Полная экономика приложения для инвестиционного решения',
+      splits: ['date'], metrics: ['total_revenue', 'total_arpdau', 'ltv', 'roas', 'payback_days', 'd30_retention', 'iap_revenue'], app: 'idle' },
+    { code: 'Pub-04', role: 'Pub', name: 'Lifetime cohort behaviour',
+      story: 'Долгосрочное поведение когорт: время и сессии за жизнь',
+      splits: ['date'], metrics: ['time_per_user_lt', 'sessions_per_user_lt', 'avg_lifetime', 'd30_retention', 'time_per_user_daily', 'sessions_per_user_daily'],
+      app: 'idle', filters: ['app', 'installDate'] },
+    { code: 'Pub-06', role: 'Pub', name: 'ARPU forecast curve',
+      story: 'Прогноз ARPU D7/D14/D30 — решение о масштабировании через неделю',
+      splits: ['date'], metrics: ['arpu_d7', 'arpu_d14', 'arpu_d30', 'ltv', 'cpi', 'installs'], app: 'stack', view: 'line' },
+    { code: 'Pub-07', role: 'Pub', name: 'LTV trend signal',
+      story: 'Инвестировать в фичи или переключиться — тренд LTV по проектам',
+      splits: ['app'], metrics: ['ltv', 'eroas_d365', 'arpdau', 'd30_retention', 'dau', 'revenue'], app: 'all' },
+    { code: 'Pub-09', role: 'Pub', name: 'A/B test verdict',
+      story: 'Результат A/B-теста: вердикт и его основания в одной строке',
+      splits: ['abGroup'], metrics: ['ab_outcome', 'uplift_arpu', 'prob_better', 'p_value', 'ad_arpu', 'viewers', 'dau_parity', 'srm_pvalue'],
+      app: 'stack', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.9.2', 'CAS 4.8.1 beta4'] },
+
+    // ===== INT · PM · PO =====
+    { code: 'INT-01', role: 'INT', name: 'Shared report link',
+      story: 'Отчёт — это URL: коллега открывает ссылку и видит те же цифры',
+      splits: ['date'], metrics: ['ecpm', 'revenue', 'dau', 'impr_per_dau'], app: 'drivecsx' },
+    { code: 'PM-01', role: 'PM', name: 'Manager portfolio',
+      story: 'Здоровье портфеля менеджера без 1С: какое приложение просело',
+      splits: ['app'], metrics: ['revenue', 'ecpm', 'dau', 'arpdau', 'fill_rate'],
+      app: 'all', filters: ['app', 'manager'], manager: 'm3' },
+    { code: 'PM-02', role: 'PM', name: 'SDK upgrade argument',
+      story: 'Аргумент клиенту обновить SDK: сколько пользователей на старых версиях и сколько они недоприносят',
+      splits: ['sdkVersion'], metrics: ['dau', 'arpdau', 'impr_per_dau', 'fill_rate', 'ecpm'],
+      app: 'stack', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.9.2', 'CAS 3.9.0', 'CAS 3.8.x', 'CAS 3.6.x'] },
+    { code: 'PO-01', role: 'PO', name: 'Revenue drop cause',
+      story: 'Найти причину падения выручки: трафик, поведение или цена показа',
+      splits: ['date'], metrics: ['revenue', 'dau', 'impr_per_dau', 'ecpm', 'fill_rate'], app: 'drivecsx' },
+    { code: 'PO-02', role: 'PO', name: 'Changes timeline',
+      story: 'Таймлайн изменений рядом с метриками: релизы, SDK, конфигурации на графике',
+      splits: ['date'], metrics: ['ecpm', 'revenue', 'impressions', 'dau'], app: 'drivecsx', view: 'line' },
+    { code: 'PO-03', role: 'PO', name: 'App version cohort eCPM',
+      story: 'eCPM по версиям как когорта: та же SDK, та же когорта установок',
+      splits: ['appVersion'], metrics: ['ecpm', 'dau', 'arpdau', 'fill_rate', 'impr_per_dau'],
+      app: 'drivecsx', filters: ['app', 'sdkVersion', 'installDate'], sdkVersions: ['CAS 3.9.2'] },
+    { code: 'PO-04', role: 'PO', name: 'Single source of truth',
+      story: 'Бизнес-метрики и сверка источников в одной таблице — все роли смотрят в одну точку',
+      splits: ['date'], metrics: ['revenue', 'ecpm', 'dau', 'dau_discrepancy', 'network_gap', 'anomaly_flag'], app: 'drivecsx' },
+
+    // ===== MON · AN =====
+    { code: 'MON-01', role: 'MON', name: 'SDK A/B decision',
       story: 'Решить, раскатывать ли бету: разница по группам, значимость и качество сплита',
       note: 'Порог решения: p-value < 0.05 и probability to be better ≥ 95%',
       splits: ['abGroup'], filters: ['app', 'sdkVersion', 'installDate'],
       metrics: ['ad_arpu', 'arpdau', 'ecpm', 'impr_per_dau', 'impr_per_session', 'impr_per_viewer', 'sessions_per_user', 'session_duration', 'fill_rate', 'display_rate', 'viewers', 'dau', 'impressions', 'revenue'],
-      app: 'drivecsx',
-    },
-    {
-      code: 'MON-03', role: 'MON', name: 'Revenue drop decomposition',
+      app: 'drivecsx' },
+    { code: 'MON-02', role: 'MON', name: 'Config change timeline',
+      story: 'Хроника изменений конфигурации рядом с eCPM и Fill Rate',
+      splits: ['date'], metrics: ['ecpm', 'fill_rate', 'revenue', 'impressions', 'dau'], app: 'drivecsx', view: 'line' },
+    { code: 'MON-03', role: 'MON', name: 'Revenue drop decomposition',
       story: 'Пройти дерево метрик: выручка → показы и цена → форматы → заполняемость',
-      splits: ['date', 'adType'], metrics: ['revenue', 'impressions', 'ecpm', 'fill_rate', 'impr_per_session'],
-      app: 'puzzle',
-    },
-    {
-      code: 'AN-01', role: 'AN', name: 'Network drop detection',
+      splits: ['date', 'adType'], metrics: ['revenue', 'impressions', 'ecpm', 'impr_per_dau', 'fill_rate', 'dau'], app: 'drivecsx' },
+    { code: 'MON-04', role: 'MON', name: 'Fill rate losses',
+      story: 'Где дырка в заполняемости — на старых версиях SDK',
+      splits: ['sdkVersion'], metrics: ['fill_rate', 'nofill_rate', 'impr_per_dau', 'impressions', 'ecpm', 'dau'],
+      app: 'stack', filters: ['app', 'sdkVersion'] },
+    { code: 'AN-01', role: 'AN', name: 'Network drop detection',
       story: 'Таблица «сети × периоды», чтобы поймать отвалившуюся сеть',
-      splits: ['date', 'network'], metrics: ['impressions', 'ecpm', 'revenue', 'network_gap', 'anomaly_flag'],
-      app: 'all',
-    },
-    {
-      code: 'GM-01', role: 'GM', name: 'Portfolio by manager',
+      splits: ['date', 'network'], metrics: ['impressions', 'ecpm', 'revenue', 'network_gap', 'anomaly_flag'], app: 'drivecsx' },
+    { code: 'AN-02', role: 'AN', name: 'Source consistency check',
+      story: 'Расхождение источников: норма и выброс, которому нужен ответственный',
+      splits: ['date'], metrics: ['dau_discrepancy', 'anomaly_flag', 'dau', 'impressions', 'revenue'], app: 'stack' },
+
+    // ===== GM · Admin =====
+    { code: 'GM-01', role: 'GM', name: 'Portfolio by manager',
       story: 'Картина портфеля бизнес-юнита: что растёт, что проседает, в разрезе менеджера',
-      splits: ['date'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm'],
-      app: 'all', filters: ['app', 'manager'], manager: 'm1', compare: true,
-    },
-    {
-      code: 'RND-02', role: 'RND', name: 'SDK adoption speed',
+      splits: ['portfolio'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm', 'fill_rate', 'owner'],
+      app: 'all', filters: ['app', 'manager'], manager: 'm1' },
+    { code: 'GM-03', role: 'GM', name: 'Shared source of truth',
+      story: 'PO и медиация видят одну таблицу: упала цена, не трафик, данные не битые',
+      splits: ['date'], metrics: ['ecpm', 'revenue', 'impressions', 'dau', 'fill_rate', 'dau_discrepancy'], app: 'drivecsx' },
+    { code: 'Admin-01', role: 'Admin', name: 'All clients revenue trend',
+      story: 'Одна кривая на весь бизнес с сужением до менеджера и клиента',
+      splits: ['date'], metrics: ['revenue', 'dau', 'arpdau', 'impressions', 'ecpm'], app: 'all', view: 'line' },
+    { code: 'Admin-03', role: 'Admin', name: 'Portfolio anomaly scan',
+      story: 'Найти в портфеле резкие падения и сбои данных',
+      splits: ['date', 'app'], metrics: ['revenue', 'dau', 'anomaly_flag', 'dau_discrepancy', 'network_gap'], app: 'all' },
+    { code: 'Admin-05', role: 'Admin', name: 'Client all apps',
+      story: 'Все приложения клиента одним выбором в фильтре',
+      splits: ['app'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm', 'impressions'],
+      app: 'all', filters: ['app', 'customer'] },
+
+    // ===== RND =====
+    { code: 'RND-01', role: 'RND', name: 'SDK revenue impact',
+      story: 'Даёт ли новая версия SDK обещанный прирост на самой большой аудитории',
+      splits: ['sdkVersion'], metrics: ['arpdau', 'ecpm', 'fill_rate', 'impr_per_dau', 'dau', 'revenue'],
+      app: 'stack', filters: ['app', 'sdkVersion'] },
+    { code: 'RND-02', role: 'RND', name: 'SDK adoption speed',
       story: 'Скорость раскатки версий SDK, чтобы планировать deprecation',
-      splits: ['date', 'sdkVersion'], metrics: ['dau', 'sessions', 'revenue'],
-      app: 'all', filters: ['app', 'sdkVersion'],
-    },
-    {
-      code: 'UA-01', role: 'UA', name: 'ROAS by app',
-      story: 'Понять, какие кампании окупаются, и где растёт стоимость установки',
-      splits: ['date'], metrics: ['roas', 'cpi', 'installs', 'profit_cal'],
-      app: 'idle',
-    },
+      splits: ['date', 'sdkVersion'], metrics: ['dau_share', 'dau', 'arpdau', 'ecpm', 'fill_rate'],
+      app: 'stack', filters: ['app', 'sdkVersion'] },
+    { code: 'RND-03', role: 'RND', name: 'Audience on old SDK',
+      story: 'Сколько денег зависло на старых версиях SDK',
+      splits: ['sdkVersion'], metrics: ['dau', 'dau_share', 'arpdau', 'ecpm', 'fill_rate', 'revenue'],
+      app: 'all', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.7.1', 'CAS 3.6.0', 'CAS 3.6.x', 'CAS 3.7.x'] },
+    { code: 'RND-04', role: 'RND', name: 'A/B config compare',
+      story: 'Сравнить конфигурации A против B при заявленной гипотезе',
+      splits: ['abGroup'], metrics: ['ecpm', 'fill_rate', 'revenue', 'ad_arpu', 'uplift_arpu', 'prob_better', 'p_value', 'dau_parity'],
+      app: 'stack', filters: ['app', 'sdkVersion'] },
+    { code: 'RND-05', role: 'RND', name: 'Client diagnostics',
+      story: 'Полный L2-scope клиента для разбора технической проблемы',
+      splits: ['date', 'network'], metrics: ['dau', 'dau_discrepancy', 'impressions', 'fill_rate', 'ecpm', 'network_gap', 'anomaly_flag'],
+      app: 'drivecsx', filters: ['app', 'customer'] },
+    { code: 'RND-06', role: 'RND', name: 'VIP setup uplift',
+      story: 'Эффект VIP Monetization Setup: до и после на графике',
+      splits: ['date'], metrics: ['ecpm', 'revenue', 'impr_per_dau', 'fill_rate', 'arpdau', 'dau'], app: 'idle', view: 'line' },
+
+    // ===== UA · BD =====
+    { code: 'UA-01', role: 'UA', name: 'ROAS by app',
+      story: 'Какие приложения окупаются — ROAS по всем в одной таблице',
+      splits: ['app'], metrics: ['roas', 'roas_todate', 'cpi', 'installs', 'ua_cost', 'app_profit'], app: 'all' },
+    { code: 'UA-02', role: 'UA', name: 'Scale decision LTV CPI',
+      story: 'Увеличивать ли бюджет: LTV, CPI и ROAS-тренд',
+      splits: ['date'], metrics: ['ltv', 'cpi', 'roas', 'roas_todate', 'installs', 'ecpm', 'revenue'], app: 'drivecsx' },
+    { code: 'UA-03', role: 'UA', name: 'UA spend control',
+      story: 'Контроль бюджета закупки: спенд, установки и прибыль по периодам',
+      splits: ['date', 'app'], metrics: ['ua_cost', 'installs', 'cpi', 'app_profit', 'revenue'], app: 'all' },
+    { code: 'UA-05', role: 'UA', name: 'ROAS forecast early',
+      story: 'Прогноз окупаемости раньше D30',
+      splits: ['date'], metrics: ['arpu_d7', 'arpu_d14', 'arpu_d30', 'eroas_d60', 'eroas_d365', 'roas', 'cpi'], app: 'idle' },
+    { code: 'BD-01', role: 'BD', name: 'My clients health',
+      story: 'Revenue-тренд по своим клиентам — быстро заметить проблему',
+      splits: ['date', 'app'], metrics: ['revenue', 'dau', 'ecpm', 'arpdau'],
+      app: 'all', filters: ['app', 'manager'], manager: 'm2' },
+    { code: 'BD-03', role: 'BD', name: 'Churn risk watch',
+      story: 'Клиент в риске: выручка падает при растущей аудитории',
+      splits: ['date'], metrics: ['revenue', 'ecpm', 'dau', 'arpdau', 'anomaly_flag'], app: 'drivecsx' },
   ];
 
   const applyStoryPreset = (preset) => {
@@ -1666,6 +2009,17 @@ export default function MetricTree() {
     { id: 'rev_by_platform', name: 'Revenue by Mediation Platform', ref: 'd6', section: 'diagnostic' },
     { id: 'ecpm_by_platform', name: 'eCPM by Mediation Platform', ref: 'd7', section: 'diagnostic' },
     { id: 'anomaly_flag', name: 'Anomaly Flag', ref: 'd3', section: 'diagnostic' },
+    // добавлены по разбору user stories
+    { id: 'total_revenue', name: 'Total Revenue', ref: 'm41', section: 'monetisation' },
+    { id: 'total_arpdau', name: 'Total ARPDAU', ref: 'm40', section: 'monetisation' },
+    { id: 'nofill_rate', name: 'NoFill Rate', ref: 'm22', section: 'monetisation' },
+    { id: 'requests', name: 'Requests', ref: 'm49', section: 'monetisation' },
+    { id: 'd3_retention', name: 'Retention D3', ref: 'r2', section: 'cohort' },
+    { id: 'ua_cost', name: 'UA Cost', ref: 'm31', section: 'ua' },
+    { id: 'app_profit', name: 'App Profit', ref: 'm4', section: 'ua' },
+    { id: 'payback_days', name: 'Payback Days', ref: 'm35', section: 'ua' },
+    { id: 'dau_share', name: 'DAU share %', ref: 'new', section: 'diagnostic' },
+    { id: 'owner', name: 'Product Owner', ref: 'new', section: 'diagnostic' },
     // Experimentation — сравнение версий SDK
     { id: 'viewers', name: 'Active Users per Ad', ref: 'm36', section: 'experiment' },
     { id: 'ad_arpu', name: 'Ad ARPU', ref: 'm59', section: 'experiment' },
@@ -2088,6 +2442,16 @@ export default function MetricTree() {
     },
     drivecsx: {
       name: 'DriveCSX',
+      // сюжеты для историй PO-02 / MON-02 / AN-01: релиз, отвал сети, правка флоров
+      events: [
+        { date: '2025-09-08', type: 'sdk', label: 'CAS 3.9.2 rollout' },
+        { date: '2025-11-24', type: 'release', label: 'Release 4.2.0' },
+        { date: '2025-12-10', type: 'config', label: 'Floors changed US/DE' },
+        { date: '2026-01-12', type: 'sdk', label: 'Beta CAS 4.8.1' },
+      ],
+      incidents: {
+        network: { 'December 2025': { 'Meta AN': 'outage' }, 'January 2026': { 'ironSource': 'ecpm-drop' } },
+      },
       current: { dau: 162000, arpdau: 0.041, retention_d7: 24, ltv: 0.33, roas: 118 },
       previous: { dau: 148000, arpdau: 0.046, retention_d7: 25, ltv: 0.36, roas: 127 },
       cohortTable: [
@@ -2128,6 +2492,9 @@ export default function MetricTree() {
     },
     idle: {
       name: 'Idle Tycoon',
+      events: [
+        { date: '2025-09-20', type: 'config', label: 'VIP Monetization Setup' },
+      ],
       current: { dau: 520000, arpdau: 0.075, retention_d7: 32, ltv: 0.58, roas: 168 },
       previous: { dau: 433000, arpdau: 0.072, retention_d7: 30, ltv: 0.52, roas: 155 },
       cohortTable: [
@@ -2193,6 +2560,14 @@ export default function MetricTree() {
     },
     stack: {
       name: 'Stack Tower',
+      events: [
+        { date: '2025-09-15', type: 'sdk', label: 'CAS 3.9.2 rollout' },
+        { date: '2025-11-03', type: 'ua', label: 'UA budget ×2' },
+      ],
+      incidents: {
+        dauDiscrepancy: { 'November 2025': 13.8 },
+        network: { 'November 2025': { 'Unity Ads': 'outage' } },
+      },
       current: { dau: 2100000, arpdau: 0.034, retention_d7: 18, ltv: 0.22, roas: 128 },
       previous: { dau: 1615000, arpdau: 0.032, retention_d7: 16, ltv: 0.19, roas: 112 },
       cohortTable: [
@@ -2250,10 +2625,10 @@ export default function MetricTree() {
       ],
       sdkVersionTable: [
         { version: 'CAS 4.8.1 beta4', appVersion: '3.2.1', dau: 84000, dauShare: 4, sessions: 2.5, duration: 4.6, revenue: 2881, arpdau: 0.0343, imprPerDau: 9.6, ecpm: 3.90, fillRate: 92.6 },
-        { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1176000, dauShare: 56, sessions: 2.7, duration: 5.0, revenue: 11200, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
-        { version: 'CAS 3.9.0', appVersion: '3.1.8', dau: 525000, dauShare: 25, sessions: 2.5, duration: 4.6, revenue: 4180, arpdau: 0.0318, imprPerDau: 7.8, ecpm: 4.08, fillRate: 92.1 },
-        { version: 'CAS 3.8.x', appVersion: '3.0.x', dau: 231000, dauShare: 11, sessions: 2.4, duration: 4.4, revenue: 1520, arpdau: 0.0263, imprPerDau: 7.2, ecpm: 3.65, fillRate: 89.8 },
-        { version: 'CAS 3.6.x', appVersion: '2.x', dau: 84000, dauShare: 4, sessions: 2.2, duration: 4.0, revenue: 540, arpdau: 0.0257, imprPerDau: 6.8, ecpm: 3.78, fillRate: 87.2 },
+        { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1176000, dauShare: 56, sessions: 2.7, duration: 5.0, revenue: 41866, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
+        { version: 'CAS 3.9.0', appVersion: '3.1.8', dau: 525000, dauShare: 25, sessions: 2.5, duration: 4.6, revenue: 16695, arpdau: 0.0318, imprPerDau: 7.8, ecpm: 4.08, fillRate: 92.1 },
+        { version: 'CAS 3.8.x', appVersion: '3.0.x', dau: 231000, dauShare: 11, sessions: 2.4, duration: 4.4, revenue: 6075, arpdau: 0.0263, imprPerDau: 7.2, ecpm: 3.65, fillRate: 89.8 },
+        { version: 'CAS 3.6.x', appVersion: '2.x', dau: 84000, dauShare: 4, sessions: 2.2, duration: 4.0, revenue: 2159, arpdau: 0.0257, imprPerDau: 6.8, ecpm: 3.78, fillRate: 87.2 },
       ]
     },
     merge: {
@@ -6230,7 +6605,7 @@ export default function MetricTree() {
                 const rows = buildReportsRows();
                 const searchLower = reportsSearch.toLowerCase();
                 const abSplit = reportsSplits.includes('abGroup');
-                const segSplitId = abSplit ? 'abGroup' : reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || (id === 'app' && selectedApp === 'all')));
+                const segSplitId = abSplit ? 'abGroup' : reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio') && selectedApp === 'all')));
                 const segSplitLabel = segSplitId
                   ? sidebarDimensions.flatMap(g => g.items).find(i => i.id === segSplitId)?.label
                   : null;
@@ -6254,6 +6629,7 @@ export default function MetricTree() {
 
                 // Hide children of collapsed groups (C1)
                 const visible = filtered.filter(row => {
+                  if (row._parents && row._parents.some(g => collapsedGroups.has(g))) return false;
                   if (row._type === 'data' && row._group && collapsedGroups.has(row._group)) return false;
                   return true;
                 });
@@ -6312,25 +6688,36 @@ export default function MetricTree() {
                                   className="bg-surface-2 cursor-pointer hover:bg-surface-2"
                                   onClick={() => toggleGroup(row._label)}
                                 >
-                                  <td className={`${cellPy} px-4 font-semibold text-ink sticky left-0 bg-surface-2 z-10`} colSpan={selectedMetrics.length + (fitColumns ? 1 : 2)}>
+                                  <td className={`${cellPy} px-4 font-semibold text-ink whitespace-nowrap sticky left-0 bg-surface-2 z-10`} colSpan={row._values ? 1 : selectedMetrics.length + (fitColumns ? 1 : 2)}>
+                                    {row._level > 0 && <span style={{ display: 'inline-block', width: row._level * 16 }} />}
                                     <span className="text-[10px] mr-1.5">{isCollapsed ? '▸' : '▾'}</span>
                                     {highlight(row._label)}
                                     {isCollapsed && (
                                       <span className="ml-2 text-[10px] text-ink-3 font-normal">
-                                        ({rows.filter(r => r._group === row._label).length} rows)
+                                        ({rows.filter(r => r._group === row._label || (r._parents || []).includes(row._label)).filter(r => r._type === 'data').length} rows)
                                       </span>
                                     )}
                                   </td>
+                                  {row._values && selectedMetrics.map(mid => {
+                                    const mk = metricKeyMap[mid];
+                                    const val = row[mid];
+                                    return (
+                                      <td key={mid} className={`${cellPy} px-4 text-left font-semibold text-ink whitespace-nowrap`}>
+                                        {val != null && mk ? mk.fmt(val) : ''}
+                                      </td>
+                                    );
+                                  })}
+                                  {row._values && !fitColumns && <td aria-hidden />}
                                 </tr>
                               );
                             }
 
                             // C1: Data row (possibly indented)
-                            const prevDataRow = visible.slice(0, ri).reverse().find(r => r._type === 'data');
+                            const prevDataRow = visible.slice(0, ri).reverse().find(r => r._type === 'data' && (!row._group || r._label === row._label));
                             return (
                               <tr key={'d-' + ri} className="border-b border-line hover:bg-surface-2 group/row">
                                 <td className={`${cellPy} px-4 text-ink whitespace-nowrap sticky left-0 bg-base z-10 group-hover/row:bg-surface-2`}>
-                                  {row._group && <span className="ml-4" />}
+                                  {row._group && <span style={{ display: 'inline-block', width: (row._level || 1) * 16 }} />}
                                   {highlight(row._label)}
                                 </td>
                                 {selectedMetrics.map((mid, ci) => {
@@ -6470,11 +6857,13 @@ export default function MetricTree() {
 
               {viewType === 'bar' && !reportsSplits.includes('abGroup') && (() => {
                 const rows = buildReportsRows().filter(r => r._type === 'data');
-                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || (id === 'app' && selectedApp === 'all')));
+                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio') && selectedApp === 'all')));
                 const hasAdTypeSplit = !!segSplitId;
                 const segments = hasAdTypeSplit
                   ? (segSplitId === 'app'
                       ? realAppIds.map(id => apps.find(a => a.id === id)?.name || id)
+                      : segSplitId === 'network'
+                      ? (getNetworkSegments(selectedApp === 'all' ? aggregateApps() : dashboardData[selectedApp]) || []).map(v => v.label)
                       : splitSegments[segSplitId]
                       ? splitSegments[segSplitId].map(([label]) => label)
                       : (getVersionSegments(dashboardData[selectedApp === 'all' ? 'puzzle' : selectedApp], segSplitId) || []).map(v => v.label))
@@ -6707,6 +7096,25 @@ export default function MetricTree() {
                                 <title>{`${allMetricsOptions.find(m => m.id === mid)?.name}: ${metricKeyMap[mid]?.fmt(p.val)}`}</title>
                               </g>
                             ))}
+                          </g>
+                        );
+                      })}
+                      {/* Слой событий: релизы, SDK, конфигурации — вертикальные маркеры */}
+                      {(selectedApp !== 'all' ? (dashboardData[selectedApp]?.events || []) : []).map((ev, ei) => {
+                        const dt = new Date(ev.date + 'T00:00:00');
+                        const label = dt.toLocaleString('en-US', { month: 'long' }) + ' ' + dt.getFullYear();
+                        const mi = periods.indexOf(label);
+                        if (mi < 0 || periods.length < 2) return null;
+                        const x = padL + ((mi + (dt.getDate() - 1) / 30) / (periods.length - 1)) * chartW;
+                        const colors = { release: 'var(--error)', sdk: 'var(--info)', config: 'var(--warning)', ua: 'var(--purple)' };
+                        const c = colors[ev.type] || 'var(--text-secondary)';
+                        const ly = padT + 6 + (ei % 3) * 13;
+                        return (
+                          <g key={ei}>
+                            <line x1={x} y1={padT} x2={x} y2={padT + chartH} stroke={c} strokeWidth="1.2" strokeDasharray="4 3" />
+                            <rect x={x + 3} y={ly - 9} width={ev.label.length * 6 + 8} height="12" rx="3" fill="var(--bg-base)" stroke={c} strokeWidth="0.8" />
+                            <text x={x + 7} y={ly} fill={c} fontSize="9" fontFamily="Geist" fontWeight="600">{ev.label}</text>
+                            <title>{ev.date + ' · ' + ev.label}</title>
                           </g>
                         );
                       })}
