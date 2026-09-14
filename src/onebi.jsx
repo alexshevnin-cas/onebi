@@ -101,6 +101,10 @@ export default function MetricTree() {
   // Superadmin filter states
   const [filterCustomer, setFilterCustomer] = useState('all');
   const [filterManager, setFilterManager] = useState('all');
+  const [filterBusinessUnit, setFilterBusinessUnit] = useState('all'); // бизнес-юнит из дерева 1С: games, mediation, publishing
+  const [showBusinessUnitDropdown, setShowBusinessUnitDropdown] = useState(false);
+  const [buTreeOpen, setBuTreeOpen] = useState(() => new Set(['games', 'mediation', 'publishing'])); // раскрытые узлы дерева 1С
+  const [buTreeSearch, setBuTreeSearch] = useState('');
   const [filterDateCreatedFrom, setFilterDateCreatedFrom] = useState('');
   const [filterDateCreatedTo, setFilterDateCreatedTo] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -311,6 +315,7 @@ export default function MetricTree() {
     if (params.has('m')) setSelectedMetrics(params.get('m').split(',').filter(Boolean));
     if (params.has('app')) setSelectedApp(params.get('app'));
     if (params.has('country')) setFilterCountry(params.get('country'));
+    if (params.has('bu')) { setFilterBusinessUnit(params.get('bu')); setActiveReportFilters(prev => prev.includes('businessUnit') ? prev : [...prev, 'businessUnit']); }
     if (params.has('screen')) setActiveScreen(params.get('screen'));
   }, []);
 
@@ -328,6 +333,7 @@ export default function MetricTree() {
         setAdminManagerDropdown(null);
         setShowCustomerDropdown(false);
         setShowManagerDropdown(false);
+        setShowBusinessUnitDropdown(false);
         setShowDateCreatedDropdown(false);
         setShowFilterPickerDropdown(false);
         setShowNotificationsDD(false);
@@ -346,6 +352,7 @@ export default function MetricTree() {
     { group: 'Common', items: [
       { id: 'date', label: 'Activity Date' },
       { id: 'app', label: 'App' },
+      { id: 'businessUnit', label: 'Business Unit' },
       { id: 'portfolio', label: 'Portfolio (1C)' },
       { id: 'country', label: 'Country' },
       { id: 'os', label: 'OS' },
@@ -1090,7 +1097,7 @@ export default function MetricTree() {
   // Четыре «настоящих» приложения расставлены по дереву; остальные проекты —
   // тонкие клоны на базе одного из них с коэффициентом масштаба.
   const portfolioTree = [
-    { name: 'cas games', children: [
+    { id: 'games', label: 'CAS Games', name: 'cas games', children: [
       { name: 'Core division (our)', apps: [
         { id: 'drivecsx', owner: 'Maksym Starostenko' },
         { id: 'drivex', name: 'Drive X Unlimited', base: 'drivecsx', k: 0.34, owner: 'Maksym Starostenko' },
@@ -1113,13 +1120,69 @@ export default function MetricTree() {
         { id: 'gugu', name: 'Gugu Gaga Penguin: Obby', base: 'puzzle', k: 0.04, owner: 'Yuriy Vityuk' },
       ]},
     ]},
-    { name: 'CAS mediation', apps: [
+    { id: 'mediation', label: 'CAS Mediation', name: 'CAS mediation', apps: [
       { id: 'stack', owner: 'Anton Smirnov' },
     ]},
-    { name: 'Cas publishing', apps: [
+    { id: 'publishing', label: 'CAS Publishing', name: 'Cas publishing', apps: [
       { id: 'idle', owner: 'Serhii Shcherbyna' },
     ]},
   ];
+
+  // Значение фильтра Business Unit — путь по дереву 1С:
+  // 'all' | '<unit>' | '<unit>/<division>' | 'proj:<projectId>'
+  const projectLabel = (pr) => pr.name || apps.find(a => a.id === pr.id)?.name || pr.id;
+  const unitDivisions = (node) => node.children || [{ name: null, apps: node.apps }];
+  // Урезанное дерево под выбранное значение: всегда список юнитов с дивизионами и проектами
+  const prunePortfolioTree = (value) => {
+    if (!value || value === 'all') return portfolioTree;
+    if (value.startsWith('proj:')) {
+      const id = value.slice(5);
+      return portfolioTree.flatMap(n => {
+        const divs = unitDivisions(n).map(dv => ({ ...dv, apps: dv.apps.filter(a => a.id === id) })).filter(dv => dv.apps.length);
+        if (!divs.length) return [];
+        return [n.children ? { ...n, children: divs } : { ...n, apps: divs[0].apps }];
+      });
+    }
+    const [unitId, division] = value.split('/');
+    const node = portfolioTree.find(n => n.id === unitId);
+    if (!node) return [];
+    if (!division || !node.children) return [node];
+    return [{ ...node, children: node.children.filter(ch => ch.name === division) }];
+  };
+  // Проекты в области фильтра (листья дерева): настоящие приложения и клоны с коэффициентом k
+  const businessUnitProjects = (value) => prunePortfolioTree(value).flatMap(n => unitDivisions(n).flatMap(dv => dv.apps));
+  const businessUnitLabel = (value) => {
+    if (!value || value === 'all') return 'All';
+    if (value.startsWith('proj:')) {
+      const pr = portfolioTree.flatMap(n => unitDivisions(n).flatMap(dv => dv.apps)).find(a => a.id === value.slice(5));
+      return pr ? projectLabel(pr) : value;
+    }
+    const [unitId, division] = value.split('/');
+    const node = portfolioTree.find(n => n.id === unitId);
+    return node ? (division ? `${node.label} / ${division}` : node.label) : value;
+  };
+  // Тонкий клон на уровне исходных таблиц: аддитивные поля × k, денежные ставки с наклоном
+  const scaleAppData = (src, proj) => {
+    if (!src || !proj.base) return src;
+    const k = proj.k;
+    const tilt = 0.9 + ((proj.id.length * 7) % 5) * 0.05;
+    const additive = new Set([...ADDITIVE_FIELDS, 'sessions', 'requests']);
+    const tiltable = new Set(['ecpm', 'arpdau', 'ltv', 'cpi', 'roas', 'roasD7', 'roasD30', 'bidPrice']);
+    const scaleRow = (r) => {
+      const o = { ...r };
+      Object.keys(o).forEach(f => {
+        if (typeof o[f] !== 'number') return;
+        if (additive.has(f)) o[f] = +(o[f] * k).toFixed(2);
+        else if (tiltable.has(f)) o[f] = +(o[f] * tilt).toFixed(4);
+      });
+      return o;
+    };
+    const out = { ...src, name: proj.name };
+    ['cohortTable', 'monetisationTable', 'engagementTable', 'uaTable', 'networksTable', 'sdkVersionTable'].forEach(t => {
+      if (Array.isArray(src[t])) out[t] = src[t].map(scaleRow);
+    });
+    return out;
+  };
 
   // All Apps в Reports: складываем приложения в псевдо-приложение по месяцам.
   // Аддитивные поля — суммой, ставки и средние — взвешенно по DAU.
@@ -1139,8 +1202,8 @@ export default function MetricTree() {
     });
     return out;
   };
-  const aggregateApps = () => {
-    const apps = realAppIds.map(id => dashboardData[id]).filter(Boolean);
+  const aggregateApps = (members) => {
+    const apps = (members || realAppIds.map(id => dashboardData[id])).filter(Boolean);
     const byIndex = (field) => {
       const n = Math.max(...apps.map(a => (a[field] || []).length));
       return Array.from({ length: n }, (_, i) => mergeRowsWeighted(apps.map(a => (a[field] || [])[i]))).filter(Boolean);
@@ -1179,7 +1242,7 @@ export default function MetricTree() {
       return r;
     }).sort((a, b) => b.dau - a.dau);
     return {
-      name: 'All Apps',
+      name: members ? 'Business unit' : 'All Apps',
       cohortTable: byIndex('cohortTable'),
       monetisationTable: byIndex('monetisationTable'),
       engagementTable: byIndexRows('engagementTable'),
@@ -1192,7 +1255,13 @@ export default function MetricTree() {
   const buildReportsRows = () => {
     const isAllApps = selectedApp === 'all';
     const appId = isAllApps ? 'puzzle' : selectedApp; // для A/B-серий, где нужна одна таблица версий
-    const d = isAllApps ? aggregateApps() : dashboardData[appId];
+    // Чип Business Unit: All Apps считается по дереву 1С (все проекты юнита или всего холдинга),
+    // чтобы суммы юнитов сходились с итогом.
+    const buActive = activeReportFilters.includes('businessUnit');
+    const buProjects = buActive ? businessUnitProjects(filterBusinessUnit) : [];
+    const d = !isAllApps ? dashboardData[appId]
+      : buActive ? aggregateApps(buProjects.map(pr => scaleAppData(dashboardData[pr.base || pr.id], pr)))
+      : aggregateApps();
     if (!d) return [];
 
     // Filter-based multipliers for fake data variation
@@ -1363,17 +1432,8 @@ export default function MetricTree() {
       }
     }
 
-    // Разбивка Portfolio (1C): бизнес-юнит → дивизион → проект, с итогами по группам
-    if (reportsSplits.includes('portfolio') && isAllApps) {
-      const pick = (rowsOf, mid) => {
-        const mk = metricKeyMap[mid];
-        if (!mk) return null;
-        const vals = rowsOf.map(r => r[mk.key]).filter(v => typeof v === 'number');
-        if (!vals.length) return null;
-        return additiveMetrics.has(mid) ? vals.reduce((a, b) => a + b, 0) : vals.reduce((a, b) => a + b, 0) / vals.length;
-      };
-      // тонкий клон: аддитивные поля × k, ставки с небольшим сдвигом
-      const projectRows = (proj) => {
+    // тонкий клон проекта 1С: аддитивные поля × k, ставки с небольшим сдвигом
+    const projectRows = (proj) => {
         const base = mergeApp(dashboardData[proj.base || proj.id]);
         if (!proj.base) return base;
         const tilt = 0.9 + ((proj.id.length * 7) % 5) * 0.05;
@@ -1388,6 +1448,43 @@ export default function MetricTree() {
           });
           return o;
         });
+    };
+
+    // Разбивка Business Unit: бизнес-юнит → дивизион, без уровня проектов.
+    // Юнит — групповая строка с итогами, дивизионы — строки внутри; юниты без дивизионов — одной строкой.
+    if (reportsSplits.includes('businessUnit') && isAllApps) {
+      const pick = (rowsOf, mid) => {
+        const mk = metricKeyMap[mid];
+        if (!mk) return null;
+        const vals = rowsOf.map(r => r[mk.key]).filter(v => typeof v === 'number');
+        if (!vals.length) return null;
+        return additiveMetrics.has(mid) ? vals.reduce((a, b) => a + b, 0) : vals.reduce((a, b) => a + b, 0) / vals.length;
+      };
+      const out = [];
+      const emit = (label, rowsOf, extra) => {
+        const r = { ...extra, _label: label };
+        selectedMetrics.forEach(mid => { r[mid] = mid === 'owner' ? null : pick(rowsOf, mid); });
+        out.push(r);
+      };
+      (buActive ? prunePortfolioTree(filterBusinessUnit) : portfolioTree).forEach(unit => {
+        const divRows = unitDivisions(unit).map(dv => ({ name: dv.name, rows: dv.apps.flatMap(pr => projectRows(pr)) }));
+        const allRows = divRows.flatMap(dv => dv.rows);
+        if (!unit.children) { emit(unit.label, allRows, { _type: 'data', _level: 0, _idx: out.length }); return; }
+        emit(unit.label, allRows, { _type: 'group', _values: true, _level: 0, _parents: [], _idx: out.length });
+        divRows.forEach(dv => emit(dv.name, dv.rows, { _type: 'data', _level: 1, _group: unit.label, _parents: [unit.label], _idx: out.length }));
+      });
+      return out;
+    }
+
+    // Разбивка Portfolio (1C): бизнес-юнит → дивизион → проект, с итогами по группам.
+    // При фильтре Business Unit — только его поддерево.
+    if (reportsSplits.includes('portfolio') && isAllApps) {
+      const pick = (rowsOf, mid) => {
+        const mk = metricKeyMap[mid];
+        if (!mk) return null;
+        const vals = rowsOf.map(r => r[mk.key]).filter(v => typeof v === 'number');
+        if (!vals.length) return null;
+        return additiveMetrics.has(mid) ? vals.reduce((a, b) => a + b, 0) : vals.reduce((a, b) => a + b, 0) / vals.length;
       };
       const out = [];
       const emit = (label, rowsOf, extra) => {
@@ -1404,13 +1501,15 @@ export default function MetricTree() {
         if (node.children) node.children.forEach(ch => walk(ch, level + 1, [...parents, node.name]));
         else leaves.forEach(l => emit(l.name, l.rows, { _type: 'data', _level: level + 1, _group: node.name, _parents: [...parents, node.name], _owner: l.owner, _idx: out.length }));
       };
-      portfolioTree.forEach(n => walk(n, 0, []));
+      (buActive ? prunePortfolioTree(filterBusinessUnit) : portfolioTree).forEach(n => walk(n, 0, []));
       return out;
     }
 
     // Разбивка по приложениям: строки — реальные приложения, только при All Apps
     if (reportsSplits.includes('app') && isAllApps) {
-      const perApp = realAppIds.map(id => ({ id, name: apps.find(a => a.id === id)?.name || id, rows: mergeApp(dashboardData[id]) }));
+      const perApp = buActive
+        ? buProjects.map(pr => ({ id: pr.id, name: pr.name || apps.find(a => a.id === pr.id)?.name || pr.id, rows: projectRows(pr) }))
+        : realAppIds.map(id => ({ id, name: apps.find(a => a.id === id)?.name || id, rows: mergeApp(dashboardData[id]) }));
       const pick = (row, mid) => { const mk = metricKeyMap[mid]; return mk ? (row?.[mk.key] ?? null) : null; };
       const out = [];
       if (reportsSplits.includes('date')) {
@@ -1439,7 +1538,7 @@ export default function MetricTree() {
 
     // Разбивка на подстроки: первый split, у которого есть значения.
     // Для версий берём реальные строки sdkVersionTable, для остальных — доли.
-    const segSplit = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio') && selectedApp === 'all')));
+    const segSplit = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio' || id === 'businessUnit') && selectedApp === 'all')));
     const versionRows = versionSplitKeys[segSplit] ? getVersionSegments(d, segSplit) : null;
     const networkRows = segSplit === 'network' ? getNetworkSegments(d) : null;
     const ownRows = versionRows || networkRows;
@@ -1604,6 +1703,7 @@ export default function MetricTree() {
     params.set('m', selectedMetrics.join(','));
     params.set('app', selectedApp);
     if (filterCountry !== 'all') params.set('country', filterCountry);
+    if (activeReportFilters.includes('businessUnit') && filterBusinessUnit !== 'all') params.set('bu', filterBusinessUnit);
     params.set('screen', activeScreen);
     window.history.replaceState(null, '', '?' + params.toString());
   };
@@ -1614,6 +1714,7 @@ export default function MetricTree() {
     if (params.has('m')) setSelectedMetrics(params.get('m').split(',').filter(Boolean));
     if (params.has('app')) setSelectedApp(params.get('app'));
     if (params.has('country')) setFilterCountry(params.get('country'));
+    if (params.has('bu')) { setFilterBusinessUnit(params.get('bu')); setActiveReportFilters(prev => prev.includes('businessUnit') ? prev : [...prev, 'businessUnit']); }
     if (params.has('screen')) setActiveScreen(params.get('screen'));
   };
 
@@ -1784,6 +1885,10 @@ export default function MetricTree() {
       story: 'Картина портфеля бизнес-юнита: что растёт, что проседает, в разрезе менеджера',
       splits: ['portfolio'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm', 'fill_rate', 'owner'],
       app: 'all', filters: ['app', 'manager'], manager: 'm1' },
+    { code: 'GM-02', role: 'GM', name: 'Business unit revenue',
+      story: 'Выручка бизнес-юнита одним фильтром: CAS Games, CAS Mediation или CAS Publishing — суммы юнитов сходятся с итогом холдинга',
+      splits: ['date'], metrics: ['revenue', 'total_revenue', 'dau', 'arpdau', 'ecpm', 'impressions'],
+      app: 'all', filters: ['app', 'businessUnit'], businessUnit: 'games' },
     { code: 'GM-03', role: 'GM', name: 'Shared source of truth',
       story: 'PO и медиация видят одну таблицу: упала цена, не трафик, данные не битые',
       splits: ['date'], metrics: ['ecpm', 'revenue', 'impressions', 'dau', 'fill_rate', 'dau_discrepancy'], app: 'drivecsx' },
@@ -1852,6 +1957,7 @@ export default function MetricTree() {
     setFilterCountry(preset.country || 'all');
     setActiveReportFilters(preset.filters || ['app']);
     setFilterManager(preset.manager || 'all');
+    setFilterBusinessUnit(preset.businessUnit || 'all');
     setFilterCustomer('all');
     setFilterSdkVersions(preset.sdkVersions || []);
     setReportsCompare(!!preset.compare);
@@ -5933,7 +6039,7 @@ export default function MetricTree() {
                   <div className="flex-1"></div>
 
                   <button
-                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); setActivePreset(null); setReportsCompare(false); setFilterSdkVersions([]); }}
+                    onClick={() => { setReportsSplits(['date']); setSelectedMetrics(['dau', 'revenue', 'sessions', 'd1_retention', 'd7_retention', 'impr_per_dau']); setFilterCountry('all'); setReportsSearch(''); setFilterManager('all'); setFilterBusinessUnit('all'); setFilterCustomer('all'); setFilterDateCreatedFrom(''); setFilterDateCreatedTo(''); setActiveReportFilters([]); setSelectedApp('all'); setActivePreset(null); setReportsCompare(false); setFilterSdkVersions([]); }}
                     className="h-8 px-3.5 inline-flex items-center gap-1.5 rounded-lg bg-base border border-line text-xs font-medium text-ink hover:border-ink-3 transition-colors"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
@@ -6143,6 +6249,117 @@ export default function MetricTree() {
                         </div>
                       )}
 
+                      {/* Business Unit filter chip */}
+                      {activeReportFilters.includes('businessUnit') && (
+                        <div className="relative">
+                          <button
+                            onClick={() => { setShowBusinessUnitDropdown(!showBusinessUnitDropdown); setBuTreeSearch(''); setShowManagerDropdown(false); setShowCustomerDropdown(false); setShowDateCreatedDropdown(false); }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-info-subtle text-info border border-info hover:bg-info-subtle cursor-pointer"
+                          >
+                            Business Unit: {filterBusinessUnit !== 'all' ? businessUnitLabel(filterBusinessUnit) : 'All'}
+                            <span className="text-info">▾</span>
+                            <button onClick={(e) => { e.stopPropagation(); setActiveReportFilters(activeReportFilters.filter(f => f !== 'businessUnit')); setFilterBusinessUnit('all'); }} className="hover:text-info ml-0.5">×</button>
+                          </button>
+                          {showBusinessUnitDropdown && (() => {
+                            const toggleOpen = (key) => setBuTreeOpen(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+                            const pick = (value) => { setFilterBusinessUnit(value); setShowBusinessUnitDropdown(false); };
+                            // Поиск: оставляем ветки, где совпал юнит, дивизион или проект; при запросе всё раскрыто
+                            const q = buTreeSearch.trim().toLowerCase();
+                            const hit = (t) => !!t && t.toLowerCase().includes(q);
+                            const visibleTree = !q ? portfolioTree : portfolioTree.flatMap(unit => {
+                              if (hit(unit.label) || hit(unit.name)) return [unit];
+                              const divs = unitDivisions(unit).flatMap(dv => {
+                                if (hit(dv.name)) return [dv];
+                                const prs = dv.apps.filter(pr => hit(projectLabel(pr)));
+                                return prs.length ? [{ ...dv, apps: prs }] : [];
+                              });
+                              if (!divs.length) return [];
+                              return [unit.children ? { ...unit, children: divs } : { ...unit, apps: divs[0].apps }];
+                            });
+                            const isOpen = (key) => q ? true : buTreeOpen.has(key);
+                            const Chevron = ({ open }) => (
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${open ? 'rotate-90' : ''}`}><path d="M9 6l6 6-6 6"/></svg>
+                            );
+                            const FolderIcon = () => (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" className="shrink-0"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>
+                            );
+                            const AppIcon = () => (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" className="shrink-0"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M10.5 17.5h3" strokeLinecap="round"/></svg>
+                            );
+                            const Row = ({ nodeKey, value, label, depth, hasChildren, isLeaf, hint }) => {
+                              const open = isOpen(nodeKey);
+                              const active = filterBusinessUnit === value;
+                              return (
+                                <div
+                                  className={`group flex items-center gap-2 pr-3 py-1.5 text-xs cursor-pointer transition-colors ${active ? 'bg-info-subtle text-info font-medium' : 'text-ink hover:bg-base'}`}
+                                  style={{ paddingLeft: 8 + depth * 16 }}
+                                  onClick={() => pick(value)}
+                                >
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); if (hasChildren) toggleOpen(nodeKey); }}
+                                    className={`w-4 h-4 shrink-0 inline-flex items-center justify-center rounded ${hasChildren ? 'text-ink-3 hover:text-ink' : 'invisible'}`}
+                                    tabIndex={hasChildren ? 0 : -1}
+                                  ><Chevron open={open} /></button>
+                                  <span className={active ? 'text-info' : 'text-ink-3'}>{isLeaf ? <AppIcon /> : <FolderIcon />}</span>
+                                  <span className="truncate">{label}</span>
+                                  {hint && <span className="text-[10px] text-ink-3 shrink-0">{hint}</span>}
+                                  {active && <span className="ml-auto pl-2 text-info">✓</span>}
+                                </div>
+                              );
+                            };
+                            return (
+                              <div className="absolute left-0 top-full mt-1 bg-surface border border-line rounded-lg shadow-pop z-50 w-[320px] max-h-[460px] overflow-y-auto">
+                                <div className="p-2 border-b border-line sticky top-0 bg-surface z-10">
+                                  <input
+                                    type="text"
+                                    placeholder="Search units, divisions, projects..."
+                                    value={buTreeSearch}
+                                    onChange={(e) => setBuTreeSearch(e.target.value)}
+                                    className="w-full bg-base border border-line rounded px-2 py-1.5 text-xs text-ink placeholder-ink-3 focus:outline-none focus:border-accent-line"
+                                    autoFocus
+                                  />
+                                </div>
+                                {!q && (
+                                  <>
+                                    <button
+                                      onClick={() => pick('all')}
+                                      className={`w-full flex items-center gap-2 px-3 py-2 mt-1 text-left text-xs hover:bg-base ${filterBusinessUnit === 'all' ? 'text-info bg-base' : 'text-ink'}`}
+                                    >
+                                      All business units
+                                      {filterBusinessUnit === 'all' && <span className="ml-auto text-info">✓</span>}
+                                    </button>
+                                    <div className="border-t border-line my-1" />
+                                  </>
+                                )}
+                                <div className="px-3 pt-1 pb-1 text-[10px] uppercase tracking-wider text-ink-3 font-semibold">Projects · 1C</div>
+                                {visibleTree.length === 0 && (
+                                  <div className="px-3 py-3 text-[11px] text-ink-3">Nothing found for «{buTreeSearch}»</div>
+                                )}
+                                {visibleTree.map(unit => (
+                                  <div key={unit.id}>
+                                    <Row nodeKey={unit.id} value={unit.id} label={unit.label} depth={0} hasChildren={!!unit.children || unit.apps.length > 0} hint={unit.name} />
+                                    {isOpen(unit.id) && unitDivisions(unit).map(dv => {
+                                      const divKey = `${unit.id}/${dv.name}`;
+                                      const projects = (depth) => dv.apps.map(pr => (
+                                        <Row key={pr.id} nodeKey={`proj:${pr.id}`} value={`proj:${pr.id}`} label={projectLabel(pr)} depth={depth} isLeaf />
+                                      ));
+                                      if (!dv.name) return projects(1);
+                                      return (
+                                        <div key={divKey}>
+                                          <Row nodeKey={divKey} value={divKey} label={dv.name} depth={1} hasChildren hint={`${dv.apps.length}`} />
+                                          {isOpen(divKey) && projects(2)}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ))}
+                                <div className="h-1" />
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
                       {/* Customer filter chip */}
                       {activeReportFilters.includes('customer') && (
                         <div className="relative">
@@ -6346,6 +6563,7 @@ export default function MetricTree() {
                               { id: 'app', label: 'App' },
                               { id: 'country', label: 'Country' },
                               { id: 'manager', label: 'Manager' },
+                              { id: 'businessUnit', label: 'Business Unit' },
                               { id: 'customer', label: 'Customer' },
                               { id: 'sdkVersion', label: 'SDK Version' },
                               { id: 'installDate', label: 'Install date (cohort)' },
@@ -6359,7 +6577,7 @@ export default function MetricTree() {
                                 {f.label}
                               </button>
                             ))}
-                            {activeReportFilters.length >= 7 && (
+                            {activeReportFilters.length >= 8 && (
                               <div className="px-3 py-2 text-[10px] text-ink-3">All filters added</div>
                             )}
                           </div>
@@ -6605,7 +6823,7 @@ export default function MetricTree() {
                 const rows = buildReportsRows();
                 const searchLower = reportsSearch.toLowerCase();
                 const abSplit = reportsSplits.includes('abGroup');
-                const segSplitId = abSplit ? 'abGroup' : reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio') && selectedApp === 'all')));
+                const segSplitId = abSplit ? 'abGroup' : reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio' || id === 'businessUnit') && selectedApp === 'all')));
                 const segSplitLabel = segSplitId
                   ? sidebarDimensions.flatMap(g => g.items).find(i => i.id === segSplitId)?.label
                   : null;
@@ -6726,7 +6944,7 @@ export default function MetricTree() {
                                   const prevVal = prevDataRow?.[mid];
                                   // аномалия имеет смысл только между соседними периодами:
                                   // в разбивке по версиям или сетям соседние строки — не «до/после»
-                                  const anomaly = reportsSplits.includes('date') ? getAnomaly(val, prevVal) : null;
+                                  const anomaly = reportsSplits.includes('date') && !reportsSplits.some(id => id === 'portfolio' || id === 'businessUnit') ? getAnomaly(val, prevVal) : null;
                                   const anomalyCls = anomaly ? anomalyStyle[anomaly] : '';
                                   const formatted = val != null && mk ? mk.fmt(val) : '—';
                                   const cellKey = `${ri}-${ci}`;
@@ -6857,7 +7075,7 @@ export default function MetricTree() {
 
               {viewType === 'bar' && !reportsSplits.includes('abGroup') && (() => {
                 const rows = buildReportsRows().filter(r => r._type === 'data');
-                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio') && selectedApp === 'all')));
+                const segSplitId = reportsSplits.find(id => id !== 'date' && (splitSegments[id] || versionSplitKeys[id] || ((id === 'app' || id === 'portfolio' || id === 'businessUnit') && selectedApp === 'all')));
                 const hasAdTypeSplit = !!segSplitId;
                 const segments = hasAdTypeSplit
                   ? (segSplitId === 'app'
