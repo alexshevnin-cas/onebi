@@ -518,6 +518,16 @@ export default function MetricTree() {
     payback_days: { ref: 'm35', desc: 'Когда вернём инвестиции', formula: 'День, когда ROAS = 100%' },
     dau_share: { ref: 'new', desc: 'Доля аудитории на версии — скорость раскатки', formula: 'DAU версии ÷ DAU всего × 100' },
     owner: { ref: 'new', desc: 'Владелец проекта из справочника 1С', formula: '1C Mapping · Product owner' },
+    impr_inter_session: { ref: 'm17', desc: 'Сколько interstitial приходится на сессию', formula: 'Interstitial Impressions ÷ Sessions' },
+    impr_reward_session: { ref: 'm18', desc: 'Сколько rewarded приходится на сессию', formula: 'Rewarded Impressions ÷ Sessions' },
+    impr_banner_session: { ref: 'm16', desc: 'Сколько баннеров приходится на сессию', formula: 'Banner Impressions ÷ Sessions' },
+    ecpm_inter: { ref: 'new', desc: 'Ставка за interstitial — рост цены при падении числа показов виден только раздельно по форматам', formula: 'Revenue_inter ÷ Impressions_inter × 1000' },
+    ecpm_reward: { ref: 'new', desc: 'Ставка за rewarded video — самый дорогой формат', formula: 'Revenue_reward ÷ Impressions_reward × 1000' },
+    ecpm_banner: { ref: 'new', desc: 'Ставка за баннер', formula: 'Revenue_banner ÷ Impressions_banner × 1000' },
+    ad_users_rate: { ref: 'm8', desc: 'Какая доля активных пользователей вообще видит рекламу', formula: 'Daily Ad Viewers ÷ DAU × 100' },
+    arpu_d1_act: { ref: 'new', desc: 'Фактический доход на пользователя за первый день жизни когорты', formula: 'Cumulative Revenue D1 ÷ Cohort Users' },
+    arpu_d3_act: { ref: 'new', desc: 'Фактический накопленный доход на пользователя к третьему дню', formula: 'Cumulative Revenue D3 ÷ Cohort Users' },
+    arpu_d7_act: { ref: 'new', desc: 'Фактический накопленный доход к седьмому дню — факт, а не прогноз ARPU Forecast D7', formula: 'Cumulative Revenue D7 ÷ Cohort Users' },
     d1_ret: { ref: 'r1', desc: 'Зацепила ли игра', formula: 'Users D1 ÷ Users D0' },
   };
 
@@ -725,6 +735,13 @@ export default function MetricTree() {
     ctr_inter: mk('ctrInter', pctFmt),
     ctr_reward: mk('ctrReward', pctFmt),
     ctr_banner: mk('ctrBanner', pctFmt),
+    impr_inter_session: mk('imprInterSession', decFmt),
+    impr_reward_session: mk('imprRewardSession', decFmt),
+    impr_banner_session: mk('imprBannerSession', decFmt),
+    ecpm_inter: mk('ecpmInter', dolFmt),
+    ecpm_reward: mk('ecpmReward', dolFmt),
+    ecpm_banner: mk('ecpmBanner', dolFmt),
+    ad_users_rate: mk('davDau', pctFmt),
     // Retention / Cohort
     d1_retention: mk('d1Retention', pctFmt),
     d7_retention: mk('d7Retention', pctFmt),
@@ -739,6 +756,9 @@ export default function MetricTree() {
     stickiness: mk('stickiness', pctFmt),
     avg_lifetime: mk('avgLifetime', v => v?.toFixed(0) + 'd'),
     ltv: mk('ltv', dolFmt),
+    arpu_d1_act: mk('arpuD1Act', v => '$' + v?.toFixed(4)),
+    arpu_d3_act: mk('arpuD3Act', v => '$' + v?.toFixed(4)),
+    arpu_d7_act: mk('arpuD7Act', v => '$' + v?.toFixed(4)),
     // F4: Cohort Session
     time_per_user_lt: mk('timePerUserLt', v => v?.toFixed(1) + 'h'),
     sessions_per_user_lt: mk('sessionsPerUserLt', decFmt),
@@ -845,6 +865,49 @@ export default function MetricTree() {
     return { days, control, test, seriesFor };
   };
 
+  // ===== Форматы рекламы: показы и ставки по Interstitial / Rewarded / Banner =====
+  // Доли показов берём из профиля приложения (monetisationTable), относительные
+  // ставки — из segmentProfiles.adType, те же, что в разбивке Ad Type. Ставки
+  // нормируем так, чтобы взвешенная по показам ставка совпала с общим eCPM строки:
+  // иначе колонки форматов противоречили бы итогу.
+  const AD_FORMAT_FIELDS = { inter: 'imprInter', reward: 'imprReward', banner: 'imprBanner' };
+  const AD_FORMAT_PROFILE = { inter: 'Interstitial', reward: 'Rewarded', banner: 'Banner' };
+  const AD_FORMAT_FALLBACK_SHARE = { inter: 0.30, reward: 0.10, banner: 0.60 };
+
+  const adFormatBreakdown = (mix, imprPerUser, ecpm, sessionsPerUser) => {
+    const keys = Object.keys(AD_FORMAT_FIELDS);
+    const raw = {};
+    let sum = 0;
+    keys.forEach(f => { raw[f] = Math.max(mix?.[AD_FORMAT_FIELDS[f]] || 0, 0); sum += raw[f]; });
+    const share = {};
+    keys.forEach(f => { share[f] = sum > 0 ? raw[f] / sum : AD_FORMAT_FALLBACK_SHARE[f]; });
+    const weight = f => segmentProfiles.adType[AD_FORMAT_PROFILE[f]].ecpm;
+    const norm = keys.reduce((a, f) => a + share[f] * weight(f), 0) || 1;
+    const out = {};
+    keys.forEach(f => {
+      const perUser = (imprPerUser || 0) * share[f];
+      out[f] = {
+        perUser: +perUser.toFixed(2),
+        perSession: +(perUser / (sessionsPerUser || 1)).toFixed(2),
+        ecpm: +((ecpm || 0) * weight(f) / norm).toFixed(4),
+      };
+    });
+    return out;
+  };
+
+  // Накопленный ARPU когорты: день установки плюс дни, которые пережили
+  // пользователи. Между D1–D3 и D3–D7 кривая удержания геометрическая.
+  // Это факт по когорте, а не прогноз — ARPU Forecast живёт отдельными метриками.
+  const cumulativeArpu = (arpdau, r1, r3, r7) => {
+    const ret = [1, (r1 || 0) / 100];
+    ret[3] = (r3 || 0) / 100;
+    ret[2] = Math.sqrt(ret[1] * ret[3]);
+    const step = ret[3] > 0 ? Math.pow(((r7 || 0) / 100) / ret[3], 1 / 4) : 0;
+    for (let d = 4; d <= 6; d++) ret[d] = ret[3] * Math.pow(step, d - 3);
+    const cum = n => +((arpdau || 0) * ret.slice(0, n).reduce((a, b) => a + b, 0)).toFixed(4);
+    return { d1: cum(1), d3: cum(3), d7: cum(7) };
+  };
+
   // ===== A/B-тест версии SDK: группы и статистика =====
   // Логика повторяет реальный разбор раунда (docs/research/…casv-result-480-beta):
   // сравниваем стабильную версию и бету, но добавляем то, чего в отчёте не было —
@@ -890,20 +953,40 @@ export default function MetricTree() {
     const arpuT = beta.arpdau;
     const arpuC = stable.arpdau;
 
-    // не каждый активный пользователь доходит до рекламы
+    // не каждый активный пользователь доходит до рекламы; охват тянется за
+    // заполняемостью — на версии с худшим fill часть пользователей рекламы не видит
     const VIEWER_SHARE = 0.92;
+    const adUsersRate = (src) =>
+      Math.min(98.5, VIEWER_SHARE * 100 * Math.sqrt((src.fillRate || 1) / (stable.fillRate || 1)));
+
+    // база удержания — профиль приложения; D3 выводим так же, как в отчётах
+    const cohortRow = (appData?.cohortTable || [])[0] || {};
+    const baseR1 = cohortRow.d1Retention ?? 42;
+    const baseR3 = baseR1 * 0.7;
+    const baseR7 = cohortRow.d7Retention ?? 28;
+    // удержание группы тянется за вовлечённостью: сессии × длительность сессии
+    const engIdx = (s) => (s.sessions || 1) * (s.duration || 1);
+    // доли форматов берём из профиля приложения — по версиям SDK их в данных нет
+    const mixRow = (appData?.monetisationTable || [])[0] || {};
 
     const mk = (label, group, src, viewers) => {
-      const dau = Math.round(viewers / VIEWER_SHARE);
+      const adUsers = adUsersRate(src);
+      const dau = Math.round(viewers / (adUsers / 100));
       const imprPerViewer = src.imprPerDau;
       const impressions = Math.round(viewers * imprPerViewer);
       const revenue = +(viewers * src.arpdau).toFixed(2);
+      const arpdau = +(revenue / dau).toFixed(4);
+      const retTilt = Math.sqrt(engIdx(src) / engIdx(stable));
+      const r1 = +(baseR1 * retTilt).toFixed(2);
+      const r3 = +(baseR3 * retTilt).toFixed(2);
+      const r7 = +(baseR7 * retTilt).toFixed(2);
+      const fmt = adFormatBreakdown(mixRow, imprPerViewer, src.ecpm, src.sessions);
+      const arpu = cumulativeArpu(arpdau, r1, r3, r7);
       return {
         label, group,
         metrics: {
-          viewers, dau, impressions, revenue,
+          viewers, dau, impressions, revenue, arpdau,
           ad_arpu: src.arpdau,
-          arpdau: +(revenue / dau).toFixed(4),
           ecpm: src.ecpm,
           fill_rate: src.fillRate,
           display_rate: +(src.fillRate * 0.985).toFixed(1),
@@ -913,6 +996,23 @@ export default function MetricTree() {
           sessions_per_user: src.sessions,
           session_duration: src.duration,
           sessions: Math.round(dau * src.sessions),
+          session_count: Math.round(dau * src.sessions),
+          ad_users_rate: +adUsers.toFixed(1),
+          d1_retention: r1,
+          d3_retention: r3,
+          d7_retention: r7,
+          impr_inter_daily: fmt.inter.perUser,
+          impr_reward_daily: fmt.reward.perUser,
+          impr_banner_daily: fmt.banner.perUser,
+          impr_inter_session: fmt.inter.perSession,
+          impr_reward_session: fmt.reward.perSession,
+          impr_banner_session: fmt.banner.perSession,
+          ecpm_inter: fmt.inter.ecpm,
+          ecpm_reward: fmt.reward.ecpm,
+          ecpm_banner: fmt.banner.ecpm,
+          arpu_d1_act: arpu.d1,
+          arpu_d3_act: arpu.d3,
+          arpu_d7_act: arpu.d7,
         },
       };
     };
@@ -1354,6 +1454,9 @@ export default function MetricTree() {
       base.adSessionLength = (e.avgDuration || 8) * 0.65;
       base.imprPerSession = m.imprPerDau ? m.imprPerDau / (e.avgSessions || 3.2) : 2.5;
       base.sessionCount = Math.round((base.dau || 0) * (e.avgSessions || 3.2));
+      // охват рекламы: если профиля вовлечённости у приложения нет, выводим из
+      // заполняемости по той же шкале, что и в A/B-группах (92% при fill 95%)
+      base.davDau = e.davDau ?? +(92 * Math.sqrt((m.fillRate || 95) / 95)).toFixed(1);
       // F3: Retention extended
       base.d14Retention = (c.d7Retention || 28) * 0.72;
       base.d60Retention = (c.d30Retention || 14) * 0.62;
@@ -1374,6 +1477,13 @@ export default function MetricTree() {
       base.ctrInter = (c.ctr || 0.52) * 0.6;
       base.ctrReward = (c.ctr || 0.52) * 1.8;
       base.ctrBanner = (c.ctr || 0.52) * 0.25;
+      base.imprInterSession = +((m.imprInter || 0) / (base.avgSessions || 1)).toFixed(2);
+      base.imprRewardSession = +((m.imprReward || 0) / (base.avgSessions || 1)).toFixed(2);
+      base.imprBannerSession = +((m.imprBanner || 0) / (base.avgSessions || 1)).toFixed(2);
+      const adFmt = adFormatBreakdown(m, base.imprPerDau, base.ecpm, base.avgSessions);
+      base.ecpmInter = adFmt.inter.ecpm;
+      base.ecpmReward = adFmt.reward.ecpm;
+      base.ecpmBanner = adFmt.banner.ecpm;
       // F8: UA extended
       base.roasTodate = (u.roasD30 || c.roas || 145) * 1.15;
       base.uaCost = u.uaCost ?? Math.round((base.adRevenue || base.revenue || 0) / ((c.roas || 140) / 100));
@@ -1392,6 +1502,11 @@ export default function MetricTree() {
       base.arpuD7 = (c.ltv || 0.4) * 0.35;
       base.arpuD14 = (c.ltv || 0.4) * 0.55;
       base.arpuD30 = (c.ltv || 0.4) * 0.78;
+      // факт по когорте — в отличие от трёх строк выше, это не прогноз
+      const cumArpu = cumulativeArpu(base.arpdau || 0, c.d1Retention, base.d3Retention, c.d7Retention);
+      base.arpuD1Act = cumArpu.d1;
+      base.arpuD3Act = cumArpu.d3;
+      base.arpuD7Act = cumArpu.d7;
       // F6: Network advanced (aggregated)
       base.renderRate = (m.fillRate || 95) * 0.98;
       base.bidPrice = (m.ecpm || 5) * 0.85;
@@ -1917,8 +2032,17 @@ export default function MetricTree() {
       splits: ['sdkVersion'], metrics: ['dau', 'dau_share', 'arpdau', 'ecpm', 'fill_rate', 'revenue'],
       app: 'all', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.7.1', 'CAS 3.6.0', 'CAS 3.6.x', 'CAS 3.7.x'] },
     { code: 'RND-04', role: 'RND', name: 'A/B config compare',
-      story: 'Сравнить конфигурации A против B при заявленной гипотезе',
-      splits: ['abGroup'], metrics: ['ecpm', 'fill_rate', 'revenue', 'ad_arpu', 'uplift_arpu', 'prob_better', 'p_value', 'dau_parity'],
+      story: 'Сравнить конфигурации A против B при заявленной гипотезе: объём, удержание, охват, показы и ставки по форматам, накопленный ARPU',
+      note: 'Состав колонок повторяет Mediation Dashboard; значимость, вероятность выигрыша и паритет групп добавлены сверх него',
+      splits: ['abGroup'],
+      metrics: [
+        'dau', 'session_count', 'd1_retention', 'd3_retention', 'd7_retention', 'session_duration', 'ad_users_rate',
+        'impr_inter_daily', 'impr_reward_daily', 'impr_banner_daily',
+        'impr_inter_session', 'impr_reward_session', 'impr_banner_session',
+        'ecpm_inter', 'ecpm_reward', 'ecpm_banner',
+        'arpu_d1_act', 'arpu_d3_act', 'arpu_d7_act',
+        'uplift_arpu', 'p_value', 'prob_better', 'dau_parity',
+      ],
       app: 'stack', filters: ['app', 'sdkVersion'] },
     { code: 'RND-05', role: 'RND', name: 'Client diagnostics',
       story: 'Полный L2-scope клиента для разбора технической проблемы',
@@ -2050,6 +2174,7 @@ export default function MetricTree() {
     { id: 'ad_session_length', name: 'Ad Session Length', ref: 's1', section: 'engagement' },
     { id: 'impr_per_session', name: 'Impressions per Session', ref: 's6', section: 'engagement' },
     { id: 'session_count', name: 'Session Count (Total)', ref: 's7', section: 'engagement' },
+    { id: 'ad_users_rate', name: 'Ad Users %', ref: 'm8', section: 'engagement' },
     // Monetisation
     { id: 'revenue', name: 'Ad Revenue', ref: 'm13', section: 'monetisation' },
     { id: 'arpdau', name: 'Ad ARPDAU', ref: 'm38', section: 'monetisation' },
@@ -2071,11 +2196,20 @@ export default function MetricTree() {
     { id: 'ctr_inter', name: 'CTR — Interstitial', ref: 'im10', section: 'impressions' },
     { id: 'ctr_reward', name: 'CTR — Rewarded Video', ref: 'im19', section: 'impressions' },
     { id: 'ctr_banner', name: 'CTR — Banner', ref: 'im13', section: 'impressions' },
+    { id: 'impr_inter_session', name: 'Impressions per Session — Interstitial', ref: 'm17', section: 'impressions' },
+    { id: 'impr_reward_session', name: 'Impressions per Session — Rewarded Video', ref: 'm18', section: 'impressions' },
+    { id: 'impr_banner_session', name: 'Impressions per Session — Banner', ref: 'm16', section: 'impressions' },
+    { id: 'ecpm_inter', name: 'eCPM — Interstitial', ref: 'new', section: 'impressions' },
+    { id: 'ecpm_reward', name: 'eCPM — Rewarded Video', ref: 'new', section: 'impressions' },
+    { id: 'ecpm_banner', name: 'eCPM — Banner', ref: 'new', section: 'impressions' },
     // Cohort / Retention
     { id: 'd1_retention', name: 'Retention D1', ref: 'r1', section: 'cohort' },
     { id: 'd7_retention', name: 'Retention D7', ref: 'r3', section: 'cohort' },
     { id: 'd30_retention', name: 'Retention D30', ref: 'r5', section: 'cohort' },
     { id: 'ltv', name: 'LTV', ref: 'm12', section: 'cohort' },
+    { id: 'arpu_d1_act', name: 'ARPU D1', ref: 'new', section: 'cohort' },
+    { id: 'arpu_d3_act', name: 'ARPU D3', ref: 'new', section: 'cohort' },
+    { id: 'arpu_d7_act', name: 'ARPU D7', ref: 'new', section: 'cohort' },
     // F3: Retention extended
     { id: 'd14_retention', name: 'Retention D14', ref: 'r4', section: 'cohort' },
     { id: 'd60_retention', name: 'Retention D60', ref: 'r6', section: 'cohort' },
