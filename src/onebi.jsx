@@ -544,11 +544,11 @@ export default function MetricTree() {
 
   // G7: RnD SDK adoption mock
   const rndSdkData = [
-    { version: 'CAS 4.0.1', adoption: 8, clients: 3, revDelta: '+15%', status: 'beta' },
-    { version: 'CAS 3.9.2', adoption: 48, clients: 42, revDelta: '+5.2%', status: 'latest' },
-    { version: 'CAS 3.8.5', adoption: 28, clients: 31, revDelta: 'baseline', status: 'stable' },
-    { version: 'CAS 3.7.1', adoption: 11, clients: 18, revDelta: '-3.1%', status: 'outdated' },
-    { version: 'CAS 3.6.0', adoption: 5, clients: 9, revDelta: '-8.4%', status: 'deprecated' },
+    { version: 'CAS 4.9.0', adoption: 8, clients: 3, revDelta: '+15%', status: 'beta' },
+    { version: 'CAS 4.8.1', adoption: 48, clients: 42, revDelta: '+5.2%', status: 'latest' },
+    { version: 'CAS 4.7.3', adoption: 28, clients: 31, revDelta: 'baseline', status: 'stable' },
+    { version: 'CAS 4.6.2', adoption: 11, clients: 18, revDelta: '-3.1%', status: 'outdated' },
+    { version: 'CAS 4.5.1', adoption: 5, clients: 9, revDelta: '-8.4%', status: 'deprecated' },
   ];
 
   const qvPeriodOptions = [
@@ -1181,7 +1181,7 @@ export default function MetricTree() {
     deviceType: [['Phone', 0.82], ['Tablet', 0.18]],
     placement:  [['Main Menu', 0.28], ['Level Complete', 0.34], ['Shop', 0.21], ['Revive', 0.17]],
     appVersion: [['4.2.0', 0.46], ['4.1.3', 0.31], ['4.0.7', 0.15], ['3.9.5', 0.08]],
-    sdkVersion: [['CAS 3.9.2', 0.48], ['CAS 3.8.5', 0.28], ['CAS 3.7.1', 0.16], ['CAS 3.6.0', 0.08]],
+    sdkVersion: [['CAS 4.8.1', 0.48], ['CAS 4.7.3', 0.28], ['CAS 4.6.2', 0.16], ['CAS 4.5.1', 0.08]],
   };
 
   // Аддитивные метрики делятся между сегментами; остальные — ставки и средние
@@ -1865,7 +1865,7 @@ export default function MetricTree() {
     { code: 'L1-10', role: 'L1', name: 'My weekly check',
       story: 'Типовой еженедельный отчёт: собрать раз, открывать одним кликом или ссылкой',
       splits: ['date'], metrics: ['revenue', 'dau', 'arpdau', 'ecpm'], app: 'drivecsx',
-      filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.9.2'] },
+      filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 4.8.1'] },
 
     // ===== L2 — продвинутый клиент =====
     { code: 'L2-01', role: 'L2', name: 'SDK version impact',
@@ -1943,7 +1943,7 @@ export default function MetricTree() {
     { code: 'Pub-09', role: 'Pub', name: 'A/B test verdict',
       story: 'Результат A/B-теста: вердикт и его основания в одной строке',
       splits: ['abGroup'], metrics: ['ab_outcome', 'uplift_arpu', 'prob_better', 'p_value', 'ad_arpu', 'viewers', 'dau_parity', 'srm_pvalue'],
-      app: 'stack', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.9.2', 'CAS 4.8.1 beta4'] },
+      app: 'stack', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 4.8.1', 'CAS 4.9.0 beta4'] },
 
     // ===== INT · PM · PO =====
     { code: 'INT-01', role: 'INT', name: 'Shared report link',
@@ -1956,7 +1956,7 @@ export default function MetricTree() {
     { code: 'PM-02', role: 'PM', name: 'SDK upgrade argument',
       story: 'Аргумент клиенту обновить SDK: сколько пользователей на старых версиях и сколько они недоприносят',
       splits: ['sdkVersion'], metrics: ['dau', 'arpdau', 'impr_per_dau', 'fill_rate', 'ecpm'],
-      app: 'stack', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.9.2', 'CAS 3.9.0', 'CAS 3.8.x', 'CAS 3.6.x'] },
+      app: 'stack', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 4.8.1', 'CAS 4.8.0', 'CAS 4.7.x', 'CAS 4.5.x'] },
     { code: 'PO-01', role: 'PO', name: 'Revenue drop cause',
       story: 'Найти причину падения выручки: трафик, поведение или цена показа',
       splits: ['date'], metrics: ['revenue', 'dau', 'impr_per_dau', 'ecpm', 'fill_rate'], app: 'drivecsx' },
@@ -1966,7 +1966,7 @@ export default function MetricTree() {
     { code: 'PO-03', role: 'PO', name: 'App version cohort eCPM',
       story: 'eCPM по версиям как когорта: та же SDK, та же когорта установок',
       splits: ['appVersion'], metrics: ['ecpm', 'dau', 'arpdau', 'fill_rate', 'impr_per_dau'],
-      app: 'drivecsx', filters: ['app', 'sdkVersion', 'installDate'], sdkVersions: ['CAS 3.9.2'] },
+      app: 'drivecsx', filters: ['app', 'sdkVersion', 'installDate'], sdkVersions: ['CAS 4.8.1'] },
     { code: 'PO-04', role: 'PO', name: 'Single source of truth',
       story: 'Бизнес-метрики и сверка источников в одной таблице — все роли смотрят в одну точку',
       splits: ['date'], metrics: ['revenue', 'ecpm', 'dau', 'dau_discrepancy', 'network_gap', 'anomaly_flag'], app: 'drivecsx' },
@@ -2030,7 +2030,7 @@ export default function MetricTree() {
     { code: 'RND-03', role: 'RND', name: 'Audience on old SDK',
       story: 'Сколько денег зависло на старых версиях SDK',
       splits: ['sdkVersion'], metrics: ['dau', 'dau_share', 'arpdau', 'ecpm', 'fill_rate', 'revenue'],
-      app: 'all', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 3.7.1', 'CAS 3.6.0', 'CAS 3.6.x', 'CAS 3.7.x'] },
+      app: 'all', filters: ['app', 'sdkVersion'], sdkVersions: ['CAS 4.6.2', 'CAS 4.5.1', 'CAS 4.5.x', 'CAS 4.6.x'] },
     { code: 'RND-04', role: 'RND', name: 'A/B config compare',
       story: 'Сравнить конфигурации A против B при заявленной гипотезе: объём, удержание, охват, показы и ставки по форматам, накопленный ARPU',
       note: 'Состав колонок повторяет Mediation Dashboard; значимость, вероятность выигрыша и паритет групп добавлены сверх него',
@@ -2673,21 +2673,21 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '2.4.1', dau: 6740, dauShare: 4, sessions: 3.4, duration: 8.9, revenue: 323, arpdau: 0.0479, imprPerDau: 9.1, ecpm: 5.86, fillRate: 97.6 },
-        { version: 'CAS 3.9.2', appVersion: '2.4.1', dau: 82460, dauShare: 49, sessions: 3.6, duration: 9.4, revenue: 4125, arpdau: 0.0463, imprPerDau: 8.2, ecpm: 5.65, fillRate: 97.2 },
-        { version: 'CAS 3.8.5', appVersion: '2.3.8', dau: 52400, dauShare: 31, sessions: 3.4, duration: 9.0, revenue: 2280, arpdau: 0.0435, imprPerDau: 7.8, ecpm: 5.58, fillRate: 96.8 },
-        { version: 'CAS 3.7.1', appVersion: '2.2.0', dau: 18600, dauShare: 11, sessions: 3.2, duration: 8.5, revenue: 695, arpdau: 0.0374, imprPerDau: 7.2, ecpm: 5.19, fillRate: 95.1 },
-        { version: 'CAS 3.6.0', appVersion: '2.1.x', dau: 8300, dauShare: 5, sessions: 3.0, duration: 8.1, revenue: 195, arpdau: 0.0235, imprPerDau: 6.5, ecpm: 3.62, fillRate: 91.4 },
+        { version: 'CAS 4.9.0 beta4', appVersion: '2.4.1', dau: 6740, dauShare: 4, sessions: 3.4, duration: 8.9, revenue: 323, arpdau: 0.0479, imprPerDau: 9.1, ecpm: 5.86, fillRate: 97.6 },
+        { version: 'CAS 4.8.1', appVersion: '2.4.1', dau: 82460, dauShare: 49, sessions: 3.6, duration: 9.4, revenue: 4125, arpdau: 0.0463, imprPerDau: 8.2, ecpm: 5.65, fillRate: 97.2 },
+        { version: 'CAS 4.7.3', appVersion: '2.3.8', dau: 52400, dauShare: 31, sessions: 3.4, duration: 9.0, revenue: 2280, arpdau: 0.0435, imprPerDau: 7.8, ecpm: 5.58, fillRate: 96.8 },
+        { version: 'CAS 4.6.2', appVersion: '2.2.0', dau: 18600, dauShare: 11, sessions: 3.2, duration: 8.5, revenue: 695, arpdau: 0.0374, imprPerDau: 7.2, ecpm: 5.19, fillRate: 95.1 },
+        { version: 'CAS 4.5.1', appVersion: '2.1.x', dau: 8300, dauShare: 5, sessions: 3.0, duration: 8.1, revenue: 195, arpdau: 0.0235, imprPerDau: 6.5, ecpm: 3.62, fillRate: 91.4 },
       ]
     },
     drivecsx: {
       name: 'DriveCSX',
       // сюжеты для историй PO-02 / MON-02 / AN-01: релиз, отвал сети, правка флоров
       events: [
-        { date: '2025-09-08', type: 'sdk', label: 'CAS 3.9.2 rollout' },
+        { date: '2025-09-08', type: 'sdk', label: 'CAS 4.8.1 rollout' },
         { date: '2025-11-24', type: 'release', label: 'Release 4.2.0' },
         { date: '2025-12-10', type: 'config', label: 'Floors changed US/DE' },
-        { date: '2026-01-12', type: 'sdk', label: 'Beta CAS 4.8.1' },
+        { date: '2026-01-12', type: 'sdk', label: 'Beta CAS 4.9.0' },
       ],
       incidents: {
         network: { 'December 2025': { 'Meta AN': 'outage' }, 'January 2026': { 'ironSource': 'ecpm-drop' } },
@@ -2723,11 +2723,11 @@ export default function MetricTree() {
         { network: 'Bigo Ads', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '4.2.0', dau: 6496, dauShare: 4, sessions: 3.0, duration: 7.4, revenue: 244, arpdau: 0.0376, imprPerDau: 9.4, ecpm: 4.32, fillRate: 94.1 },
-        { version: 'CAS 3.9.2', appVersion: '4.2.0', dau: 68204, dauShare: 42, sessions: 3.1, duration: 7.8, revenue: 2385, arpdau: 0.0319, imprPerDau: 8.6, ecpm: 3.62, fillRate: 92.4 },
-        { version: 'CAS 3.9.2', appVersion: '4.1.3', dau: 50300, dauShare: 31, sessions: 3.3, duration: 8.4, revenue: 2166, arpdau: 0.0431, imprPerDau: 8.4, ecpm: 5.14, fillRate: 96.2 },
-        { version: 'CAS 3.8.5', appVersion: '4.0.7', dau: 24400, dauShare: 15, sessions: 3.4, duration: 8.7, revenue: 1052, arpdau: 0.0431, imprPerDau: 8.3, ecpm: 5.21, fillRate: 96.5 },
-        { version: 'CAS 3.7.1', appVersion: '3.9.5', dau: 13000, dauShare: 8, sessions: 3.4, duration: 8.8, revenue: 215, arpdau: 0.0165, imprPerDau: 6.9, ecpm: 2.41, fillRate: 88.1 },
+        { version: 'CAS 4.9.0 beta4', appVersion: '4.2.0', dau: 6496, dauShare: 4, sessions: 3.0, duration: 7.4, revenue: 244, arpdau: 0.0376, imprPerDau: 9.4, ecpm: 4.32, fillRate: 94.1 },
+        { version: 'CAS 4.8.1', appVersion: '4.2.0', dau: 68204, dauShare: 42, sessions: 3.1, duration: 7.8, revenue: 2385, arpdau: 0.0319, imprPerDau: 8.6, ecpm: 3.62, fillRate: 92.4 },
+        { version: 'CAS 4.8.1', appVersion: '4.1.3', dau: 50300, dauShare: 31, sessions: 3.3, duration: 8.4, revenue: 2166, arpdau: 0.0431, imprPerDau: 8.4, ecpm: 5.14, fillRate: 96.2 },
+        { version: 'CAS 4.7.3', appVersion: '4.0.7', dau: 24400, dauShare: 15, sessions: 3.4, duration: 8.7, revenue: 1052, arpdau: 0.0431, imprPerDau: 8.3, ecpm: 5.21, fillRate: 96.5 },
+        { version: 'CAS 4.6.2', appVersion: '3.9.5', dau: 13000, dauShare: 8, sessions: 3.4, duration: 8.8, revenue: 215, arpdau: 0.0165, imprPerDau: 6.9, ecpm: 2.41, fillRate: 88.1 },
       ]
     },
     idle: {
@@ -2791,17 +2791,17 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '1.8.0', dau: 4512, dauShare: 4, sessions: 4.4, duration: 13.4, revenue: 338, arpdau: 0.0749, imprPerDau: 10.5, ecpm: 7.98, fillRate: 96.3 },
-        { version: 'CAS 3.9.2', appVersion: '1.8.0', dau: 57888, dauShare: 51, sessions: 4.6, duration: 14.2, revenue: 4520, arpdau: 0.0724, imprPerDau: 9.4, ecpm: 7.70, fillRate: 95.8 },
-        { version: 'CAS 3.9.0', appVersion: '1.7.5', dau: 31200, dauShare: 28, sessions: 4.4, duration: 13.8, revenue: 2105, arpdau: 0.0675, imprPerDau: 9.0, ecpm: 7.50, fillRate: 94.5 },
-        { version: 'CAS 3.8.2', appVersion: '1.6.x', dau: 14100, dauShare: 12, sessions: 4.2, duration: 13.2, revenue: 682, arpdau: 0.0484, imprPerDau: 8.4, ecpm: 5.76, fillRate: 92.8 },
-        { version: 'CAS 3.7.x', appVersion: '1.5.x', dau: 5100, dauShare: 5, sessions: 3.9, duration: 12.5, revenue: 105, arpdau: 0.0206, imprPerDau: 7.2, ecpm: 2.86, fillRate: 88.2 },
+        { version: 'CAS 4.9.0 beta4', appVersion: '1.8.0', dau: 4512, dauShare: 4, sessions: 4.4, duration: 13.4, revenue: 338, arpdau: 0.0749, imprPerDau: 10.5, ecpm: 7.98, fillRate: 96.3 },
+        { version: 'CAS 4.8.1', appVersion: '1.8.0', dau: 57888, dauShare: 51, sessions: 4.6, duration: 14.2, revenue: 4520, arpdau: 0.0724, imprPerDau: 9.4, ecpm: 7.70, fillRate: 95.8 },
+        { version: 'CAS 4.8.0', appVersion: '1.7.5', dau: 31200, dauShare: 28, sessions: 4.4, duration: 13.8, revenue: 2105, arpdau: 0.0675, imprPerDau: 9.0, ecpm: 7.50, fillRate: 94.5 },
+        { version: 'CAS 4.7.1', appVersion: '1.6.x', dau: 14100, dauShare: 12, sessions: 4.2, duration: 13.2, revenue: 682, arpdau: 0.0484, imprPerDau: 8.4, ecpm: 5.76, fillRate: 92.8 },
+        { version: 'CAS 4.6.x', appVersion: '1.5.x', dau: 5100, dauShare: 5, sessions: 3.9, duration: 12.5, revenue: 105, arpdau: 0.0206, imprPerDau: 7.2, ecpm: 2.86, fillRate: 88.2 },
       ]
     },
     stack: {
       name: 'Stack Tower',
       events: [
-        { date: '2025-09-15', type: 'sdk', label: 'CAS 3.9.2 rollout' },
+        { date: '2025-09-15', type: 'sdk', label: 'CAS 4.8.1 rollout' },
         { date: '2025-11-03', type: 'ua', label: 'UA budget ×2' },
       ],
       incidents: {
@@ -2864,11 +2864,11 @@ export default function MetricTree() {
         { network: 'Kidoz', revenue: 0, impressions: 0, ecpm: 0, fillRate: 0, sov: 0, winRate: 0, latency: 0 },
       ],
       sdkVersionTable: [
-        { version: 'CAS 4.8.1 beta4', appVersion: '3.2.1', dau: 84000, dauShare: 4, sessions: 2.5, duration: 4.6, revenue: 2881, arpdau: 0.0343, imprPerDau: 9.6, ecpm: 3.90, fillRate: 92.6 },
-        { version: 'CAS 3.9.2', appVersion: '3.2.1', dau: 1176000, dauShare: 56, sessions: 2.7, duration: 5.0, revenue: 41866, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
-        { version: 'CAS 3.9.0', appVersion: '3.1.8', dau: 525000, dauShare: 25, sessions: 2.5, duration: 4.6, revenue: 16695, arpdau: 0.0318, imprPerDau: 7.8, ecpm: 4.08, fillRate: 92.1 },
-        { version: 'CAS 3.8.x', appVersion: '3.0.x', dau: 231000, dauShare: 11, sessions: 2.4, duration: 4.4, revenue: 6075, arpdau: 0.0263, imprPerDau: 7.2, ecpm: 3.65, fillRate: 89.8 },
-        { version: 'CAS 3.6.x', appVersion: '2.x', dau: 84000, dauShare: 4, sessions: 2.2, duration: 4.0, revenue: 2159, arpdau: 0.0257, imprPerDau: 6.8, ecpm: 3.78, fillRate: 87.2 },
+        { version: 'CAS 4.9.0 beta4', appVersion: '3.2.1', dau: 84000, dauShare: 4, sessions: 2.5, duration: 4.6, revenue: 2881, arpdau: 0.0343, imprPerDau: 9.6, ecpm: 3.90, fillRate: 92.6 },
+        { version: 'CAS 4.8.1', appVersion: '3.2.1', dau: 1176000, dauShare: 56, sessions: 2.7, duration: 5.0, revenue: 41866, arpdau: 0.0356, imprPerDau: 8.4, ecpm: 4.24, fillRate: 93.5 },
+        { version: 'CAS 4.8.0', appVersion: '3.1.8', dau: 525000, dauShare: 25, sessions: 2.5, duration: 4.6, revenue: 16695, arpdau: 0.0318, imprPerDau: 7.8, ecpm: 4.08, fillRate: 92.1 },
+        { version: 'CAS 4.7.x', appVersion: '3.0.x', dau: 231000, dauShare: 11, sessions: 2.4, duration: 4.4, revenue: 6075, arpdau: 0.0263, imprPerDau: 7.2, ecpm: 3.65, fillRate: 89.8 },
+        { version: 'CAS 4.5.x', appVersion: '2.x', dau: 84000, dauShare: 4, sessions: 2.2, duration: 4.0, revenue: 2159, arpdau: 0.0257, imprPerDau: 6.8, ecpm: 3.78, fillRate: 87.2 },
       ]
     },
     merge: {
@@ -3054,8 +3054,8 @@ export default function MetricTree() {
         { network: 'Unity Ads', testsRun: 4, wins: 1, avgLift: '-2.4%', bestResult: 'Priority test +1.8%' },
       ],
       sdkTests: [
-        { sdk: 'CAS 3.9.2', testsRun: 3, avgLiftVsPrev: '+7.8%', adopted: '58%', recommendation: 'Rollout to all' },
-        { sdk: 'CAS 3.9.0', testsRun: 2, avgLiftVsPrev: '+4.2%', adopted: '25%', recommendation: 'Update available' },
+        { sdk: 'CAS 4.8.1', testsRun: 3, avgLiftVsPrev: '+7.8%', adopted: '58%', recommendation: 'Rollout to all' },
+        { sdk: 'CAS 4.8.0', testsRun: 2, avgLiftVsPrev: '+4.2%', adopted: '25%', recommendation: 'Update available' },
         { sdk: 'MAX 12.1', testsRun: 2, avgLiftVsPrev: '-3.5%', adopted: '0%', recommendation: 'Not recommended' },
       ]
     },
@@ -7115,6 +7115,83 @@ export default function MetricTree() {
                     <div className="flex items-center justify-between px-3 py-2 border-t border-line text-[10px] text-ink-3">
                       <span>Data updated: 3 min ago</span>
                       <span>Rows: {totalDataRows}{totalDataRows !== totalAllRows ? ` of ${totalAllRows}` : ''}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* C8: Вывод по A/B-тесту — значимость, вероятность выигрыша, валидность сплита */}
+              {/* Таблица показывает метрики групп; читать их как результат теста можно только вместе с этим блоком */}
+              {viewType === 'table' && reportsSplits.includes('abGroup') && (() => {
+                const appId = selectedApp === 'all' ? 'puzzle' : selectedApp;
+                const ab = getAbSegments(dashboardData[appId], appId);
+                if (!ab) return null;
+                const [control, test] = ab;
+                const t = test.metrics;
+                const splitValid = t.srm_pvalue >= 0.01;
+                const significant = t.p_value < 0.05;
+                const better = t.uplift_arpu > 0;
+                const tone = !splitValid ? 'var(--error)' : !significant ? 'var(--text-muted)' : better ? 'var(--success)' : 'var(--error)';
+                const pct = v => (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+                const money = v => '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                const cards = [
+                  { label: 'ARPU uplift', value: pct(t.uplift_arpu),
+                    note: `${metricKeyMap.ad_arpu.fmt(control.metrics.ad_arpu)} → ${metricKeyMap.ad_arpu.fmt(t.ad_arpu)}`,
+                    tone: better ? 'var(--success)' : 'var(--error)' },
+                  { label: 'p-value', value: t.p_value < 0.0001 ? '<0.0001' : t.p_value.toFixed(4),
+                    note: significant ? 'significant at α = 0.05' : 'not significant at α = 0.05',
+                    tone: significant ? 'var(--success)' : 'var(--text-muted)' },
+                  { label: 'Probability to be better', value: t.prob_better.toFixed(1) + '%',
+                    note: 'ship threshold ≥ 95%',
+                    tone: t.prob_better >= 95 ? 'var(--success)' : 'var(--text-muted)' },
+                  { label: 'MDE', value: '±' + t.mde.toFixed(2) + '%',
+                    note: 'detectable at this sample size' },
+                  { label: 'Days to significance',
+                    value: t.days_to_signif === 0 ? 'reached' : t.days_to_signif > 365 ? 'never' : t.days_to_signif + ' d',
+                    note: `${t.ab_days} days of traffic so far` },
+                  { label: 'Revenue uplift', value: (t.uplift_revenue > 0 ? '+' : '−') + money(t.uplift_revenue),
+                    note: 'over the test window',
+                    tone: t.uplift_revenue > 0 ? 'var(--success)' : 'var(--error)' },
+                  { label: 'SRM p-value', value: t.srm_pvalue.toFixed(3),
+                    note: splitValid ? 'split holds' : 'split skewed — test invalid',
+                    tone: splitValid ? 'var(--success)' : 'var(--error)' },
+                  { label: 'Group parity', value: t.dau_parity.toFixed(1) + '%',
+                    note: `${formatNum(test.metrics.viewers)} vs ${formatNum(control.metrics.viewers)} ad users` },
+                ];
+
+                const verdict = !splitValid
+                  ? 'Groups differ in size beyond chance — fix the assignment before reading any metric in the table above.'
+                  : significant
+                    ? `${better ? 'Test wins' : 'Test loses'}: Ad ARPU ${pct(t.uplift_arpu)} at p = ${t.p_value.toFixed(4)}, probability to be better ${t.prob_better.toFixed(1)}%.`
+                    : t.days_to_signif > 365
+                      ? `The ${pct(t.uplift_arpu)} difference stays inside the noise band of ±${t.mde.toFixed(2)}%. At this rollout share the test never reaches significance — widen it or accept no decision.`
+                      : `The ${pct(t.uplift_arpu)} difference stays inside the noise band of ±${t.mde.toFixed(2)}%. About ${t.days_to_signif} more days at the current traffic would settle it.`;
+
+                return (
+                  <div className="bg-base border border-line rounded-card p-5 mt-3">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-[13px] font-semibold text-ink">A/B readout</span>
+                      <span className="text-[11px] text-ink-3">{control.label} vs {test.label} · {t.ab_days} days</span>
+                      <span className="ml-auto px-2.5 py-1 rounded-lg text-[11px] font-medium border"
+                        style={{ color: tone, borderColor: tone, backgroundColor: 'var(--bg-surface)' }}>
+                        {t.ab_outcome}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      {cards.map(c => (
+                        <div key={c.label} className="border border-line rounded-lg px-3 py-2.5 bg-surface">
+                          <div className="text-[10px] uppercase tracking-wider text-ink-3 mb-1">{c.label}</div>
+                          <div className="text-[17px] font-semibold tabular" style={{ color: c.tone || 'var(--text-primary)' }}>{c.value}</div>
+                          <div className="text-[11px] text-ink-3 mt-0.5">{c.note}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="text-[12px] text-ink-2 leading-relaxed border-t border-line pt-3">
+                      {verdict}
+                      <span className="text-ink-3"> Decision rule: p &lt; 0.05 and probability to be better ≥ 95%, with SRM p-value ≥ 0.01.</span>
                     </div>
                   </div>
                 );
